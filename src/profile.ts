@@ -166,7 +166,7 @@ export function semanticQueries(profile: Profile): { id: string; description: st
 }
 
 /** 初回の質問で選べるテーマ（表示順）。ほかのトピック（地域・提携など）は設定から有効にする */
-export const STARTER_TOPIC_IDS = ['genai', 'physical-ai', 'semiconductors', 'cybersecurity', 'us-eu-tech-policy', 'economy', 'trade', 'defense', 'health', 'climate-energy', 'space', 'math', 'japan-canada'];
+export const STARTER_TOPIC_IDS = ['genai', 'physical-ai', 'semiconductors', 'cybersecurity', 'us-eu-tech-policy', 'economy', 'trade', 'defense', 'health', 'climate-energy', 'space', 'math'];
 
 export function defaultProfile(): Profile {
   return structuredClone(DEFAULT_PROFILE);
