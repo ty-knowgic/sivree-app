@@ -54,6 +54,9 @@ jobs:
       # ハッシュタグが表示言語に合わせて訳されることを確かめる
       - run: npm run test:hashtags
 
+      # ロゴ・しばらくぶりの復帰でデータを読み直すことを確かめる
+      - run: npm run test:refresh
+
       # 蓄積中の記事・要約・ベクトル（直近30日分）を前回から引き継ぐ。無い場合は、いまフィードにある記事から作り直す
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -64,13 +67,32 @@ jobs:
       # 意味による一致のための、小さなオープンソースの埋め込みモデル（外部の AI サービスは使わない）
       - name: Start the embedding model
         run: |
-          # 版を固定して入れる（インストール用スクリプトは公式のもの。この実行環境には秘密情報を置いていない）
-          curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION=0.40.5 sh
-          # systemd が使えない実行環境があるため、サーバーを自分で起動して応答を待つ
-          curl -s localhost:11434/api/tags > /dev/null || (nohup ollama serve > ollama.log 2>&1 &)
-          for i in $(seq 1 60); do curl -s localhost:11434/api/tags > /dev/null && break; sleep 2; done
-          curl -s localhost:11434/api/tags > /dev/null || { cat ollama.log; exit 1; }
-          for i in 1 2 3; do ollama pull embeddinggemma && break; sleep 10; done
+          # 版を固定して入れる（インストール用スクリプトは公式のもの。この実行環境には秘密情報を置いていない）。ネットワークの一時的な失敗に備えて3回まで試す
+          installed=0
+          for attempt in 1 2 3; do
+            curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION=0.40.5 sh && installed=1 && break
+            sleep 15
+          done
+          [ "$installed" = 1 ] || { echo "ollama のインストールに失敗しました"; exit 1; }
+          # systemd が使えない実行環境があるため、サーバーを自分で起動して応答を待つ。起動しなければ、やり直す（3回まで）
+          started=0
+          for attempt in 1 2 3; do
+            curl -s localhost:11434/api/tags > /dev/null || (nohup ollama serve >> ollama.log 2>&1 &)
+            for i in $(seq 1 45); do
+              if curl -s localhost:11434/api/tags > /dev/null; then started=1; break; fi
+              sleep 2
+            done
+            [ "$started" = 1 ] && break
+            pkill -f "ollama serve" || true
+            sleep 5
+          done
+          [ "$started" = 1 ] || { cat ollama.log; exit 1; }
+          pulled=0
+          for attempt in 1 2 3; do
+            ollama pull embeddinggemma && pulled=1 && break
+            sleep 10
+          done
+          [ "$pulled" = 1 ] || { echo "モデルを取得できませんでした"; exit 1; }
 
       - name: Collect, summarize and embed
         run: npm run export

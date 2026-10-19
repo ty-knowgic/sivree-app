@@ -16,6 +16,7 @@
     "test:visit": "node scripts/test-visit.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
     "test:hashtags": "node scripts/test-hashtags.mjs",
+    "test:refresh": "node scripts/test-refresh.mjs",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
     "check:source-names": "tsx scripts/check-source-names.ts"
   },

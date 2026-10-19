@@ -40,6 +40,8 @@ async function getJson<T>(name: string): Promise<T> {
 
 const originalFetch = window.fetch.bind(window);
 let loading: Promise<StaticData> | null = null;
+// 画面から「最新のデータを読み直して」と頼まれたら、読み込み済みのデータを捨てて次の問い合わせで取り直す
+window.addEventListener('sivry:reload-data', () => { loading = null; });
 
 function load(): Promise<StaticData> {
   loading ??= (async () => {

@@ -568,6 +568,24 @@ function updatedLabel() {
   return ago ? `${sep()}${t('更新: {time}', { time: ago })}` : '';
 }
 
+// データ（記事の一覧）を最後に読み込んだ時刻。しばらく離れていた後に戻ったときは、読み直す
+let lastDataLoad = Date.now();
+const STALE_AFTER = 10 * 60 * 1000;
+
+/**
+ * 公開済みの最新のデータを読み直して、一覧を更新する（ロゴを押したとき・しばらくぶりに戻ったとき）。
+ * 静的版では、読み込み済みのデータを捨てて取り直させる（static-api の sivry:reload-data）
+ */
+async function reloadData() {
+  window.dispatchEvent(new Event('sivry:reload-data'));
+  try {
+    state.config = await fetch('/api/config').then(r => r.json());
+  } catch {
+    // 取得できなくても、一覧の読み直しは続ける
+  }
+  await refreshNews();
+}
+
 async function refreshNews() {
   // 古いリクエストの応答が後から届いても、最新の結果を上書きしないようにする
   const seq = ++requestSeq;
@@ -580,6 +598,7 @@ async function refreshNews() {
     state.briefing = briefing;
     state.items = page.items;
     state.total = page.total;
+    lastDataLoad = Date.now();
     renderNews();
     updateStatus();
   } catch (error) {
@@ -1769,6 +1788,21 @@ function route() {
 }
 
 window.addEventListener('hashchange', route);
+
+// ロゴを押したら、一覧の先頭に戻って最新のデータを読み直す
+document.getElementById('brand').addEventListener('click', () => {
+  setTimeout(() => {
+    if (state.needsOnboarding || !listView || listView.hidden) return;
+    window.scrollTo(0, 0);
+    reloadData();
+  }, 0);
+});
+
+// しばらく離れていた後にアプリへ戻ったとき（ホーム画面に追加した場合など）は、一覧を読み直す
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || state.needsOnboarding || listView.hidden) return;
+  if (Date.now() - lastDataLoad > STALE_AFTER) reloadData();
+});
 
 function updateToday() {
   todayEl.textContent = new Date().toLocaleDateString(locale(), { month: 'long', day: 'numeric', weekday: 'long' });
