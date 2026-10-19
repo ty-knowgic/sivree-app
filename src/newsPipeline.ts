@@ -27,7 +27,12 @@ const parser = new Parser<Record<string, unknown>, { mediaContent?: MediaField; 
 });
 
 // 取得元には SivryBot と名乗る（「Mozilla/5.0 (compatible; …)」の形なら、公式サイトの多くが受け付ける）。ブラウザを装わない
-const FETCH_TIMEOUT_MS = 8000;
+// 100 件の取得を同時に始めると定期ジョブの実行環境で通信が詰まり、普段は数秒で返る情報源も時間切れになるため、
+// 同時に取得する数を絞り、時間切れや一時的なサーバーの不調は1回だけ取り直す
+const FETCH_TIMEOUT_MS = 15000;
+const FETCH_ATTEMPTS = 2;
+const FETCH_RETRY_DELAY_MS = 1500;
+const FEED_CONCURRENCY = 10;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const ITEMS_PER_FEED = 20;
 const ARCHIVE_DAYS = 30;
@@ -457,19 +462,50 @@ function recordHealth(source: FeedSource, health: Omit<FeedHealth, 'checkedAt'>)
   feedHealth.set(source.feedUrl, { checkedAt: new Date().toISOString(), ...health });
 }
 
+/** 時間切れ・通信エラー・5xx だけ取り直す。4xx（403 を含む）は拒否か URL の誤りなので、繰り返さず回避もしない */
+async function fetchWithRetry(url: string): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: { 'User-Agent': USER_AGENT },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+      });
+      if (response.status < 500 || attempt >= FETCH_ATTEMPTS) return response;
+      await response.body?.cancel();
+    } catch (error) {
+      if (attempt >= FETCH_ATTEMPTS) throw error;
+    }
+    await new Promise(resolve => setTimeout(resolve, FETCH_RETRY_DELAY_MS));
+  }
+}
+
+/** 同時に実行する数を limit までに絞って、items の順に結果を返す */
+export async function mapWithConcurrency<T, R>(items: T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await work(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
   try {
-    const response = await fetch(source.feedUrl, {
-      headers: { 'User-Agent': USER_AGENT },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-    });
+    const response = await fetchWithRetry(source.feedUrl);
     if (!response.ok) {
       console.warn(`[feed] ${source.sourceName}: HTTP ${response.status}`);
       recordHealth(source, { ok: false, entries: 0, imported: 0, error: `HTTP ${response.status}` });
       return [];
     }
 
-    const xml = decodeFeed(await response.arrayBuffer(), response.headers.get('content-type'))
+    const text = decodeFeed(await response.arrayBuffer(), response.headers.get('content-type'));
+    // サイト停止のお知らせなどが 200 の HTML で返ることがある。XML の解析エラーではなく、原因が分かる形で記録する
+    if (/^\s*(<!doctype html|<html)/i.test(text)) throw new Error('HTML page returned instead of a feed (site may be down)');
+    const xml = text
       // Atom の type="xhtml" の要素（カナダ統計局など）は中身が XHTML のため、タグを除いたテキストにしてから解析する
       .replace(/<(title|summary|content|subtitle)([^>]*\btype=["']xhtml["'][^>]*)>([\s\S]*?)<\/\1>/g,
         (_match, tag: string, _attrs: string, inner: string) => `<${tag}>${inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}</${tag}>`);
@@ -557,6 +593,42 @@ async function loadArchive(): Promise<Map<string, NewsItem>> {
   return archive;
 }
 
+// 発信元が見出しを直したり（末尾の「。」「*」、表記ゆれ、UPDATE: の付与）、同じ記事を複数のフィードに載せたりすると、
+// ID（URL＋見出し）が変わって同じ記事が並ぶ。同じ発信元・同じページ・同じ公開時刻のものは1件にまとめる。
+// 一覧ページを共有する発信元（デジタル庁の調達情報など）は別の記事なので、見出しが4種類以上ぶら下がる URL とトップページは対象外にする。
+// 先に見つかった方（蓄積済みの方）を残すので、更新のたびに表示が入れ替わらない
+const LISTING_URL_TITLES = 4;
+
+export function dedupeSameDocument(items: NewsItem[]): NewsItem[] {
+  const pageKey = (item: NewsItem) => `${item.sourceName}|${normalizeUrlForId(item.sourceUrl)}`;
+  const titlesByPage = new Map<string, Set<string>>();
+  for (const item of items) {
+    const titles = titlesByPage.get(pageKey(item)) ?? new Set<string>();
+    titlesByPage.set(pageKey(item), titles.add(item.title));
+  }
+  const isListingPage = (item: NewsItem) => {
+    try {
+      if (new URL(item.sourceUrl).pathname.replace(/\/+$/, '') === '') return true;
+    } catch {
+      return true;
+    }
+    return (titlesByPage.get(pageKey(item))?.size ?? 0) >= LISTING_URL_TITLES;
+  };
+
+  const kept = new Map<string, NewsItem>();
+  for (const item of items) {
+    const key = isListingPage(item) ? item.id : `${pageKey(item)}|${item.publishedAt}`;
+    const first = kept.get(key);
+    if (!first) {
+      kept.set(key, item);
+      continue;
+    }
+    const merged = mergeCategories(first, item);
+    kept.set(key, first.summary || !item.summary ? merged : { ...merged, summary: item.summary });
+  }
+  return [...kept.values()];
+}
+
 // maxItems を設定したフィード（日本銀行・財務省など）は、蓄積分も含めて1日あたりの件数を制限する
 function limitPerFeedPerDay(items: NewsItem[]): NewsItem[] {
   const limits = new Map(officialFeeds.filter(feed => feed.maxItems).map(feed => [feed.feedUrl, feed.maxItems!]));
@@ -615,7 +687,7 @@ export function invalidateNewsCache(): void {
 
 async function collectNews(): Promise<NewsItem[]> {
   const store = await loadArchive();
-  const feedResults = await Promise.all(officialFeeds.filter(feed => shouldCollect(sourceId(feed.feedUrl))).map(fetchFeed));
+  const feedResults = await mapWithConcurrency(officialFeeds.filter(feed => shouldCollect(sourceId(feed.feedUrl))), FEED_CONCURRENCY, fetchFeed);
 
   // 同じ記事が複数のフィード（PR Newswire の決算・M&A など）に載る場合は、カテゴリを統合する
   const fetched = new Map<string, NewsItem>();
@@ -633,7 +705,7 @@ async function collectNews(): Promise<NewsItem[]> {
   }
 
   const cutoff = Date.now() - ARCHIVE_DAYS * 24 * 60 * 60 * 1000;
-  const kept = limitPerFeedPerDay(sortByDate([...store.values()]))
+  const kept = limitPerFeedPerDay(dedupeSameDocument(sortByDate([...store.values()])))
     .filter(item => new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
     .slice(0, ARCHIVE_LIMIT);
 
