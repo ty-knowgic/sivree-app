@@ -9,7 +9,7 @@ Live: https://ty-knowgic.github.io/sivry-app/ (GitHub Pages; "Publish Sivry" wor
 - `scripts/` checks and tests. `.github/workflows/publish.yml` runs them in CI.
 
 ## Before every commit (all must pass)
-`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run build:site`
+`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run test:feeds` · `npm run build:site`
 
 ## Conventions that bite
 - **i18n**: the Japanese text is the key. Every new UI string needs an entry in all 12 other `public/locales/*.json` (`check:locales` fails otherwise). New source names **and labels** go in `locales/sources.json`; `check:i18n-keys` fails if code uses a Japanese string that isn't in the dictionaries, `check:source-names` fails for untranslated feed names/labels. Anything generated into data (hashtags, labels) must be translated at render time.

@@ -57,6 +57,9 @@ jobs:
       # ロゴ・しばらくぶりの復帰でデータを読み直すことを確かめる
       - run: npm run test:refresh
 
+      # フィード取得の取り直し・同時取得数の上限と、同じ記事の重複のまとめを確かめる
+      - run: npm run test:feeds
+
       # 蓄積中の記事・要約・ベクトル（直近30日分）を前回から引き継ぐ。無い場合は、いまフィードにある記事から作り直す
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
