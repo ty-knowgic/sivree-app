@@ -222,6 +222,10 @@ async function updateProfile(change) {
  * ハッシュタグは発信元・分野・地域の名前（日本語）から作られているため、表示は現在の言語にする。
  * 検索には元のタグ（記事のデータと同じ日本語）を使うので、押したときの検索結果は変わらない
  */
+function sep() {
+  return getLang() === 'ja' ? '・' : ' · ';
+}
+
 function hashtagLabel(tag, item) {
   const name = tag.replace(/^#/, '');
   const squeeze = text => text.replace(/\s+/g, '');
@@ -343,7 +347,7 @@ function relatedLine(item) {
   const related = item.related ?? [];
   if (!related.length) return '';
   const others = [...new Set(related.map(r => t(r.sourceName)).filter(name => name !== t(item.sourceName)))];
-  const sources = others.length ? `${others.slice(0, 2).join('・')}${others.length > 2 ? t(' など') : ''}` : t('同じ発信元の続報');
+  const sources = others.length ? `${formatList(others.slice(0, 2))}${others.length > 2 ? t(' など') : ''}` : t('同じ発信元の続報');
   return `<div class="related-line">${ICONS.stack}<span class="related-count">${escapeHtml(t('関連 {n}件', { n: related.length }))}</span><span class="related-sources">${escapeHtml(sources)}</span></div>`;
 }
 
@@ -401,10 +405,10 @@ function renderHero(item) {
     <a class="hero" href="#/article/${encodeURIComponent(item.id)}" data-id="${escapeHtml(item.id)}" data-cat="${escapeHtml(category)}">
       <img src="${escapeHtml(articleImage(item))}" alt="" referrerpolicy="no-referrer" data-fallback="hero">
       <div class="hero-body">
-        <span class="cat-pill">${escapeHtml(t(category))}・${escapeHtml(t(item.subgroup))}</span>
+        <span class="cat-pill">${escapeHtml(t(category))}${escapeHtml(sep())}${escapeHtml(t(item.subgroup))}</span>
         <h2 class="hero-title">${escapeHtml(displayTitle(item))}</h2>
         ${summary ? `<p class="hero-summary">${escapeHtml(summary)}</p>` : ''}
-        <div class="hero-meta">${escapeHtml(t(item.sourceName))} · ${escapeHtml(formatRelative(item.publishedAt))}${item.matches?.length ? ` · ${escapeHtml(item.matches.map(m => t(m.label)).join('・'))}` : ''}</div>
+        <div class="hero-meta">${escapeHtml(t(item.sourceName))} · ${escapeHtml(formatRelative(item.publishedAt))}${item.matches?.length ? ` · ${escapeHtml(formatList(item.matches.map(m => t(m.label))))}` : ''}</div>
       </div>
     </a>
   `;
@@ -442,7 +446,7 @@ function renderCard(item) {
     <a class="card" href="#/article/${encodeURIComponent(item.id)}" data-id="${escapeHtml(item.id)}" data-cat="${escapeHtml(category)}">
       <div class="card-body">
         <div class="card-meta">
-          <span class="cat-label">${item.isSample ? escapeHtml(t('サンプル')) : `${escapeHtml(t(category))}・${escapeHtml(t(item.subgroup))}`}</span>
+          <span class="cat-label">${item.isSample ? escapeHtml(t('サンプル')) : `${escapeHtml(t(category))}${escapeHtml(sep())}${escapeHtml(t(item.subgroup))}`}</span>
           <span class="sep" aria-hidden="true"></span>
           <span class="source">${escapeHtml(t(item.sourceName))}</span>
           ${typeBadge(item.sourceType) ? `<span class="source-badge">${escapeHtml(typeBadge(item.sourceType))}</span>` : ''}
@@ -490,7 +494,7 @@ function renderNews() {
     const sourceType = state.sourceTypeByTab[state.tab];
     const subgroup = state.subgroupByTab[state.tab];
     const tabLabel = isForYou() ? t('マイニュース') : state.tab ? t(state.tab) : t('すべてのカテゴリ');
-    const scope = [tabLabel, subgroup && t(subgroup), sourceType && typeLabel(sourceType)].filter(Boolean).join('・');
+    const scope = [tabLabel, subgroup && t(subgroup), sourceType && typeLabel(sourceType)].filter(Boolean).join(sep());
     // 設定へのリンクだけは HTML のまま差し込む（文言は固定で、利用者の入力は含まない）
     const settingsLink = `<a href="#/settings">${escapeHtml(t('設定'))}</a>`;
     newsList.innerHTML = state.keyword
@@ -561,7 +565,7 @@ function updateStatus() {
 /** データを最後に取り込んだ時刻（静的版のみ）。古いままになっていないことを示す */
 function updatedLabel() {
   const ago = state.config?.generatedAt ? formatRelative(state.config.generatedAt) : '';
-  return ago ? `・${t('更新: {time}', { time: ago })}` : '';
+  return ago ? `${sep()}${t('更新: {time}', { time: ago })}` : '';
 }
 
 async function refreshNews() {
@@ -1202,7 +1206,7 @@ function splitKeywords(text) {
 }
 
 // 初期設定のトピック（内容は日本語と英語の併記）。英語表示では英語の部分だけを見せる
-const DEFAULT_TOPIC_IDS = new Set(['local', 'ontario', 'genai', 'physical-ai', 'japan-canada', 'us-eu-tech-policy', 'math', 'bizdev']);
+const isUserTopic = topic => /^(pub|custom)-/.test(topic.id);
 const hasJapanese = text => /[ぁ-んァ-ヶ一-龠]/.test(text);
 
 /** 「日本語の説明。English description.」の形の説明文を、日本語の部分と英語の部分に分ける */
@@ -1214,17 +1218,17 @@ function splitDescription(description) {
 function renderTopicEditor(topic, index) {
   const weight = nearestWeight(topic.weight);
   // 英語表示では表示だけを英語にし、保存済みの値は編集されない限り変えない（collectSettings を参照）
-  const translated = getLang() !== 'ja' && DEFAULT_TOPIC_IDS.has(topic.id);
+  const translated = getLang() !== 'ja' && !isUserTopic(topic);
   const parts = translated ? splitDescription(topic.description) : null;
   const descriptionShown = parts ? parts.en : (topic.description ?? '');
   const hiddenKeywords = translated ? topic.keywords.filter(hasJapanese) : [];
   const keywordsShown = topic.keywords.filter(keyword => !hiddenKeywords.includes(keyword));
   const labelShown = t(topic.label);
   const conditions = [
-    topic.alsoRequires?.length ? t('さらに「{words}{more}」のいずれかを含む', { words: topic.alsoRequires.slice(0, 4).join('・'), more: topic.alsoRequires.length > 4 ? '…' : '' }) : '',
-    topic.regions?.length ? t('地域: {value}', { value: topic.regions.map(region => t(region)).join('・') }) : '',
-    topic.sourceTypes?.length ? t('発信元: {value}', { value: topic.sourceTypes.map(typeLabel).join('・') }) : '',
-    topic.sources?.length ? t('常に対象: {value}', { value: topic.sources.map(name => t(name)).join('・') }) : '',
+    topic.alsoRequires?.length ? t('さらに「{words}{more}」のいずれかを含む', { words: formatList(topic.alsoRequires.slice(0, 4)), more: topic.alsoRequires.length > 4 ? '…' : '' }) : '',
+    topic.regions?.length ? t('地域: {value}', { value: formatList(topic.regions.map(region => t(region))) }) : '',
+    topic.sourceTypes?.length ? t('発信元: {value}', { value: formatList(topic.sourceTypes.map(typeLabel)) }) : '',
+    topic.sources?.length ? t('常に対象: {value}', { value: formatList(topic.sources.map(name => t(name))) }) : '',
     topic.boostOnly ? t('単独では表示せず、他の関心と重なる記事を上位にする') : ''
   ].filter(Boolean);
 
@@ -1285,7 +1289,7 @@ function isSourceEnabled(source) {
 function renderSourceRow(source) {
   const enabled = isSourceEnabled(source);
   const outOfRegion = isOutOfRegion(source);
-  const details = [t(source.label) !== t(source.sourceName) ? t(source.label) : '', t(source.subgroup), source.categories.map(category => t(category)).join('・'), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count })].filter(Boolean);
+  const details = [t(source.label) !== t(source.sourceName) ? t(source.label) : '', t(source.subgroup), formatList(source.categories.map(category => t(category))), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count })].filter(Boolean);
   // 直近の取得に失敗した情報源（発信元のサイトの変更や、アクセスの制限など）
   const failing = !outOfRegion && source.health && !source.health.ok;
   const url = safeUrl(source.sourceUrl);

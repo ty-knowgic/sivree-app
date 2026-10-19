@@ -9,10 +9,10 @@ Live: https://ty-knowgic.github.io/sivry-app/ (GitHub Pages; "Publish Sivry" wor
 - `scripts/` checks and tests. `.github/workflows/publish.yml` runs them in CI.
 
 ## Before every commit (all must pass)
-`npx tsc --noEmit` · `npm run check:locales` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run build:site`
+`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run build:site`
 
 ## Conventions that bite
-- **i18n**: the Japanese text is the key. Every new UI string needs an entry in all 12 other `public/locales/*.json` (`check:locales` fails otherwise). New source names go in `locales/sources.json`.
+- **i18n**: the Japanese text is the key. Every new UI string needs an entry in all 12 other `public/locales/*.json` (`check:locales` fails otherwise). New source names **and labels** go in `locales/sources.json`; `check:i18n-keys` fails if code uses a Japanese string that isn't in the dictionaries, `check:source-names` fails for untranslated feed names/labels. Anything generated into data (hashtags, labels) must be translated at render time.
 - **Python edits**: use files, not stdin heredocs with non-ASCII (macOS python 3.9 mangles long lines): write the script to the scratchpad and run it with `exec(compile(open(f, encoding='utf-8').read(), f, 'exec'))`. No `sed -i` (macOS BSD sed).
 - jsdom tests: `const`/`let` in `app.js` are invisible to `window.eval`; expose what a test needs via `window.__t` (append `window.__t = {...}` / `window.__ready = i18nReady` to the evaluated source; `await window.i18nReady` is a no-op).
 - Static build is cached 10 min by GitHub Pages: asset URLs carry `?v=<sha>`.
