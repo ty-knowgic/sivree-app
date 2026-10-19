@@ -14,7 +14,8 @@
     "test:xss": "node scripts/test-xss.mjs",
     "test:sync": "node scripts/test-sync.mjs",
     "test:visit": "node scripts/test-visit.mjs",
-    "test:onboarding": "node scripts/test-onboarding.mjs"
+    "test:onboarding": "node scripts/test-onboarding.mjs",
+    "test:hashtags": "node scripts/test-hashtags.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",

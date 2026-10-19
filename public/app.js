@@ -218,6 +218,17 @@ async function updateProfile(change) {
   return response.json();
 }
 
+/**
+ * ハッシュタグは発信元・分野・地域の名前（日本語）から作られているため、表示は現在の言語にする。
+ * 検索には元のタグ（記事のデータと同じ日本語）を使うので、押したときの検索結果は変わらない
+ */
+function hashtagLabel(tag, item) {
+  const name = tag.replace(/^#/, '');
+  const squeeze = text => text.replace(/\s+/g, '');
+  const source = squeeze(item.sourceName) === name ? squeeze(t(item.sourceName)) : null;
+  return `#${source ?? squeeze(t(name))}`;
+}
+
 function saveListState() {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ tab: state.tab, subgroupByTab: state.subgroupByTab, sourceTypeByTab: state.sourceTypeByTab }));
@@ -544,7 +555,7 @@ function updateStatus() {
   const sampleOnly = state.items.length > 0 && state.items.every(item => item.isSample);
   status.textContent = sampleOnly
     ? t('公式フィードを取得できなかったため、サンプルを表示しています')
-    : `${t('{n}件', { n: state.total.toLocaleString(locale()), count: state.total })}${state.keyword ? t('・「{keyword}」', { keyword: state.keyword }) : ''}${updatedLabel()}`;
+    : `${t('{n}件', { n: state.total.toLocaleString(locale()), count: state.total })}${state.keyword ? t('・「{keyword}」', { keyword: keywordInput.value.trim() || state.keyword }) : ''}${updatedLabel()}`;
 }
 
 /** データを最後に取り込んだ時刻（静的版のみ）。古いままになっていないことを示す */
@@ -787,7 +798,7 @@ function renderDetail() {
     ${renderExcerpt(detail)}
     ${renderRelated(detail.related)}
     <div class="tags">
-      ${item.hashtags.map(tag => `<button class="tag" type="button" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`).join('')}
+      ${item.hashtags.map(tag => `<button class="tag" type="button" data-tag="${escapeHtml(tag)}" data-label="${escapeHtml(hashtagLabel(tag, item))}">${escapeHtml(hashtagLabel(tag, item))}</button>`).join('')}
     </div>
     ${item.isSample ? '' : `
       <div class="detail-actions">
@@ -994,7 +1005,8 @@ detailView.addEventListener('click', (event) => {
   if (!tag) return;
   searchBar.hidden = false;
   searchToggle.setAttribute('aria-expanded', 'true');
-  keywordInput.value = tag.dataset.tag;
+  // 入力欄には表示中の言語のタグを出し、検索には元のタグを使う
+  keywordInput.value = tag.dataset.label ?? tag.dataset.tag;
   state.keyword = tag.dataset.tag;
   listScrollY = 0;
   location.hash = '#/';
