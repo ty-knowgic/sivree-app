@@ -202,11 +202,31 @@ svg {
   letter-spacing: 0.02em;
 }
 
+/* ロゴ: 括弧と点のシンボル＋大文字の文字（BRAND.md）。文字の中身は「Sivree」のまま、見た目だけを大文字にする */
 .brand-title {
-  font-size: 1.75rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
+
+.brand-mark {
+  width: 1.05em;
+  height: 1.05em;
+  flex: none;
+}
+
+.brand-mark path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 9;
+  stroke-linejoin: miter;
+}
+
+.brand-mark circle { fill: currentColor; }
 
 .appbar-actions {
   display: flex;
