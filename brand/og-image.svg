@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#5b5bd6"/>
+  <!-- シンボル（括弧と点）と、大文字の SIVREE。文字は書体指定のままで、図形にはしていない（BRAND.md） -->
+  <g transform="translate(180 175) scale(2.8)">
+    <path d="M36 16H19V84H36M64 16H81V84H64" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="miter"/>
+    <circle cx="50" cy="50" r="12" fill="#fff"/>
+  </g>
+  <text x="500" y="359" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="700" font-size="124" letter-spacing="17" fill="#fff">SIVREE</text>
+</svg>
