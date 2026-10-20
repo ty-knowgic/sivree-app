@@ -24,7 +24,7 @@
     "check:brand": "node scripts/check-brand.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.131.0",
+    "@anthropic-ai/sdk": "0.135.0",
     "@mozilla/readability": "^0.6.0",
     "express": "^4.19.2",
     "jsdom": "^27.0.0",
