@@ -78,12 +78,12 @@ npm run dev
 
 ```bash
 brew install ollama && ollama serve   # 別のターミナルで
-ollama pull embeddinggemma            # 約 620MB
+ollama pull embeddinggemma:300m       # 約 620MB
 ```
 
 - 記事は取得後に裏でベクトル化し、`data/embeddings.json` に保存します（514件で約16秒、M2 / 8GB）。
 - 埋め込みモデルに接続できない場合は、5分おきに再接続を試しながらキーワードだけで判定します。
-- 設定: `EMBEDDING_MODEL`（既定 `embeddinggemma`、`off` で無効）、`EMBEDDING_URL`（既定 `http://localhost:11434/v1`）、`EMBEDDING_THRESHOLD`（一致とみなす類似度。モデルごとの既定値は `src/embeddings.ts`）、`EMBEDDING_API_KEY`。
+- 設定: `EMBEDDING_MODEL`（既定 `embeddinggemma:300m`、`off` で無効）、`EMBEDDING_URL`（既定 `http://localhost:11434/v1`）、`EMBEDDING_THRESHOLD`（一致とみなす類似度。モデルごとの既定値は `src/embeddings.ts`）、`EMBEDDING_API_KEY`。
 - 地名のトピック（ウォータールー周辺・オンタリオ州・日本×カナダ）は、意味の近さでは判定しにくいため説明文を空にしてキーワードだけで判定しています。
 
 モデルの比較（2026年10月11日、収集済みの記事 259件に手作業で正解を付けて評価。数値は AUC、括弧内は最良のしきい値での F1）:
@@ -95,7 +95,7 @@ ollama pull embeddinggemma            # 約 620MB
 | bge-m3 | MIT | 0.895 (0.64) | 0.997 (0.92) | 0.689 (0.40) | 約 50ms/件 |
 
 - キーワードだけの場合の F1 は 生成AI 0.74 / Physical AI 0.96 / 数学 0.86（数学は発信元の指定による一致を含む）。キーワードと組み合わせると 生成AI 0.84 / Physical AI 0.92 / 数学 1.00 になりました。数学の正解は4件だけのため、数学の数値は参考程度です。
-- 商用化の際は、Gemma 利用規約（禁止用途の制限あり）を確認するか、Apache 2.0 の qwen3-embedding（`EMBEDDING_MODEL=qwen3-embedding:0.6b`、しきい値 0.40）に切り替えます。
+- **ライセンス（2026-10-20 に Gemma 利用規約の本文〔2026-04-01 更新〕と禁止用途ポリシーを読んで確認）**: embeddinggemma は定期ジョブの中だけで動かし、モデルそのものは配布せず、利用者に届くのは出力（ベクトル）だけです。規約では出力は派生モデルに含まれず、Google は出力の権利を主張しません（3.3）。このため、有料化しても、モデルの再配布にかかる条件（利用制限の引き継ぎ、規約の写しの同梱）は生じません。守る条件は、禁止用途ポリシーに反しない使い方（分類・照合に使うだけ）と、モデルのタグの固定（`embeddinggemma:300m`）です。**次の場合は再確認します**: ブラウザにモデルを同梱する、他者に API として提供する、別の版（Gemma 4 の新しい規約など）に移る。Apache 2.0 の qwen3-embedding（`EMBEDDING_MODEL=qwen3-embedding:0.6b`、しきい値 0.40）に切り替える手もありますが、評価では精度が下がります。法的な助言ではありません。
 - 誤一致の例: 「quant（クオンツ）」の記事が量子技術に、米国の制裁に関する声明がテック政策に一致することがあります。
 - プロフィールは `data/profiles/<ID>.json` に保存します（現在は1人分。複数ユーザー化の際はユーザーごとの ID で切り替える想定）。初期設定は `src/profile.ts` の `DEFAULT_PROFILE` です。
 
@@ -173,3 +173,11 @@ ollama pull embeddinggemma            # 約 620MB
 - 「Google でログインして同期」: 利用者自身の Google ドライブにあるこのアプリ専用の非表示フォルダ（`drive.appdata` のみ）に設定を 1 ファイル置きます。`public/sync.js` が処理し、押すまで Google とは通信しません。
 
 有効にするには Google Cloud でウェブ用の OAuth クライアント ID を作り（無料。承認済みの JavaScript 生成元に配信元のオリジンを追加）、`public/sync.js` の `CLIENT_ID` に設定します。空のあいだは同期の項目は表示されません。`npm run test:sync` で判断ロジックを確認できます。
+
+## ライセンスと商用利用
+
+- **コード**は [PolyForm Noncommercial 1.0.0](LICENSE) です（2026-10-20 に決定）。個人の私的な利用・研究・学習・趣味、および非営利の教育機関・公的研究機関・慈善団体などの利用は自由です。**会社・事務所などが業務で使う場合**（自分でサーバーを立てて使う場合を含む）は、商用ライセンスが必要です。ご相談は [GitHub の Issues](https://github.com/ty-knowgic/sivry-app/issues/new) へ（公開されます）。
+- **公開サイト**（https://ty-knowgic.github.io/sivry-app/）の利用は、サイト内の「プライバシーと利用条件」に従います。ベータ版の間は無料で、業務での利用も無料です。個人の私的な利用は今後も無償で、組織の業務利用は正式版から年額プランを予定しています（内容と料金は未定）。
+- **記事の内容**（見出し・抜粋）の権利は各発信元にあり、このライセンスの対象外です。発信元ごとの利用条件は [SOURCE_TERMS.md](SOURCE_TERMS.md) に確認結果をまとめています。
+- **貢献**: プルリクエストで提供された変更は、このライセンスで提供されたものとして扱い、運営者が商用ライセンスにも使えることに同意したものとみなします。同意できない場合は、先にご相談ください。
+- **依存ライブラリ**はすべて MIT・Apache-2.0・BSD・ISC などの寛容なライセンスです（2026-10-20 に `npm ls` で確認。ビルドに含まれない任意の native 依存を除く）。

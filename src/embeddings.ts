@@ -20,7 +20,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STORE_PATH = path.join(__dirname, '../data/embeddings.json');
 
 const BASE_URL = (process.env.EMBEDDING_URL ?? 'http://localhost:11434/v1').replace(/\/+$/, '');
-const MODEL = process.env.EMBEDDING_MODEL ?? 'embeddinggemma';
+// タグまで固定する。名前だけだと最新版に置き換わったとき、別のモデルのベクトルが保存済みの分と混ざり、利用条件も変わりうる
+const MODEL = process.env.EMBEDDING_MODEL ?? 'embeddinggemma:300m';
 const API_KEY = process.env.EMBEDDING_API_KEY ?? '';
 const ENABLED = Boolean(MODEL) && MODEL !== 'off';
 const BATCH_SIZE = 32;

@@ -92,7 +92,7 @@ jobs:
           [ "$started" = 1 ] || { cat ollama.log; exit 1; }
           pulled=0
           for attempt in 1 2 3; do
-            ollama pull embeddinggemma && pulled=1 && break
+            ollama pull embeddinggemma:300m && pulled=1 && break
             sleep 10
           done
           [ "$pulled" = 1 ] || { echo "モデルを取得できませんでした"; exit 1; }
