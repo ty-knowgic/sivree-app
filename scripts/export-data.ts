@@ -29,6 +29,7 @@ await embedItemsInBackground(withStoredSummaries(summaries, items).map(item => (
 })));
 
 const ids = new Set(items.map(item => item.id));
+const titleOnlyIds = new Set(items.filter(item => item.titleOnly).map(item => item.id));
 const vectors = await exportItemVectors([...ids]);
 // 初期設定のトピックの説明文だけ、ここでベクトル化しておく（利用者が自分で足したトピックはキーワードだけで判定する）
 // 初期設定のトピックは、初回の質問で選ぶまでは無効なので、有効かどうかに関わらず説明文のあるものすべてを計算する
@@ -43,7 +44,8 @@ const write = (name: string, data: unknown) => writeFile(path.join(outDir, `${na
 await Promise.all([
   write('news', items),
   write('sources', listSources()),
-  write('summaries', Object.fromEntries([...summaries].filter(([id]) => ids.has(id)))),
+  // 見出しと原文へのリンクだけを表示する記事（利用条件による）の要約は、以前に保存したものがあっても書き出さない
+  write('summaries', Object.fromEntries([...summaries].filter(([id]) => ids.has(id) && !titleOnlyIds.has(id)))),
   write('vectors', semanticReady ? vectors : {}),
   write('meta', {
     generatedAt: new Date().toISOString(),

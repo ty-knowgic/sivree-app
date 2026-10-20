@@ -2,7 +2,8 @@
 // 同時に取得する数が絞られること、同じ記事の見出し違いが1件にまとまる（別の記事は残る）ことを、本物の通信なしで調べる。
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { dedupeSameDocument, fetchFeed, mapWithConcurrency } from '../src/newsPipeline.js';
+import { withStoredSummaries } from '../src/api.js';
+import { applyTitleOnly, dedupeSameDocument, fetchFeed, mapWithConcurrency, officialFeeds } from '../src/newsPipeline.js';
 import type { FeedSource, NewsItem } from '../src/types.js';
 
 let failures = 0;
@@ -113,6 +114,26 @@ const ordered = dedupeSameDocument([
   item({ title: 'old', sourceUrl: 'https://e.test/p/1', publishedAt: '2026-10-17T00:00:00.000Z' })
 ]);
 check('並び順は変わらない', titles(ordered) === 'new / dup / old', titles(ordered));
+
+// ---------- 見出しと原文へのリンクだけを表示する情報源（利用条件が商用を制限するもの） ----------
+const TITLE_ONLY = ['カナダ政府', 'オンタリオ州政府', 'ウォータールー・リージョン', 'ケンブリッジ市', 'JPX', 'JETRO', 'ジェトロ', 'JAXA', 'KEK', 'WHO', 'Fraunhofer', 'Microsoft Research', 'カーネギーメロン大学', 'Simons Foundation', 'CIFAR'];
+const flagged = officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.sourceName).sort();
+check('SOURCE_TERMS.md の B1 の15件だけが titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
+
+const restrictedFeed = officialFeeds.find(feed => feed.sourceName === 'JPX')!.feedUrl;
+const normalFeed = officialFeeds.find(feed => feed.sourceName === '総務省')!.feedUrl;
+const [limited, untouched] = applyTitleOnly([
+  item({ title: 'JPX の発表', summary: '説明文', imageUrl: 'https://example.test/a.jpg', feedUrl: restrictedFeed, sourceName: 'JPX', sourceUrl: 'https://www.jpx.co.jp/a' }),
+  item({ title: '総務省の発表', summary: '説明文', imageUrl: 'https://example.test/b.jpg', feedUrl: normalFeed, sourceName: '総務省', sourceUrl: 'https://www.soumu.go.jp/b' })
+]);
+check('titleOnly の情報源は、説明文と画像を持たず、画像の確認も済み扱いにする',
+  limited.summary === '' && limited.imageUrl === undefined && limited.imageChecked === true && limited.titleOnly === true && limited.title === 'JPX の発表',
+  JSON.stringify(limited));
+check('それ以外の情報源は変えない', untouched.summary === '説明文' && untouched.imageUrl === 'https://example.test/b.jpg' && !untouched.titleOnly);
+
+const stored = new Map([['x', { headlineJa: '要点', summary: '要約', method: 'extractive' }]]) as unknown as Parameters<typeof withStoredSummaries>[0];
+const [withoutAi, withAi] = withStoredSummaries(stored, [item({ id: 'x', titleOnly: true }), item({ id: 'x' })]);
+check('titleOnly の記事には、保存済みの要約があっても添えない', !('ai' in withoutAi) && 'ai' in withAi);
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);
