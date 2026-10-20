@@ -5,7 +5,7 @@
 // CLIENT_ID が空のあいだは、同期の項目自体を表示しない。
 (function () {
   // Google Cloud の OAuth クライアント ID（ウェブ）。公開してよい値で、秘密ではない
-  const CLIENT_ID = '';
+  const CLIENT_ID = '244005834281-2h0uvdit4i48fc3jjj5hpjgpte8emmra.apps.googleusercontent.com';
   const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
   const FILE_NAME = 'sivry-settings.json';
   const STATE_KEY = 'sivry:sync';
