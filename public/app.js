@@ -13,6 +13,7 @@ const status = document.getElementById('status');
 const detailView = document.getElementById('detailView');
 const backButton = document.getElementById('backButton');
 const shareButton = document.getElementById('shareButton');
+const saveButton = document.getElementById('saveButton');
 const todayEl = document.getElementById('today');
 const settingsView = document.getElementById('settingsView');
 const settingsButton = document.getElementById('settingsButton');
@@ -294,6 +295,8 @@ function downloadText(filename, text, mime) {
 
 /** 記事を保存する／保存を解除する。保存した記事はプロフィールに入り、設定と同じ方法で端末間に移せる */
 async function toggleSave(item) {
+  // 画面内のボタンから押した場合、描き直しで外れたフォーカスを戻す（アプリバーのボタンは描き直さないので、そのまま）
+  const fromPage = detailView.contains(document.activeElement);
   const record = SivreeSaved.toSavedItem(item);
   if (!record) {
     showToast(t('保存できませんでした'));
@@ -321,7 +324,7 @@ async function toggleSave(item) {
   }
   if (currentDetail?.id === item.id) {
     renderDetail();
-    detailView.querySelector('[data-action="toggle-save"]')?.focus();
+    if (fromPage) detailView.querySelector('[data-action="toggle-save"]')?.focus();
   }
   if (outcome === 'saved') {
     showToast(t('記事を保存しました'), { label: t('保存した記事'), run: () => { location.hash = '#/saved'; } });
@@ -354,6 +357,16 @@ function renderCitePanel(record) {
       </div>
     </section>
   `;
+}
+
+/** アプリバーの保存ボタン（詳細画面だけ）。URL などが足りず保存できない記事・サンプルには出さない */
+function updateSaveButton(item) {
+  const savable = Boolean(item) && !item.isSample && Boolean(SivreeSaved.toSavedItem(item));
+  saveButton.hidden = !savable;
+  if (!savable) return;
+  const saved = isSaved(item.id);
+  saveButton.classList.toggle('is-on', saved);
+  saveButton.setAttribute('aria-pressed', String(saved));
 }
 
 /** 詳細画面の「保存」「引用」。URL などが足りず保存できない記事には出さない */
@@ -947,6 +960,7 @@ function renderDetail() {
   if (!detail) return;
   const { item, content, summary } = detail;
   const category = item.category;
+  updateSaveButton(item);
 
   const contentImage = content?.imageUrl && !isGenericImage(content.imageUrl) ? safeUrl(content.imageUrl) : '';
   const image = imagesOn() ? (contentImage || safeUrl(item.imageUrl)) : '';
@@ -1032,6 +1046,7 @@ async function showDetail(id) {
   detailView.hidden = false;
   backButton.hidden = false;
   shareButton.hidden = false;
+  saveButton.hidden = true;
   window.scrollTo(0, 0);
 
   const known = itemsById.get(id);
@@ -1089,6 +1104,7 @@ function showList() {
   listView.hidden = false;
   backButton.hidden = true;
   shareButton.hidden = true;
+  saveButton.hidden = true;
   document.title = 'Sivree';
 
   // 詳細で作成された AI 要約を一覧にも反映する
@@ -1107,6 +1123,10 @@ backButton.addEventListener('click', () => {
   } else {
     location.hash = '#/';
   }
+});
+
+saveButton.addEventListener('click', () => {
+  if (currentDetail?.item) toggleSave(currentDetail.item);
 });
 
 shareButton.addEventListener('click', async () => {
@@ -1305,6 +1325,7 @@ async function showSaved() {
   savedView.hidden = false;
   backButton.hidden = false;
   shareButton.hidden = true;
+  saveButton.hidden = true;
   document.title = `${t('保存した記事')} | Sivree`;
   window.scrollTo(0, 0);
   savedQuery = '';
@@ -1874,6 +1895,7 @@ async function showSettings() {
   settingsView.hidden = false;
   backButton.hidden = false;
   shareButton.hidden = true;
+  saveButton.hidden = true;
   document.title = `${t('設定')} | Sivree`;
   window.scrollTo(0, 0);
   settingsView.innerHTML = `<div class="empty-state">${escapeHtml(t('読み込み中…'))}</div>`;
