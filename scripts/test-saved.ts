@@ -134,11 +134,18 @@ await go(w, `#/article/${item.id}`);
 check('詳細画面に「保存」「引用」が出る', await until(() => $(w, '[data-action="toggle-save"]') && $(w, '[data-action="toggle-cite"]')));
 check('保存前は押されていない表示', $(w, '[data-action="toggle-save"]')!.getAttribute('aria-pressed') === 'false');
 
+// アプリバーのしおり（詳細画面の右上）からも保存・解除できる
+check('詳細画面のアプリバーにしおりのボタンが出る（共有の隣）', $(w, '#saveButton') !== null && !$(w, '#saveButton')!.hidden && $(w, '#saveButton')!.getAttribute('aria-pressed') === 'false' && !$(w, '#shareButton')!.hidden);
+click(w, $(w, '#saveButton'));
+check('アプリバーのしおりで保存できる（印が付き、記事内のボタンも「保存済み」になる）', await until(() => state.profile.savedItems.length === 1 && $(w, '#saveButton')!.getAttribute('aria-pressed') === 'true' && $(w, '#saveButton')!.classList.contains('is-on') && $(w, '[data-action="toggle-save"]')!.getAttribute('aria-pressed') === 'true'));
+click(w, $(w, '#saveButton'));
+check('もう一度押すと解除できる', await until(() => state.profile.savedItems.length === 0 && $(w, '#saveButton')!.getAttribute('aria-pressed') === 'false' && $(w, '[data-action="toggle-save"]')!.getAttribute('aria-pressed') === 'false'));
+
 click(w, $(w, '[data-action="toggle-save"]'));
 check('「保存」を押すとプロフィールに記録される', await until(() => state.profile.savedItems.length === 1));
 const stored = state.profile.savedItems[0];
 check('記録は引用に必要な情報だけ（原題・発信元・URL・日付）', stored.title === item.title && stored.sourceName === '日本銀行' && stored.url === item.sourceUrl && stored.publishedAt === item.publishedAt && stored.note === '' && !('summary' in stored), stored);
-check('ボタンが「保存済み」になり、アプリバーの件数が 1', await until(() => $(w, '[data-action="toggle-save"]')?.getAttribute('aria-pressed') === 'true' && $(w, '#savedCount')?.textContent === '1' && !$(w, '#savedCount')!.hidden));
+check('ボタンが「保存済み」になり、アプリバーのしおりにも反映され、一覧側の件数が 1', await until(() => $(w, '[data-action="toggle-save"]')?.getAttribute('aria-pressed') === 'true' && $(w, '#saveButton')?.getAttribute('aria-pressed') === 'true' && $(w, '#savedCount')?.textContent === '1' && !$(w, '#savedCount')!.hidden));
 check('保存の通知に「保存した記事」への導線', $(w, '.toast')?.textContent?.includes('Article saved') === true && $(w, '.toast-action') !== null);
 
 click(w, $(w, '[data-action="toggle-cite"]'));
@@ -155,7 +162,7 @@ check('選んだ書式は覚えておく', w.localStorage.getItem('sivree:citeFo
 
 // 保存した記事の一覧
 await go(w, '#/saved');
-check('保存した記事の一覧が開く（戻る以外のアプリバーの操作は隠れる）', await until(() => $(w, '.saved-item')) && !$(w, '#savedView')!.hidden && w.document.body.classList.contains('is-detail'));
+check('保存した記事の一覧が開く（戻る以外のアプリバーの操作は隠れる）', await until(() => $(w, '.saved-item')) && !$(w, '#savedView')!.hidden && w.document.body.classList.contains('is-detail') && $(w, '#saveButton')!.hidden);
 check('一覧に原題へのリンク（発信元のページ、新しいタブ、noopener）', ($(w, '.saved-title a') as HTMLAnchorElement).href === item.sourceUrl && $(w, '.saved-title a')!.getAttribute('rel')!.includes('noopener') && $(w, '.saved-item')!.textContent!.includes('Bank of Japan'));
 check('保存した記事の件数ボタン（{n} 件の引用をコピー）', $(w, '[data-action="copy-saved"]')!.textContent === 'Copy 1 citation', $(w, '[data-action="copy-saved"]')!.textContent!);
 

@@ -1943,6 +1943,9 @@ html:lang(vi) body { line-height: 1.6; }
 
 svg.is-filled path { fill: currentColor; }
 
+#saveButton.is-on { color: var(--accent); }
+#saveButton.is-on svg path { fill: currentColor; }
+
 .saved-mark { display: inline-flex; color: var(--accent); }
 .saved-mark svg { width: 13px; height: 13px; }
 
