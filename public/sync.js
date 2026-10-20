@@ -121,6 +121,19 @@
     return next;
   }
 
+  const localProfile = () => fetch('/api/profile').then((r) => r.json());
+  /** 競合のとき、保存した記事はどちらの端末のものも残す（設定は選ばれたほうを使うが、記事は失わない） */
+  const mergedSaved = (winner, other) => (window.SivreeSaved ? window.SivreeSaved.mergeSavedItems(winner?.savedItems, other?.savedItems) : winner?.savedItems ?? []);
+  async function applyLocal(profile) {
+    applying = true;
+    try {
+      const response = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) });
+      if (!response.ok) throw new Error('invalid-remote');
+    } finally {
+      applying = false;
+    }
+  }
+
   function sync({ interactive, resolveConflict }) {
     return run(async () => {
       await getToken(interactive);
@@ -133,20 +146,31 @@
       if (!remote.data) action = 'push';
       else if (remoteRev > baseRev) action = dirty ? 'conflict' : 'pull';
       else action = dirty ? 'push' : 'none';
-      if (action === 'conflict') action = resolveConflict && !resolveConflict() ? 'push' : 'pull';
+      const conflict = action === 'conflict';
+      if (conflict) action = resolveConflict && !resolveConflict() ? 'push' : 'pull';
 
       if (action === 'pull') {
-        applying = true;
-        try {
-          const response = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(remote.data.profile) });
-          if (!response.ok) throw new Error('invalid-remote');
-        } finally {
-          applying = false;
+        let incoming = remote.data.profile;
+        let rev = remoteRev;
+        if (conflict) {
+          incoming = { ...incoming, savedItems: mergedSaved(incoming, await localProfile()) };
+          await applyLocal(incoming);
+          // この端末にしかなかった保存済みの記事があれば、ドライブにも反映して揃える
+          if (incoming.savedItems.length > (remote.data.profile.savedItems?.length ?? 0)) {
+            rev = Math.max(remoteRev, baseRev) + 1;
+            await writeRemote(remote.id, { rev, savedAt: new Date().toISOString(), profile: incoming });
+          }
+        } else {
+          await applyLocal(incoming);
         }
-        writeState({ enabled: true, baseRev: remoteRev, syncedAt: localUpdatedAt(), lastAt: Date.now() });
+        writeState({ enabled: true, baseRev: rev, syncedAt: localUpdatedAt(), lastAt: Date.now() });
         notify({ type: 'pulled' });
       } else if (action === 'push') {
-        const profile = await fetch('/api/profile').then((r) => r.json());
+        let profile = await localProfile();
+        if (conflict) {
+          profile = { ...profile, savedItems: mergedSaved(profile, remote.data.profile) };
+          await applyLocal(profile);
+        }
         const rev = Math.max(remoteRev, baseRev) + 1;
         await writeRemote(remote.id, { rev, savedAt: new Date().toISOString(), profile });
         writeState({ enabled: true, baseRev: rev, syncedAt: localUpdatedAt(), lastAt: Date.now() });

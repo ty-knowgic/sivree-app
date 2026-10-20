@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 
 const source = (await readFile(new URL('../public/sync.js', import.meta.url), 'utf8')).replace("const CLIENT_ID = '';", "const CLIENT_ID = 'test-client';");
+const savedSource = await readFile(new URL('../public/saved.js', import.meta.url), 'utf8');
 const drive = { file: null, calls: [] }; // 共有のドライブ（appDataFolder の 1 ファイル）
 let failures = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? '✓' : '✗'} ${name}${ok ? '' : ` ${detail}`}`); if (!ok) failures++; };
@@ -38,6 +39,7 @@ function device() {
     }
     return json({}, 404);
   };
+  w.eval(savedSource);
   w.eval(source);
   return {
     sync: w.SivreeSync,
@@ -70,6 +72,23 @@ a.edit({ marker: 'A-third' });
 b.edit({ marker: 'B-third' });
 await a.sync.syncNow();
 check('B: 競合で OK を選ぶとドライブの設定を使う', (await b.sync.syncNow(() => true)) === 'pull' && b.profile.marker === 'A-third');
+
+// 保存した記事は、競合のときも両方の端末のものを残す（設定は選んだほうを使うが、記事は失わない）
+const entry = (id, savedAt) => ({ id: id.repeat(16), title: id, sourceName: 's', sourceType: 'official', subgroup: '', url: `https://example.test/${id}`, publishedAt: '2026-10-01T00:00:00.000Z', savedAt, note: '' });
+const ids = (profile) => (profile.savedItems ?? []).map((e) => e.id[0]).sort().join('');
+await a.sync.syncNow();
+await b.sync.syncNow();
+a.edit({ savedItems: [entry('a', '2026-10-02T00:00:00.000Z')] });
+b.edit({ savedItems: [entry('b', '2026-10-03T00:00:00.000Z')] });
+check('B: 自分だけが変更したので送信する', (await b.sync.syncNow()) === 'push' && ids(drive.file.profile) === 'b');
+check('A: 競合でドライブ側を選んでも、この端末だけの保存した記事は残り、ドライブにも反映される', (await a.sync.syncNow(() => true)) === 'pull' && ids(a.profile) === 'ab' && ids(drive.file.profile) === 'ab', [ids(a.profile), ids(drive.file.profile)]);
+check('B: 次の同期で両方を受け取る', (await b.sync.syncNow()) === 'pull' && ids(b.profile) === 'ab');
+a.edit({ savedItems: [...a.profile.savedItems, entry('c', '2026-10-04T00:00:00.000Z')] });
+b.edit({ savedItems: [...b.profile.savedItems, entry('d', '2026-10-05T00:00:00.000Z')] });
+await b.sync.syncNow();
+check('A: 競合でこの端末を選んでも、相手の保存した記事は残る（この端末にもドライブにも）', (await a.sync.syncNow(() => false)) === 'push' && ids(a.profile) === 'abcd' && ids(drive.file.profile) === 'abcd', [ids(a.profile), ids(drive.file.profile)]);
+check('統合した記事は新しい順', a.profile.savedItems.map((e) => e.id[0]).join('') === 'dcba', a.profile.savedItems.map((e) => e.id[0]).join(''));
+await b.sync.syncNow();
 
 // 保存すると、数秒後に自動で送信される（トークンがあるとき）
 b.edit({ marker: 'auto' });

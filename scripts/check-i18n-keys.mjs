@@ -2,7 +2,7 @@
 /**
  * コードの中の日本語の文言（＝翻訳のキー）が、すべて英語の辞書（en.json・sources.json）にあることを確かめる。
  * check-locales.mjs は「辞書どうしの食い違い」を見るが、コードに書いた新しい文言が辞書にないことは検出できない。
- * ここでは public/app.js・sync.js の日本語の文字列リテラルと、index.html の data-i18n* を調べる。
+ * ここでは public/app.js・sync.js・saved.js の日本語の文字列リテラルと、index.html の data-i18n* を調べる。
  * 日本語の文字列でも翻訳の対象にしないもの（正規表現など）は ALLOW に書く。
  * 使い方: npm run check:i18n-keys
  */
@@ -34,7 +34,7 @@ function literals(code, file) {
 }
 
 const problems = [];
-for (const file of ['app.js', 'sync.js']) {
+for (const file of ['app.js', 'sync.js', 'saved.js']) {
   for (const value of new Set(literals(await read(file), file))) {
     if (ALLOW.has(value) || dictionary.has(value)) continue;
     // 正規表現の範囲（ぁ-んなど）や、日本語の判定用のものは対象外

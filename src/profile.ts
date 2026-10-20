@@ -35,6 +35,32 @@ const TopicSchema = z.object({
   weight: z.number().min(0.1).max(5).default(1)
 });
 
+/** 保存できる記事の上限（public/saved.js の LIMIT と同じ値） */
+export const SAVED_LIMIT = 1000;
+
+/**
+ * 利用者が保存した記事。掲載期間（30日）が過ぎても残せるよう、引用に必要な情報（見出し・発信元・URL・日付）を写して持つ。
+ * 説明文・要約・画像は持たない（発信元の利用条件による制限を受けず、引用にも要らないため）
+ */
+const SavedItemSchema = z.object({
+  id: z.string().regex(/^[0-9a-f]{16}$/),
+  /** 発信元が付けた見出し（引用には、AI が付けた見出しや訳ではなく、この原題を使う） */
+  title: z.string().min(1).max(500),
+  /** 発信元の名前（日本語のキー。表示と引用のときに現在の言語へ訳す） */
+  sourceName: z.string().max(100),
+  sourceType: z.string().max(20).default('official'),
+  /** 発表日の時間帯を決めるための地域（日本・カナダ・米国・欧州・グローバル） */
+  subgroup: z.string().max(20).default(''),
+  /** 発信元の記事の URL */
+  url: z.string().max(2000).regex(/^https?:\/\//),
+  publishedAt: z.string().max(40),
+  savedAt: z.string().max(40),
+  /** 利用者のメモ（引用には含めない） */
+  note: z.string().max(1000).default('')
+});
+
+export type SavedItem = z.infer<typeof SavedItemSchema>;
+
 export const ProfileSchema = z.object({
   name: z.string().max(60).default(''),
   /** 初回の質問（地域・分野）に答えたか */
@@ -47,7 +73,9 @@ export const ProfileSchema = z.object({
   /** 使わない情報源の ID（すべてのタブ・ブリーフィングから除き、誰も使わない情報源は取り込まない） */
   excludedSources: z.array(z.string().regex(/^[0-9a-f]{10}$/)).max(500).default([]),
   /** 「この記事を非表示」にした記事の ID（新しいものが後ろ。古いものから外れる） */
-  hiddenItems: z.array(z.string().regex(/^[0-9a-f]{16}$/)).max(300).default([])
+  hiddenItems: z.array(z.string().regex(/^[0-9a-f]{16}$/)).max(300).default([]),
+  /** 保存した記事（新しいものが先頭） */
+  savedItems: z.array(SavedItemSchema).max(SAVED_LIMIT).default([])
 });
 
 export type Profile = z.infer<typeof ProfileSchema>;
@@ -64,6 +92,7 @@ export const DEFAULT_PROFILE: Profile = {
   categories: [],
   excludedSources: [],
   hiddenItems: [],
+  savedItems: [],
   topics: [
     {
       id: 'semiconductors', label: '半導体・量子',
