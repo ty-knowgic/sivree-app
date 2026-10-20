@@ -349,6 +349,7 @@ body.is-detail .tabs,
 body.is-detail .search-bar,
 body.is-detail .brand,
 body.is-detail #searchToggle,
+body.is-detail #savedButton,
 body.is-detail #settingsButton { display: none !important; }
 
 body:not(.is-detail) .appbar-row { padding-bottom: 0; }
@@ -1916,3 +1917,190 @@ html:lang(vi) body { line-height: 1.6; }
   color: var(--muted);
   font-size: 14px;
 }
+
+/* ---------- 保存した記事と引用 ---------- */
+
+.icon-button { position: relative; }
+
+.icon-badge {
+  position: absolute;
+  top: 3px;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.icon-badge[hidden] { display: none; }
+
+svg.is-filled path { fill: currentColor; }
+
+.saved-mark { display: inline-flex; color: var(--accent); }
+.saved-mark svg { width: 13px; height: 13px; }
+
+.detail-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+
+.tool-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 16px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tool-button svg { width: 18px; height: 18px; stroke-width: 1.8; }
+.tool-button.is-on { border-color: var(--accent); color: var(--accent); }
+
+.cite-panel {
+  margin: 10px 0 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.cite-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.cite-format {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cite-format[aria-pressed="true"] {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--bg);
+}
+
+.cite-text {
+  max-height: 260px;
+  margin: 0 0 10px;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: 0.8rem/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cite-foot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.cite-foot .settings-note { margin: 6px 0 0; }
+
+.cite-foot .secondary-button,
+.saved-export .secondary-button {
+  height: auto;
+  min-height: 44px;
+  padding: 8px 16px;
+}
+
+.saved-view {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 4px 140px;
+}
+
+.saved-toolbar { margin: 4px 0 16px; }
+.saved-search { margin-bottom: 10px; }
+
+.saved-export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.saved-format {
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.saved-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.saved-item {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.saved-title {
+  margin: 6px 0 8px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.saved-title a { color: inherit; text-decoration: none; }
+.saved-title a:hover { text-decoration: underline; }
+
+.saved-note-box summary {
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.saved-note-box textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* iOS で入力時に拡大されないよう 16px 以上にする */
+  resize: vertical;
+}
+
+.saved-item-actions { display: flex; gap: 16px; margin-top: 6px; }

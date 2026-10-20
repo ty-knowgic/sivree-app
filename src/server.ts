@@ -113,7 +113,8 @@ app.put('/api/profile', async (req, res) => {
 });
 
 app.post('/api/profile/reset', async (_req, res) => {
-  const profile = await saveProfile(defaultProfile());
+  // 保存した記事は設定ではなく利用者のデータなので、設定を初期化しても残す
+  const profile = await saveProfile({ ...defaultProfile(), savedItems: (await loadProfile()).savedItems });
   await updateCollectionFilter();
   res.json(profile);
 });

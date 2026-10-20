@@ -140,7 +140,8 @@ async function handle(url: URL, method: string, request: Request): Promise<Respo
     }
     return json(loadProfile());
   }
-  if (path === '/api/profile/reset' && method === 'POST') return json(saveProfile(defaultProfile()));
+  // 保存した記事は設定ではなく利用者のデータなので、設定を初期化しても残す
+  if (path === '/api/profile/reset' && method === 'POST') return json(saveProfile({ ...defaultProfile(), savedItems: loadProfile().savedItems }));
 
   if (path === '/api/categories') return json(listCategoryGroups());
   if (path === '/api/filters') return json(filterChoices(loadProfile()));

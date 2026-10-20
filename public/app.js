@@ -17,6 +17,9 @@ const todayEl = document.getElementById('today');
 const settingsView = document.getElementById('settingsView');
 const settingsButton = document.getElementById('settingsButton');
 const onboardingView = document.getElementById('onboardingView');
+const savedView = document.getElementById('savedView');
+const savedButton = document.getElementById('savedButton');
+const savedCount = document.getElementById('savedCount');
 
 const ALL_TAB = '';
 // 関心プロフィールに一致する記事を関連度順に並べるタブ
@@ -56,6 +59,9 @@ const HIDDEN_LIMIT = 300;
 const IMAGES_KEY = 'sivry:images';
 const VISIT_KEY = 'sivry:visit';
 const VISIT_GAP = 30 * 60 * 1000;
+const CITE_FORMAT_KEY = 'sivree:citeFormat';
+// 記事の画面で選べる引用の書式（CSV は保存した記事の一覧からの書き出しだけ）
+const CITE_FORMATS = ['plain', 'apa', 'markdown', 'bibtex', 'ris'];
 
 // 記事の画像は発信元のサーバーから直接読み込まれ、閲覧していることが発信元に伝わる（IP アドレスなど）。そのため、初期状態では表示しない
 function imagesOn() {
@@ -111,6 +117,7 @@ const ICONS = {
   sparkle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>',
   quote: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h4v4H8a1 1 0 0 0-1 1v4"/><path d="M15 7h4v4h-3a1 1 0 0 0-1 1v4"/></svg>',
   stack: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg>',
+  bookmark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>',
   external: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'
 };
 
@@ -207,15 +214,161 @@ function showToast(message, action) {
 }
 
 /** 保存済みのプロフィールを読み、変更して保存する。保存した結果を返す */
-async function updateProfile(change) {
-  const profile = await fetch('/api/profile').then(r => r.json());
-  const response = await fetch('/api/profile', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(change(profile))
+let profileWrites = Promise.resolve();
+function updateProfile(change) {
+  // 「読む → 変更 → 書く」を1件ずつ順に行う。重なると、後の書き込みが先の変更を上書きしてしまう
+  const run = profileWrites.then(async () => {
+    const profile = await fetch('/api/profile').then(r => r.json());
+    const response = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(change(profile))
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+  profileWrites = run.catch(() => {});
+  return run;
+}
+
+// ---------- 保存した記事と引用 ----------
+
+let savedItems = [];
+let savedIds = new Set();
+
+function setSaved(list) {
+  savedItems = Array.isArray(list) ? list : [];
+  savedIds = new Set(savedItems.map(entry => entry.id));
+  savedCount.textContent = savedItems.length > 99 ? '99+' : String(savedItems.length);
+  savedCount.hidden = !savedItems.length;
+}
+
+const isSaved = id => savedIds.has(id);
+const bookmarkIcon = filled => (filled ? ICONS.bookmark.replace('<svg', '<svg class="is-filled"') : ICONS.bookmark);
+const formatLabel = format => ({ plain: t('出典表記'), apa: 'APA', markdown: 'Markdown', bibtex: 'BibTeX', ris: 'RIS', csv: 'CSV' })[format];
+
+function citeFormat(allowCsv) {
+  try {
+    const saved = localStorage.getItem(CITE_FORMAT_KEY);
+    if (saved && SivreeSaved.FORMATS[saved] && (allowCsv || saved !== 'csv')) return saved;
+  } catch {
+    // 保存した選択が読めなければ既定の書式
+  }
+  return 'plain';
+}
+
+function setCiteFormat(format) {
+  try { localStorage.setItem(CITE_FORMAT_KEY, format); } catch { /* 保存できなければ今回だけ */ }
+}
+
+/** 引用の書式に渡す、現在の言語での発信元名と出典表記の文 */
+function citeContext() {
+  return {
+    locale: locale(),
+    accessed: new Date(),
+    sourceName: entry => t(entry.sourceName),
+    plain: fields => t('{source}「{title}」（{date}発表）{url}（{accessed}閲覧）', fields)
+  };
+}
+
+async function copyText(text, message) {
+  try {
+    // CSV の先頭の BOM（Excel 用）は、貼り付けるときには不要
+    await navigator.clipboard.writeText(text.replace(/^\uFEFF/, ''));
+    showToast(message);
+  } catch {
+    showToast(t('コピーできませんでした'));
+  }
+}
+
+function downloadText(filename, text, mime) {
+  const url = URL.createObjectURL(new Blob([text], { type: `${mime};charset=utf-8` }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** 記事を保存する／保存を解除する。保存した記事はプロフィールに入り、設定と同じ方法で端末間に移せる */
+async function toggleSave(item) {
+  const record = SivreeSaved.toSavedItem(item);
+  if (!record) {
+    showToast(t('保存できませんでした'));
+    return;
+  }
+  let outcome = 'saved';
+  let removed = null;
+  try {
+    const profile = await updateProfile((current) => {
+      const list = current.savedItems ?? [];
+      const existing = list.find(entry => entry.id === item.id);
+      if (existing) {
+        outcome = 'removed';
+        removed = existing;
+        return { ...current, savedItems: list.filter(entry => entry.id !== item.id) };
+      }
+      if (list.length >= SivreeSaved.LIMIT) throw new Error('full');
+      outcome = 'saved';
+      return { ...current, savedItems: [record, ...list] };
+    });
+    setSaved(profile.savedItems);
+  } catch (error) {
+    showToast(error.message === 'full' ? t('保存できる上限（{n}件）に達しました。不要な記事の保存を解除してください。', { n: SivreeSaved.LIMIT }) : t('保存できませんでした'));
+    return;
+  }
+  if (currentDetail?.id === item.id) {
+    renderDetail();
+    detailView.querySelector('[data-action="toggle-save"]')?.focus();
+  }
+  if (outcome === 'saved') {
+    showToast(t('記事を保存しました'), { label: t('保存した記事'), run: () => { location.hash = '#/saved'; } });
+  } else {
+    showToast(t('保存を解除しました'), {
+      label: t('元に戻す'),
+      run: () => restoreSaved(removed).then(() => { if (currentDetail?.id === item.id) renderDetail(); }).catch(() => showToast(t('保存できませんでした')))
+    });
+  }
+}
+
+/** 解除した記事を元に戻す（記録は保存した日時のまま、元の位置に入る） */
+async function restoreSaved(record) {
+  const profile = await updateProfile(current => ({ ...current, savedItems: SivreeSaved.mergeSavedItems([record], current.savedItems ?? []) }));
+  setSaved(profile.savedItems);
+}
+
+function renderCitePanel(record) {
+  const format = citeFormat(false);
+  const text = SivreeSaved.formatCitations([record], format, citeContext());
+  return `
+    <section class="cite-panel" aria-label="${escapeHtml(t('引用'))}">
+      <div class="cite-formats" role="group" aria-label="${escapeHtml(t('引用の書式'))}">
+        ${CITE_FORMATS.map(name => `<button class="cite-format" type="button" data-cite-format="${name}" aria-pressed="${name === format}">${escapeHtml(formatLabel(name))}</button>`).join('')}
+      </div>
+      <pre class="cite-text" dir="auto" tabindex="0">${escapeHtml(text)}</pre>
+      <div class="cite-foot">
+        <button class="secondary-button" type="button" data-action="copy-cite">${escapeHtml(t('引用をコピー'))}</button>
+        <p class="settings-note">${escapeHtml(t('見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。'))}</p>
+      </div>
+    </section>
+  `;
+}
+
+/** 詳細画面の「保存」「引用」。URL などが足りず保存できない記事には出さない */
+function renderDetailTools(item) {
+  const record = SivreeSaved.toSavedItem(item);
+  if (!record) return '';
+  const saved = isSaved(item.id);
+  const open = Boolean(currentDetail?.citeOpen);
+  return `
+    <div class="detail-tools">
+      <button class="tool-button${saved ? ' is-on' : ''}" type="button" data-action="toggle-save" aria-pressed="${saved}">${bookmarkIcon(saved)}${escapeHtml(saved ? t('保存済み') : t('保存'))}</button>
+      <button class="tool-button${open ? ' is-on' : ''}" type="button" data-action="toggle-cite" aria-expanded="${open}">${ICONS.quote}${escapeHtml(t('引用'))}</button>
+    </div>
+    ${open ? renderCitePanel(savedItems.find(entry => entry.id === item.id) ?? record) : ''}
+  `;
 }
 
 /**
@@ -456,6 +609,7 @@ function renderCard(item) {
         <div class="card-foot">
           ${isNewSinceVisit(item) ? `<span class="new-badge">${escapeHtml(t('新着'))}</span>` : ''}
           <time datetime="${escapeHtml(item.publishedAt)}">${escapeHtml(formatRelative(item.publishedAt))}</time>
+          ${isSaved(item.id) ? `<span class="saved-mark" role="img" aria-label="${escapeHtml(t('保存済み'))}">${bookmarkIcon(true)}</span>` : ''}
           ${matchChips(item)}
         </div>
         ${relatedLine(item)}
@@ -816,6 +970,7 @@ function renderDetail() {
         <time datetime="${escapeHtml(item.publishedAt)}">${escapeHtml(formatDateTime(item.publishedAt))}</time>
       </span>
     </div>
+    ${item.isSample ? '' : renderDetailTools(item)}
     ${image ? `<figure class="detail-image"><img src="${escapeHtml(image)}" alt="" referrerpolicy="no-referrer" data-fallback="figure"></figure>` : ''}
     ${renderAiCard(detail)}
     ${renderExcerpt(detail)}
@@ -873,6 +1028,7 @@ async function showDetail(id) {
   onboardingView.hidden = true;
   listView.hidden = true;
   settingsView.hidden = true;
+  savedView.hidden = true;
   detailView.hidden = false;
   backButton.hidden = false;
   shareButton.hidden = false;
@@ -927,6 +1083,8 @@ function showList() {
   detailView.hidden = true;
   settingsView.hidden = true;
   settingsView.innerHTML = '';
+  savedView.hidden = true;
+  savedView.innerHTML = '';
   detailView.innerHTML = '';
   listView.hidden = false;
   backButton.hidden = true;
@@ -1014,6 +1172,30 @@ async function articleAction(action) {
 }
 
 detailView.addEventListener('click', (event) => {
+  if (currentDetail?.item) {
+    if (event.target.closest('[data-action="toggle-save"]')) {
+      toggleSave(currentDetail.item);
+      return;
+    }
+    if (event.target.closest('[data-action="toggle-cite"]')) {
+      currentDetail.citeOpen = !currentDetail.citeOpen;
+      renderDetail();
+      detailView.querySelector('[data-action="toggle-cite"]')?.focus();
+      return;
+    }
+    const formatButton = event.target.closest('[data-cite-format]');
+    if (formatButton) {
+      setCiteFormat(formatButton.dataset.citeFormat);
+      renderDetail();
+      detailView.querySelector(`[data-cite-format="${formatButton.dataset.citeFormat}"]`)?.focus();
+      return;
+    }
+    if (event.target.closest('[data-action="copy-cite"]')) {
+      const record = savedItems.find(entry => entry.id === currentDetail.item.id) ?? SivreeSaved.toSavedItem(currentDetail.item);
+      if (record) copyText(SivreeSaved.formatCitations([record], citeFormat(false), citeContext()), t('引用をコピーしました'));
+      return;
+    }
+  }
   const articleButton = event.target.closest('[data-action="hide-article"], [data-action="follow-source"], [data-action="mute-source"]');
   if (articleButton) {
     articleAction(articleButton.dataset.action);
@@ -1036,6 +1218,176 @@ detailView.addEventListener('click', (event) => {
   refreshNews();
 });
 
+
+// ---------- 保存した記事の一覧 ----------
+
+let savedQuery = '';
+
+/** 保存した日の新しい順。検索語があれば、見出し・発信元・メモに含むものだけ */
+function visibleSaved() {
+  const sorted = [...savedItems].sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+  const query = savedQuery.trim().toLowerCase();
+  if (!query) return sorted;
+  return sorted.filter(entry => [entry.title, entry.note, entry.sourceName, t(entry.sourceName)].some(text => String(text ?? '').toLowerCase().includes(query)));
+}
+
+function renderSavedItem(entry) {
+  const url = safeUrl(entry.url);
+  const published = SivreeSaved.formatDate(SivreeSaved.dateParts(entry.publishedAt, entry.subgroup), locale());
+  return `
+    <li class="saved-item" data-id="${escapeHtml(entry.id)}">
+      <div class="card-meta">
+        <span class="source">${escapeHtml(t(entry.sourceName))}</span>
+        ${typeBadge(entry.sourceType) ? `<span class="source-badge">${escapeHtml(typeBadge(entry.sourceType))}</span>` : ''}
+        <span class="sep" aria-hidden="true"></span>
+        <time datetime="${escapeHtml(entry.publishedAt)}">${escapeHtml(published)}</time>
+      </div>
+      <h3 class="saved-title">${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(entry.title)}</a>` : escapeHtml(entry.title)}</h3>
+      <details class="saved-note-box"${entry.note ? ' open' : ''}>
+        <summary>${escapeHtml(t('メモ'))}</summary>
+        <textarea rows="3" maxlength="1000" data-note-for="${escapeHtml(entry.id)}" aria-label="${escapeHtml(t('メモ'))}">${escapeHtml(entry.note)}</textarea>
+      </details>
+      <div class="saved-item-actions">
+        <button class="text-button" type="button" data-action="copy-saved-one">${escapeHtml(t('引用をコピー'))}</button>
+        <button class="text-button" type="button" data-action="unsave">${escapeHtml(t('保存を解除'))}</button>
+      </div>
+    </li>
+  `;
+}
+
+function renderSavedList() {
+  if (!savedItems.length) {
+    return `<div class="empty-state"><strong>${escapeHtml(t('まだ保存した記事はありません'))}</strong>${escapeHtml(t('記事の画面の「保存」で追加できます。保存した記事は、掲載期間が過ぎても残ります。'))}</div>`;
+  }
+  const shown = visibleSaved();
+  if (!shown.length) {
+    return `<div class="empty-state"><strong>${escapeHtml(t('「{keyword}」に一致する記事はありません', { keyword: savedQuery.trim() }))}</strong>${escapeHtml(t('別のキーワードをお試しください。'))}</div>`;
+  }
+  return `<ul class="saved-list">${shown.map(renderSavedItem).join('')}</ul>`;
+}
+
+const savedCopyLabel = () => {
+  const n = visibleSaved().length;
+  return t('{n}件の引用をコピー', { n, count: n });
+};
+
+function renderSaved() {
+  const format = citeFormat(true);
+  savedView.innerHTML = `
+    <h1 class="settings-title">${escapeHtml(t('保存した記事'))}</h1>
+    <p class="settings-note">${escapeHtml(t('この端末のブラウザに保存されます。Google ドライブの同期を有効にすると、端末間でも共有されます。Sivree のサーバーには送られません。'))}</p>
+    ${savedItems.length ? `
+      <div class="saved-toolbar">
+        <label class="search-field saved-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+          <input type="search" data-saved-search value="${escapeHtml(savedQuery)}" placeholder="${escapeHtml(t('保存した記事を検索'))}" aria-label="${escapeHtml(t('保存した記事を検索'))}" enterkeyhint="search" autocomplete="off" />
+        </label>
+        <div class="saved-export">
+          <select class="saved-format" aria-label="${escapeHtml(t('引用の書式'))}">
+            ${[...CITE_FORMATS, 'csv'].map(name => `<option value="${name}"${name === format ? ' selected' : ''}>${escapeHtml(formatLabel(name))}</option>`).join('')}
+          </select>
+          <button class="secondary-button" type="button" data-action="copy-saved">${escapeHtml(savedCopyLabel())}</button>
+          <button class="secondary-button" type="button" data-action="download-saved">${escapeHtml(t('ファイルに保存'))}</button>
+        </div>
+        <p class="settings-note">${escapeHtml(t('メモは、CSV と RIS にだけ含まれます。'))}</p>
+      </div>` : ''}
+    <div id="savedList">${renderSavedList()}</div>
+  `;
+}
+
+async function showSaved() {
+  document.body.classList.add('is-detail');
+  document.body.classList.remove('is-onboarding');
+  onboardingView.hidden = true;
+  listView.hidden = true;
+  detailView.hidden = true;
+  settingsView.hidden = true;
+  savedView.hidden = false;
+  backButton.hidden = false;
+  shareButton.hidden = true;
+  document.title = `${t('保存した記事')} | Sivree`;
+  window.scrollTo(0, 0);
+  savedQuery = '';
+  renderSaved();
+  try {
+    // 別の端末から取り込んだ内容などを反映するため、開くたびに読み直す
+    const profile = await fetch('/api/profile').then(r => r.json());
+    if (savedView.hidden) return;
+    setSaved(profile.savedItems);
+    renderSaved();
+  } catch {
+    // 読み直せなくても、表示済みの内容を使う
+  }
+}
+
+function refreshSavedList() {
+  if (!savedItems.length) {
+    renderSaved();
+    return;
+  }
+  savedView.querySelector('#savedList').innerHTML = renderSavedList();
+  const copy = savedView.querySelector('[data-action="copy-saved"]');
+  if (copy) copy.textContent = savedCopyLabel();
+}
+
+savedView.addEventListener('input', (event) => {
+  if (!event.target.matches('[data-saved-search]')) return;
+  savedQuery = event.target.value;
+  refreshSavedList();
+});
+
+savedView.addEventListener('change', async (event) => {
+  if (event.target.matches('.saved-format')) {
+    setCiteFormat(event.target.value);
+    return;
+  }
+  const area = event.target.closest('textarea[data-note-for]');
+  if (!area) return;
+  try {
+    const profile = await updateProfile(current => ({
+      ...current,
+      savedItems: (current.savedItems ?? []).map(entry => (entry.id === area.dataset.noteFor ? { ...entry, note: area.value.slice(0, 1000) } : entry))
+    }));
+    setSaved(profile.savedItems);
+  } catch {
+    showToast(t('保存できませんでした'));
+  }
+});
+
+savedView.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+  const action = button.dataset.action;
+  const format = savedView.querySelector('.saved-format')?.value ?? citeFormat(true);
+  const entry = savedItems.find(candidate => candidate.id === button.closest('.saved-item')?.dataset.id);
+  if (action === 'copy-saved' || action === 'download-saved') {
+    const shown = visibleSaved();
+    if (!shown.length) return;
+    const text = SivreeSaved.formatCitations(shown, format, citeContext());
+    if (action === 'copy-saved') {
+      await copyText(text, t('引用をコピーしました'));
+      return;
+    }
+    const spec = SivreeSaved.FORMATS[format];
+    const today = SivreeSaved.localParts(new Date());
+    const name = `sivree-saved-${today.year}-${String(today.month).padStart(2, '0')}-${String(today.day).padStart(2, '0')}.${spec.ext}`;
+    downloadText(name, text, spec.mime);
+  } else if (action === 'copy-saved-one' && entry) {
+    await copyText(SivreeSaved.formatCitations([entry], format, citeContext()), t('引用をコピーしました'));
+  } else if (action === 'unsave' && entry) {
+    try {
+      const profile = await updateProfile(current => ({ ...current, savedItems: (current.savedItems ?? []).filter(candidate => candidate.id !== entry.id) }));
+      setSaved(profile.savedItems);
+      refreshSavedList();
+      showToast(t('保存を解除しました'), {
+        label: t('元に戻す'),
+        run: () => restoreSaved(entry).then(() => { if (!savedView.hidden) refreshSavedList(); }).catch(() => showToast(t('保存できませんでした')))
+      });
+    } catch {
+      showToast(t('保存できませんでした'));
+    }
+  }
+});
 
 // ---------- 地域・分野の選択（初回の質問と設定で共通） ----------
 
@@ -1126,6 +1478,7 @@ async function showOnboarding() {
   listView.hidden = true;
   detailView.hidden = true;
   settingsView.hidden = true;
+  savedView.hidden = true;
   onboardingView.hidden = false;
   document.title = `${t('ようこそ')} | Sivree`;
   window.scrollTo(0, 0);
@@ -1420,7 +1773,7 @@ function renderSettingsExtras() {
   return `
     <section class="settings-extra">
       <h2 class="settings-subtitle">${escapeHtml(t('設定の持ち運び'))}</h2>
-      <p class="settings-note">${escapeHtml(t('保存済みの設定（地域・分野、情報源、関心トピック、非表示にした記事）をコピーして、別の端末に貼り付けられます。アカウントやサーバーへの保存はありません。'))}</p>
+      <p class="settings-note">${escapeHtml(t('保存済みの設定（地域・分野、情報源、関心トピック、非表示にした記事、保存した記事）をコピーして、別の端末に貼り付けられます。アカウントやサーバーへの保存はありません。'))}</p>
       <div class="extra-actions">
         <button class="secondary-button" type="button" data-action="copy-settings">${escapeHtml(t('設定をコピー'))}</button>
         <button class="secondary-button" type="button" data-action="paste-settings">${escapeHtml(t('設定を貼り付け'))}</button>
@@ -1517,6 +1870,7 @@ async function showSettings() {
   document.body.classList.add('is-detail');
   listView.hidden = true;
   detailView.hidden = true;
+  savedView.hidden = true;
   settingsView.hidden = false;
   backButton.hidden = false;
   shareButton.hidden = true;
@@ -1649,6 +2003,9 @@ settingsView.addEventListener('click', async (event) => {
     const text = settingsView.querySelector('.paste-box textarea').value.trim();
     try {
       const parsed = JSON.parse(text);
+      // 貼り付けた設定に保存した記事がなくても（古い設定のコピーなど）、この端末の保存した記事は消さない
+      const current = await fetch('/api/profile').then(r => r.json());
+      parsed.savedItems = SivreeSaved.mergeSavedItems(parsed.savedItems, current.savedItems);
       const response = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed) });
       if (!response.ok) throw new Error('invalid');
       showToast(t('設定を読み込みました'));
@@ -1731,6 +2088,12 @@ settingsButton.addEventListener('click', () => {
   location.hash = '#/settings';
 });
 
+savedButton.addEventListener('click', () => {
+  listScrollY = window.scrollY;
+  openedFromList = true;
+  location.hash = '#/saved';
+});
+
 // 画面の左端から右へスワイプすると前の画面に戻る（ホーム画面に追加したアプリでは標準の戻る操作が効かないため）
 {
   // 指が最初に触れる位置は端から少し離れることが多いため、開始位置は広めに取る
@@ -1779,6 +2142,8 @@ function route() {
     showOnboarding();
   } else if (location.hash === '#/settings') {
     showSettings();
+  } else if (location.hash === '#/saved') {
+    showSaved();
   } else if (match) {
     showDetail(decodeURIComponent(match[1]));
   } else {
@@ -1817,7 +2182,7 @@ function updateToday() {
   const [categories] = await Promise.all([
     fetch('/api/filters').then(r => r.json()).then((filters) => { renderFilterOptions(filters); return filters.categories; }).catch(() => []),
     fetch('/api/config').then(r => r.json()).then(config => { state.config = config; state.summaryEnabled = Boolean(config.summaryEnabled); }).catch(() => {}),
-    fetch('/api/profile').then(r => r.json()).then(profile => { state.needsOnboarding = profile.onboarded === false; }).catch(() => {})
+    fetch('/api/profile').then(r => r.json()).then(profile => { state.needsOnboarding = profile.onboarded === false; setSaved(profile.savedItems); }).catch(() => {})
   ]);
   renderTabs(categories);
   syncFilterControls();

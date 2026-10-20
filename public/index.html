@@ -35,6 +35,10 @@
           <button id="shareButton" class="icon-button" type="button" data-i18n-aria="共有" aria-label="共有" hidden>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12" /><path d="M8 7l4-4 4 4" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" /></svg>
           </button>
+          <button id="savedButton" class="icon-button" type="button" data-i18n-aria="保存した記事" aria-label="保存した記事">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z" /></svg>
+            <span id="savedCount" class="icon-badge" aria-hidden="true" hidden>0</span>
+          </button>
           <button id="settingsButton" class="icon-button" type="button" data-i18n-aria="設定" aria-label="設定">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/></svg>
           </button>
@@ -86,10 +90,13 @@
 
       <section id="settingsView" class="settings-view" hidden></section>
 
+      <section id="savedView" class="saved-view" hidden></section>
+
       <section id="onboardingView" class="onboarding" hidden></section>
     </main>
 
     <script src="i18n.js"></script>
+    <script src="saved.js"></script>
     <script src="sync.js"></script>
     <script src="app.js"></script>
   </body>
