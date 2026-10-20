@@ -124,10 +124,10 @@ def build(code):
     ws = wb.active
     ws.title = 'Read me'
     lines = [
-        (f'Sivry — translation review ({name})', True),
+        (f'Sivree — translation review ({name})', True),
         ('', False),
         ('About the app', True),
-        ('Sivry is a personal news app. It collects announcements that governments, companies, research institutes and NPOs publish themselves (primary sources only — no news-media articles), and shows the ones that match each user’s interests. It is meant for people in Japan, Canada, the US, Europe and ASEAN countries.', False),
+        ('Sivree is a personal news app. It collects announcements that governments, companies, research institutes and NPOs publish themselves (primary sources only — no news-media articles), and shows the ones that match each user’s interests. It is meant for people in Japan, Canada, the US, Europe and ASEAN countries.', False),
         ('', False),
         ('What we ask you to do', True),
         ('1. Open the “Review” sheet. Each row is one piece of text shown in the app: the English original and our draft translation. The drafts were written by an AI assistant and have NOT yet been checked by a native speaker.', False),
@@ -213,7 +213,7 @@ def build(code):
     rs.auto_filter.ref = f'A1:J{rs.max_row}'
 
     OUT.mkdir(exist_ok=True)
-    path = OUT / f'sivry-review-{code}.xlsx'
+    path = OUT / f'sivree-review-{code}.xlsx'
     wb.save(path)
     return path, number
 

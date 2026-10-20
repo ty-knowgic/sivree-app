@@ -1,7 +1,9 @@
-# Sivry — working notes for Claude
+# Sivree — working notes for Claude
+
+The app was named Sivry until 2026-10-20 (旧名 Sivry). Persisted identifiers keep the old `sivry` prefix on purpose (localStorage keys, the Drive file `sivry-settings.json`); `npm run check:brand` flags any other leftover.
 
 Personal news app that shows only **primary sources** (governments, companies, research bodies, NPOs). Read `PRODUCT.md` (principles) and `BACKLOG.md` (decisions, market view) before proposing features.
-Live: https://ty-knowgic.github.io/sivry-app/ (GitHub Pages; "Publish Sivry" workflow runs on push and every ~3 h).
+Live: https://ty-knowgic.github.io/sivree-app/ (GitHub Pages; "Publish Sivree" workflow runs on push and every ~3 h).
 
 ## Layout
 - `src/` Express + TypeScript server and shared logic (profile matching, pipeline, robots, vectors). `src/browser/main.ts` is the in-browser API used by the static site (bundled to `static-api.js`).
@@ -9,7 +11,7 @@ Live: https://ty-knowgic.github.io/sivry-app/ (GitHub Pages; "Publish Sivry" wor
 - `scripts/` checks and tests. `.github/workflows/publish.yml` runs them in CI.
 
 ## Before every commit (all must pass)
-`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run test:feeds` · `npm run build:site`
+`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run check:brand` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run test:feeds` · `npm run build:site`
 
 ## Conventions that bite
 - **i18n**: the Japanese text is the key. Every new UI string needs an entry in all 12 other `public/locales/*.json` (`check:locales` fails otherwise). New source names **and labels** go in `locales/sources.json`; `check:i18n-keys` fails if code uses a Japanese string that isn't in the dictionaries, `check:source-names` fails for untranslated feed names/labels. Anything generated into data (hashtags, labels) must be translated at render time.
@@ -22,7 +24,7 @@ Live: https://ty-knowgic.github.io/sivry-app/ (GitHub Pages; "Publish Sivry" wor
 - User settings live **only on the client**. No server-side user data, no accounts, **no email digest**. Cross-device = copy/paste, or optional Google Drive appDataFolder sync (needs `CLIENT_ID` in `public/sync.js`).
 - Audience and pricing (2026-10-20): professionals whose work depends on primary sources (consultants, licensed professionals, think-tank researchers). Personal non-business use, educational institutions and charities free; business/organizational use (companies, firms, public research organizations) paid annually per organization, free during beta. Entitlement = signed license key checked on the device, **not** accounts. Details in `PRODUCT.md` / `BACKLOG.md`. Code license: PolyForm Noncommercial 1.0.0 (`LICENSE`). Embedding model pinned to `embeddinggemma:300m` (Gemma terms read; only outputs ship). Per-source terms: `SOURCE_TERMS.md`; the 15 B1 sources (commercial use restricted) show **headline + link only** (`titleOnly` on the feed; no description, summary or image); ask permission later based on usage/feedback; press-release wires still to be asked. Trademark: preliminary search clean, nothing filed.
 - No human reviewers or experts for QA — do review/QA myself and say what I couldn't verify.
-- Primary sources only: no media feeds, no SNS. Honest crawler identity `SivryBot`; obey robots.txt; don't work around 403s.
+- Primary sources only: no media feeds, no SNS. Honest crawler identity `SivreeBot`; obey robots.txt; don't work around 403s.
 - Never reset the user's saved profile in tests; don't leave local servers running (the user tests on GitHub).
 - **Ask before `git push`** (and before anything outward-facing: labels, issues, publishing).
 

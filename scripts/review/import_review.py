@@ -23,9 +23,9 @@ def main():
     parser.add_argument('--dry-run', action='store_true')
     args = parser.parse_args()
 
-    match = re.match(r'sivry-review-(.+)\.xlsx$', Path(args.workbook).name)
+    match = re.match(r'sivree-review-(.+)\.xlsx$', Path(args.workbook).name)
     if not match:
-        raise SystemExit('ファイル名は sivry-review-<言語>.xlsx の形にしてください')
+        raise SystemExit('ファイル名は sivree-review-<言語>.xlsx の形にしてください')
     code = match.group(1)
     path = Path(args.locales) / f'{code}.json'
     messages = json.loads(path.read_text(encoding='utf-8'))

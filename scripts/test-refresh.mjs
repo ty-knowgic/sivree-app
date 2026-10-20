@@ -29,7 +29,7 @@ w.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {
 w.Element.prototype.scrollIntoView = () => {};
 w.scrollTo = () => {};
 let reloadEvents = 0;
-w.addEventListener('sivry:reload-data', () => { reloadEvents++; });
+w.addEventListener('sivree:reload-data', () => { reloadEvents++; });
 w.eval(src);
 const until = async (cond, ms = 3000) => { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await new Promise(r => setTimeout(r, 20)); return cond(); };
 const count = (prefix) => calls.filter(c => c.startsWith(prefix)).length;

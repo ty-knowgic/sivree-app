@@ -1,5 +1,5 @@
 {
-  "name": "sivry-app",
+  "name": "sivree-app",
   "version": "1.0.0",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
@@ -20,7 +20,8 @@
     "test:refresh": "node scripts/test-refresh.mjs",
     "test:feeds": "tsx scripts/test-feeds.ts",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
-    "check:source-names": "tsx scripts/check-source-names.ts"
+    "check:source-names": "tsx scripts/check-source-names.ts",
+    "check:brand": "node scripts/check-brand.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",

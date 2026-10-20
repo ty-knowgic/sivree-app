@@ -22,7 +22,7 @@ function device() {
       if (options.method === 'PUT') {
         profile = JSON.parse(options.body);
         w.localStorage.setItem('sivry.profile.updatedAt', String(Math.max(Date.now(), Number(w.localStorage.getItem('sivry.profile.updatedAt')) + 1)));
-        w.dispatchEvent(new w.Event('sivry:profile-saved'));
+        w.dispatchEvent(new w.Event('sivree:profile-saved'));
       }
       return json(profile);
     }
@@ -33,14 +33,14 @@ function device() {
     if (options.method === 'DELETE') { drive.file = null; return json({}); }
     if (url.includes('/upload/')) {
       const raw = options.body;
-      drive.file = JSON.parse(raw.includes('--sivry') ? raw.split('\r\n\r\n')[2].split('\r\n--')[0] : raw);
+      drive.file = JSON.parse(raw.includes('--sivree') ? raw.split('\r\n\r\n')[2].split('\r\n--')[0] : raw);
       return json({ id: 'f1' });
     }
     return json({}, 404);
   };
   w.eval(source);
   return {
-    sync: w.SivrySync,
+    sync: w.SivreeSync,
     get profile() { return profile; },
     edit(change) { profile = { ...profile, ...change }; w.localStorage.setItem('sivry.profile.updatedAt', String(Math.max(Date.now(), Number(w.localStorage.getItem('sivry.profile.updatedAt')) + 1))); },
     window: w
@@ -73,7 +73,7 @@ check('B: 競合で OK を選ぶとドライブの設定を使う', (await b.syn
 
 // 保存すると、数秒後に自動で送信される（トークンがあるとき）
 b.edit({ marker: 'auto' });
-b.window.dispatchEvent(new b.window.Event('sivry:profile-saved'));
+b.window.dispatchEvent(new b.window.Event('sivree:profile-saved'));
 await new Promise((r) => setTimeout(r, 3300));
 check('B: 設定の保存後に自動で送信する', drive.file.profile.marker === 'auto');
 
@@ -82,7 +82,7 @@ check('ドライブの保存データを削除できる', drive.file === null);
 await b.sync.disconnect();
 check('同期をやめると状態を消す', b.window.localStorage.getItem('sivry:sync') === null);
 check('同期をやめた端末は自動同期しない', (await b.sync.auto()) === null);
-check('サーバー（Sivry）への通信はない: 通信先は /api/profile と Google のみ', drive.calls.every((c) => /\/(drive|upload)\//.test(c)));
+check('サーバー（Sivree）への通信はない: 通信先は /api/profile と Google のみ', drive.calls.every((c) => /\/(drive|upload)\//.test(c)));
 
 console.log(failures ? `失敗: ${failures}` : 'すべて成功');
 process.exit(failures ? 1 : 0);

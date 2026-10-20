@@ -1,5 +1,5 @@
 name: Beta feedback / ベータ版のご意見
-description: Tell us how Sivry worked for you. / 使ってみた感想をお聞かせください。
+description: Tell us how Sivree worked for you. / 使ってみた感想をお聞かせください。
 title: "[Feedback] "
 labels: ["feedback"]
 body:
@@ -11,7 +11,7 @@ body:
   - type: dropdown
     id: miss
     attributes:
-      label: If Sivry disappeared tomorrow, how would you feel? / 明日 Sivry がなくなったらどう感じますか？
+      label: If Sivree disappeared tomorrow, how would you feel? / 明日 Sivree がなくなったらどう感じますか？
       options:
         - Very disappointed / とても困る
         - Somewhat disappointed / 少し困る

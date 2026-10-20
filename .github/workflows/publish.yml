@@ -1,5 +1,5 @@
 # 数時間おきに一次情報を集めて、静的サイト（GitHub Pages）を更新する。サーバーは不要。
-name: Publish Sivry
+name: Publish Sivree
 
 on:
   schedule:
@@ -39,6 +39,8 @@ jobs:
       # コードに書いた文言と、情報源の名前・説明が、すべて辞書にあることを確かめる
       - run: npm run check:i18n-keys
       - run: npm run check:source-names
+      # 旧名（Sivry）が、意図して残す保存データの識別子以外に残っていないことを確かめる
+      - run: npm run check:brand
       # 敵意のあるフィードの内容を描画しても、スクリプトが実行されないことを確かめる
       - run: npm run test:xss
 
