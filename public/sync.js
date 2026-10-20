@@ -1,4 +1,4 @@
-// 端末間の設定の同期。設定は Sivry のサーバーには送らず、利用者自身の Google ドライブにある
+// 端末間の設定の同期。設定は Sivree のサーバーには送らず、利用者自身の Google ドライブにある
 // このアプリ専用の非表示フォルダ（appDataFolder）に 1 つのファイルとして置く。
 // Google へのログインは「そのフォルダにアクセスする許可」を得るためだけに使う（スコープは drive.appdata のみ）。
 // 利用者が「Google でログインして同期」を押すまで、Google とは一切通信しない。
@@ -104,7 +104,7 @@
       await drive(`/upload/drive/v3/files/${id}?uploadType=media`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body });
       return;
     }
-    const boundary = `sivry${Date.now()}`;
+    const boundary = `sivree${Date.now()}`;
     const metadata = JSON.stringify({ name: FILE_NAME, parents: ['appDataFolder'] });
     const multipart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
     await drive('/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: multipart });
@@ -179,13 +179,13 @@
   }
 
   // 設定を保存したら、同期が有効でトークンがあるときだけ少し待ってから反映する
-  window.addEventListener('sivry:profile-saved', () => {
+  window.addEventListener('sivree:profile-saved', () => {
     if (applying || !readState().enabled || !token || Date.now() >= tokenExpiry) return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(() => { sync({ interactive: false }).catch(() => notify({ type: 'error' })); }, PUSH_DELAY);
   });
 
-  window.SivrySync = {
+  window.SivreeSync = {
     available: Boolean(CLIENT_ID),
     state: readState,
     connect: (resolveConflict) => sync({ interactive: true, resolveConflict }),

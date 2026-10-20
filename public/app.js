@@ -51,7 +51,7 @@ const listJoin = items => formatList(items);
 const PAGE_SIZE = 30;
 const STORAGE_KEY = 'personal-news:list-state';
 // ご意見・情報源のリクエストの送り先。別のフォームを使う場合はここを置き換える
-const FEEDBACK_URL = 'https://github.com/ty-knowgic/sivry-app/issues/new';
+const FEEDBACK_URL = 'https://github.com/ty-knowgic/sivree-app/issues/new';
 const HIDDEN_LIMIT = 300;
 const IMAGES_KEY = 'sivry:images';
 const VISIT_KEY = 'sivry:visit';
@@ -574,10 +574,10 @@ const STALE_AFTER = 10 * 60 * 1000;
 
 /**
  * 公開済みの最新のデータを読み直して、一覧を更新する（ロゴを押したとき・しばらくぶりに戻ったとき）。
- * 静的版では、読み込み済みのデータを捨てて取り直させる（static-api の sivry:reload-data）
+ * 静的版では、読み込み済みのデータを捨てて取り直させる（static-api の sivree:reload-data）
  */
 async function reloadData() {
-  window.dispatchEvent(new Event('sivry:reload-data'));
+  window.dispatchEvent(new Event('sivree:reload-data'));
   try {
     state.config = await fetch('/api/config').then(r => r.json());
   } catch {
@@ -883,7 +883,7 @@ async function showDetail(id) {
 
   if (known) {
     renderDetail();
-    document.title = `${displayTitle(known)} | Sivry`;
+    document.title = `${displayTitle(known)} | Sivree`;
   } else {
     detailView.innerHTML = `<div class="empty-state">${escapeHtml(t('読み込み中…'))}</div>`;
   }
@@ -896,7 +896,7 @@ async function showDetail(id) {
 
     itemsById.set(data.item.id, { ...known, ...data.item });
     Object.assign(currentDetail, { item: data.item, content: data.content, summary: data.summary, related: data.related ?? [] });
-    document.title = `${data.summary?.headlineJa || data.item.title} | Sivry`;
+    document.title = `${data.summary?.headlineJa || data.item.title} | Sivree`;
 
     if (data.summary) {
       currentDetail.summaryState = 'done';
@@ -931,7 +931,7 @@ function showList() {
   listView.hidden = false;
   backButton.hidden = true;
   shareButton.hidden = true;
-  document.title = 'Sivry';
+  document.title = 'Sivree';
 
   // 詳細で作成された AI 要約を一覧にも反映する
   if (state.items.length) {
@@ -1127,7 +1127,7 @@ async function showOnboarding() {
   detailView.hidden = true;
   settingsView.hidden = true;
   onboardingView.hidden = false;
-  document.title = `${t('ようこそ')} | Sivry`;
+  document.title = `${t('ようこそ')} | Sivree`;
   window.scrollTo(0, 0);
   onboardingView.innerHTML = `<div class="empty-state">${escapeHtml(t('読み込み中…'))}</div>`;
   try {
@@ -1443,17 +1443,17 @@ function renderSettingsExtras() {
   `;
 }
 
-/** Google ドライブでの同期の項目。クライアント ID が未設定（SivrySync.available が偽）なら出さない */
+/** Google ドライブでの同期の項目。クライアント ID が未設定（SivreeSync.available が偽）なら出さない */
 function renderSyncSection() {
-  if (!window.SivrySync?.available) return '';
-  const state = window.SivrySync.state();
+  if (!window.SivreeSync?.available) return '';
+  const state = window.SivreeSync.state();
   const button = (action, label) => `<button class="secondary-button" type="button" data-action="${action}">${escapeHtml(t(label))}</button>`;
   const status = state.enabled && state.lastAt
     ? `<p class="settings-note">${escapeHtml(t('同期は有効です。最終同期: {time}', { time: new Date(state.lastAt).toLocaleString(locale()) }))}</p>`
     : '';
   return `
       <h2 class="settings-subtitle">${escapeHtml(t('Google ドライブで同期'))}</h2>
-      <p class="settings-note">${escapeHtml(t('設定を、あなたの Google ドライブ内のこのアプリ専用の非表示フォルダに保存して、端末間で同期します。Sivry のサーバーには保存されません。Google へのログインは同期のためだけに使い、このフォルダ以外のファイルは読めません。'))}</p>
+      <p class="settings-note">${escapeHtml(t('設定を、あなたの Google ドライブ内のこのアプリ専用の非表示フォルダに保存して、端末間で同期します。Sivree のサーバーには保存されません。Google へのログインは同期のためだけに使い、このフォルダ以外のファイルは読めません。'))}</p>
       ${status}
       <div class="extra-actions">
         ${state.enabled
@@ -1476,14 +1476,14 @@ async function runSync(operation) {
   }
 }
 
-if (window.SivrySync) {
+if (window.SivreeSync) {
   // ドライブ側の設定を取り込んだら、画面を読み込み直して反映する
-  window.SivrySync.on((event) => {
+  window.SivreeSync.on((event) => {
     if (event.type !== 'pulled') return;
     showToast(t('ドライブの設定を読み込みました'));
     setTimeout(() => location.reload(), 900);
   });
-  window.SivrySync.auto(syncConflict);
+  window.SivreeSync.auto(syncConflict);
 }
 
 // 入力欄の内容を下書きに反映する（再描画の前に呼ぶ）
@@ -1520,7 +1520,7 @@ async function showSettings() {
   settingsView.hidden = false;
   backButton.hidden = false;
   shareButton.hidden = true;
-  document.title = `${t('設定')} | Sivry`;
+  document.title = `${t('設定')} | Sivree`;
   window.scrollTo(0, 0);
   settingsView.innerHTML = `<div class="empty-state">${escapeHtml(t('読み込み中…'))}</div>`;
   try {
@@ -1569,11 +1569,11 @@ async function switchLanguage(lang) {
   await setLang(lang);
   updateToday();
   if (!onboardingView.hidden) {
-    document.title = `${t('ようこそ')} | Sivry`;
+    document.title = `${t('ようこそ')} | Sivree`;
     renderOnboarding();
     return;
   }
-  document.title = `${t('設定')} | Sivry`;
+  document.title = `${t('設定')} | Sivree`;
   await reloadFilters().catch(() => {});
   if (inSettings) renderSettings();
 }
@@ -1659,14 +1659,14 @@ settingsView.addEventListener('click', async (event) => {
       showToast(t('設定の形式が正しくありません'));
     }
   } else if (action === 'sync-connect' || action === 'sync-now') {
-    await runSync(() => window.SivrySync.connect(syncConflict));
+    await runSync(() => window.SivreeSync.connect(syncConflict));
   } else if (action === 'sync-disconnect') {
-    await window.SivrySync.disconnect();
+    await window.SivreeSync.disconnect();
     renderSettings();
   } else if (action === 'sync-delete') {
     if (!confirm(t('ドライブの保存データを削除しますか？この端末の設定は残ります。'))) return;
     try {
-      await window.SivrySync.deleteRemote();
+      await window.SivreeSync.deleteRemote();
       showToast(t('削除しました'));
     } catch {
       showToast(t('同期できませんでした'));

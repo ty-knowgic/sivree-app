@@ -8,8 +8,8 @@ const robotsParser = createRequire(import.meta.url)('robots-parser') as (url: st
  * 発信元のページを取得する前に robots.txt を確認する（RFC 9309）。
  * robots.txt が無い（4xx）場合は取得してよい。応答が得られない（5xx・通信エラー）場合は、取得を控える
  */
-export const CRAWLER_NAME = 'SivryBot';
-export const USER_AGENT = `Mozilla/5.0 (compatible; ${CRAWLER_NAME}/1.0; +https://github.com/ty-knowgic/sivry-app)`;
+export const CRAWLER_NAME = 'SivreeBot';
+export const USER_AGENT = `Mozilla/5.0 (compatible; ${CRAWLER_NAME}/1.0; +https://github.com/ty-knowgic/sivree-app)`;
 
 const TTL_MS = 6 * 60 * 60 * 1000;
 const FAILURE_TTL_MS = 10 * 60 * 1000;

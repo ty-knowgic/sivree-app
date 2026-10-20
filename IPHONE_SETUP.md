@@ -1,8 +1,8 @@
-# iPhone で Sivry（α版）を使う
+# iPhone で Sivree（α版）を使う
 
 ## おすすめ: 公開サイト（GitHub Pages）で使う（外出先でも・無料・保守不要）
 
-1. iPhone の Safari で https://ty-knowgic.github.io/sivry-app/ を開く
+1. iPhone の Safari で https://ty-knowgic.github.io/sivree-app/ を開く
 2. 共有ボタン →「ホーム画面に追加」
 3. 以後はアプリのように起動できます。Mac の電源やネットワーク設定は不要です。
 
@@ -13,7 +13,7 @@
 
 以下は、Mac 上のサーバーに同じ Wi-Fi から接続する従来の方法です。
 
-このガイドでは、iPhone から Sivry α版 にアクセスして利用する方法を説明します。
+このガイドでは、iPhone から Sivree α版 にアクセスして利用する方法を説明します。
 
 ---
 

@@ -41,7 +41,7 @@ async function getJson<T>(name: string): Promise<T> {
 const originalFetch = window.fetch.bind(window);
 let loading: Promise<StaticData> | null = null;
 // 画面から「最新のデータを読み直して」と頼まれたら、読み込み済みのデータを捨てて次の問い合わせで取り直す
-window.addEventListener('sivry:reload-data', () => { loading = null; });
+window.addEventListener('sivree:reload-data', () => { loading = null; });
 
 function load(): Promise<StaticData> {
   loading ??= (async () => {
@@ -80,7 +80,7 @@ function saveProfile(input: unknown): Profile {
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   // 端末間の同期（sync.js）が「この端末で設定が変わった」ことを判断できるように、更新時刻を残して知らせる
   localStorage.setItem(PROFILE_UPDATED_KEY, String(Math.max(Date.now(), Number(localStorage.getItem(PROFILE_UPDATED_KEY)) + 1)));
-  window.dispatchEvent(new Event('sivry:profile-saved'));
+  window.dispatchEvent(new Event('sivree:profile-saved'));
   return profile;
 }
 

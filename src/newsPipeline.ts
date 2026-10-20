@@ -26,7 +26,7 @@ const parser = new Parser<Record<string, unknown>, { mediaContent?: MediaField; 
   }
 });
 
-// 取得元には SivryBot と名乗る（「Mozilla/5.0 (compatible; …)」の形なら、公式サイトの多くが受け付ける）。ブラウザを装わない
+// 取得元には SivreeBot と名乗る（「Mozilla/5.0 (compatible; …)」の形なら、公式サイトの多くが受け付ける）。ブラウザを装わない
 // 100 件の取得を同時に始めると定期ジョブの実行環境で通信が詰まり、普段は数秒で返る情報源も時間切れになるため、
 // 同時に取得する数を絞り、時間切れや一時的なサーバーの不調は1回だけ取り直す
 const FETCH_TIMEOUT_MS = 15000;
