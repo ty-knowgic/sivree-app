@@ -64,7 +64,8 @@ function sourceWeight(item: NewsItem): number {
 // 保存済みの要約があれば一覧用の項目に添える（ここでは新たな要約は作らない）
 export function withStoredSummaries(summaries: Map<string, ArticleSummary>, items: NewsItem[]) {
   return items.map((item) => {
-    const summary = summaries.get(item.id);
+    // 見出しとリンクだけを表示する記事（利用条件による）には、要約を添えない
+    const summary = item.titleOnly ? undefined : summaries.get(item.id);
     return summary ? { ...item, ai: { headlineJa: summary.headlineJa, summary: summary.summary, method: summary.method } } : item;
   });
 }
@@ -245,5 +246,5 @@ export function newsDetail(ctx: ApiContext, id: string) {
   const item = ctx.items.find(candidate => candidate.id === id);
   if (!item) return undefined;
   const related = ctx.hasVectors ? findRelated(item, visibleNews(ctx, true), buildStoryIndex(ctx.items)) : [];
-  return { item, related, summary: ctx.summaries.get(item.id) ?? null };
+  return { item, related, summary: (item.titleOnly ? undefined : ctx.summaries.get(item.id)) ?? null };
 }

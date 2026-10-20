@@ -31,6 +31,8 @@ export interface FeedSource {
   languages?: string[];
   /** 記事の URL からカテゴリを決める規則（カナダ政府の全省庁フィードのように、記事ごとに担当省庁が異なる場合） */
   categoryByUrl?: [RegExp, CategoryKey][];
+  /** 発信元の利用条件が商用での利用・再配布を制限している場合（SOURCE_TERMS.md の B1）。見出しと原文へのリンクだけを表示し、説明文・要約・画像は出さない */
+  titleOnly?: boolean;
 }
 
 export interface NewsItem {
@@ -52,6 +54,8 @@ export interface NewsItem {
   hashtags: string[];
   keywords: string[];
   isSample?: boolean;
+  /** 見出しと原文へのリンクだけを表示する記事（発信元の利用条件による）。説明文・要約・画像は持たない */
+  titleOnly?: boolean;
 }
 
 export interface NewsFilters {

@@ -54,7 +54,7 @@ export const officialFeeds: FeedSource[] = [
   { sourceType: 'official', category: '経済', subgroup: '日本', sourceName: '日本銀行', sourceUrl: 'https://www.boj.or.jp/', feedUrl: 'https://www.boj.or.jp/rss/whatsnew.xml', label: '日本銀行 新着情報', maxItems: 6, excludeRoutine: true },
   { sourceType: 'official', category: '経済', subgroup: '日本', sourceName: '財務省', sourceUrl: 'https://www.mof.go.jp/', feedUrl: 'https://www.mof.go.jp/news.rss', label: '財務省 新着情報', maxItems: 6, excludeRoutine: true },
   { sourceType: 'official', category: '経済', subgroup: '日本', sourceName: '金融庁', sourceUrl: 'https://www.fsa.go.jp/', feedUrl: 'https://www.fsa.go.jp/fsaNewsListAll_rss2.xml', label: '金融庁 新着情報', maxItems: 6, excludeRoutine: true },
-  { sourceType: 'official', category: '経済', subgroup: '日本', sourceName: 'JPX', sourceUrl: 'https://www.jpx.co.jp/', feedUrl: 'https://www.jpx.co.jp/rss/jpx-news.xml', label: '日本取引所グループ ニュース' },
+  { sourceType: 'official', category: '経済', subgroup: '日本', sourceName: 'JPX', sourceUrl: 'https://www.jpx.co.jp/', feedUrl: 'https://www.jpx.co.jp/rss/jpx-news.xml', label: '日本取引所グループ ニュース', titleOnly: true },
   { sourceType: 'official', category: '経済', subgroup: '米国', sourceName: 'FRB', sourceUrl: 'https://www.federalreserve.gov/', feedUrl: 'https://www.federalreserve.gov/feeds/press_all.xml', label: 'Federal Reserve Press Releases', maxItems: 6 },
   { sourceType: 'official', category: '経済', subgroup: '欧州', sourceName: 'ECB', sourceUrl: 'https://www.ecb.europa.eu/', feedUrl: 'https://www.ecb.europa.eu/rss/press.html', label: 'ECB Press', maxItems: 6 },
   // 経済（企業の発表）: 提携・買収・決算・事業展開・事故や不祥事など、企業活動に関するプレスリリース
@@ -71,8 +71,8 @@ export const officialFeeds: FeedSource[] = [
   { sourceType: 'official', category: '社会', subgroup: '日本', sourceName: '厚生労働省', sourceUrl: 'https://www.mhlw.go.jp/', feedUrl: 'https://www.mhlw.go.jp/stf/news.rdf', label: '厚生労働省 新着情報' },
   { sourceType: 'official', category: '社会', subgroup: '日本', sourceName: '文部科学省', sourceUrl: 'https://www.mext.go.jp/', feedUrl: 'https://www.mext.go.jp/b_menu/news/index.rdf', label: '文部科学省 新着情報' },
   { sourceType: 'official', category: '社会', subgroup: '米国', sourceName: '米CDC', sourceUrl: 'https://www.cdc.gov/', feedUrl: 'https://tools.cdc.gov/api/v2/resources/media/132608.rss', label: 'CDC Newsroom' },
-  { sourceType: 'official', category: '国際', subgroup: '日本', sourceName: 'JETRO', sourceUrl: 'https://www.jetro.go.jp/', feedUrl: 'https://www.jetro.go.jp/rss/biznews.xml', label: 'JETRO ビジネス短信' },
-  { sourceType: 'official', category: '国際', subgroup: 'グローバル', sourceName: 'WHO', sourceUrl: 'https://www.who.int/', feedUrl: 'https://www.who.int/rss-feeds/news-english.xml', label: 'WHO News' },
+  { sourceType: 'official', category: '国際', subgroup: '日本', sourceName: 'JETRO', sourceUrl: 'https://www.jetro.go.jp/', feedUrl: 'https://www.jetro.go.jp/rss/biznews.xml', label: 'JETRO ビジネス短信', titleOnly: true },
+  { sourceType: 'official', category: '国際', subgroup: 'グローバル', sourceName: 'WHO', sourceUrl: 'https://www.who.int/', feedUrl: 'https://www.who.int/rss-feeds/news-english.xml', label: 'WHO News', titleOnly: true },
   { sourceType: 'official', category: '国際', subgroup: '欧州', sourceName: '欧州委員会', sourceUrl: 'https://ec.europa.eu/', feedUrl: 'https://ec.europa.eu/commission/presscorner/api/rss?language=en', label: 'European Commission Press Corner' },
   { sourceType: 'official', category: '国際', subgroup: '欧州', sourceName: '英国外務省', sourceUrl: 'https://www.gov.uk/', feedUrl: 'https://www.gov.uk/government/organisations/foreign-commonwealth-development-office.atom', label: 'UK Foreign, Commonwealth & Development Office' },
   // テクノロジー
@@ -90,12 +90,12 @@ export const officialFeeds: FeedSource[] = [
   // ウォータールー地域の自治体（報道機関ではなく、市・リージョンの発表を直接取り込む）
   { sourceType: 'official', category: '社会', subgroup: 'カナダ', sourceName: 'ウォータールー市', sourceUrl: 'https://www.waterloo.ca/news/', feedUrl: 'https://www.waterloo.ca/news/rss', label: 'City of Waterloo News', maxItems: 10, excludeRoutine: true },
   { sourceType: 'official', category: '社会', subgroup: 'カナダ', sourceName: 'キッチナー市', sourceUrl: 'https://www.kitchener.ca/news/', feedUrl: 'https://www.kitchener.ca/news/rss', label: 'City of Kitchener News', maxItems: 10, excludeRoutine: true },
-  { sourceType: 'official', category: '社会', subgroup: 'カナダ', sourceName: 'ケンブリッジ市', sourceUrl: 'https://www.cambridge.ca/news/', feedUrl: 'https://www.cambridge.ca/news/rss', label: 'City of Cambridge News', maxItems: 10, excludeRoutine: true },
-  { sourceType: 'official', category: '社会', subgroup: 'カナダ', sourceName: 'ウォータールー・リージョン', sourceUrl: 'https://www.regionofwaterloo.ca/news-public-notices-and-council-info/', feedUrl: 'https://www.regionofwaterloo.ca/news-public-notices-and-council-info/rss', label: 'Region of Waterloo News', maxItems: 10, excludeRoutine: true },
+  { sourceType: 'official', category: '社会', subgroup: 'カナダ', sourceName: 'ケンブリッジ市', sourceUrl: 'https://www.cambridge.ca/news/', feedUrl: 'https://www.cambridge.ca/news/rss', label: 'City of Cambridge News', maxItems: 10, excludeRoutine: true, titleOnly: true },
+  { sourceType: 'official', category: '社会', subgroup: 'カナダ', sourceName: 'ウォータールー・リージョン', sourceUrl: 'https://www.regionofwaterloo.ca/news-public-notices-and-council-info/', feedUrl: 'https://www.regionofwaterloo.ca/news-public-notices-and-council-info/rss', label: 'Region of Waterloo News', maxItems: 10, excludeRoutine: true, titleOnly: true },
   {
     sourceType: 'official', category: '政治', subgroup: 'カナダ', sourceName: 'カナダ政府', sourceUrl: 'https://www.canada.ca/en/news.html',
     feedUrl: 'https://api.io.canada.ca/io-server/gc/news/en/v2?sort=publishedDate&orderBy=desc&pick=100&format=atom&atomtitle=Canada%20News%20Centre',
-    label: 'Canada News Centre（全省庁）', maxItems: 40,
+    label: 'Canada News Centre（全省庁）', maxItems: 40, titleOnly: true,
     // 担当省庁は記事の URL（canada.ca/en/<省庁>/news/...）から判別する
     categoryByUrl: [
       [/\/en\/global-affairs\//, '国際'],
@@ -107,12 +107,12 @@ export const officialFeeds: FeedSource[] = [
       [/\/en\/(health-canada|public-health|employment-social-development|immigration-refugees-citizenship|indigenous-services-canada|environment-climate-change|housing-infrastructure-communities)\//, '社会']
     ]
   },
-  { sourceType: 'official', category: '政治', subgroup: 'カナダ', sourceName: 'オンタリオ州政府', sourceUrl: 'https://news.ontario.ca/', feedUrl: 'https://news.ontario.ca/newsroom/en/rss/allnews.rss', label: 'Ontario Newsroom', maxItems: 15 },
-  { sourceType: 'official', category: '経済', subgroup: '日本', sourceName: 'ジェトロ', sourceUrl: 'https://www.jetro.go.jp/', feedUrl: 'https://www.jetro.go.jp/rss/news.xml', label: 'ジェトロ お知らせ・記者発表', maxItems: 10, excludeRoutine: true },
+  { sourceType: 'official', category: '政治', subgroup: 'カナダ', sourceName: 'オンタリオ州政府', sourceUrl: 'https://news.ontario.ca/', feedUrl: 'https://news.ontario.ca/newsroom/en/rss/allnews.rss', label: 'Ontario Newsroom', maxItems: 15, titleOnly: true },
+  { sourceType: 'official', category: '経済', subgroup: '日本', sourceName: 'ジェトロ', sourceUrl: 'https://www.jetro.go.jp/', feedUrl: 'https://www.jetro.go.jp/rss/news.xml', label: 'ジェトロ お知らせ・記者発表', maxItems: 10, excludeRoutine: true, titleOnly: true },
   { sourceType: 'official', category: '政治', subgroup: 'カナダ', sourceName: 'カナダ首相府', sourceUrl: 'https://www.pm.gc.ca/en/news', feedUrl: 'https://pm.gc.ca/en/news.rss', label: 'Prime Minister of Canada News', maxItems: 10 },
   { sourceType: 'official', category: '経済', subgroup: 'カナダ', sourceName: 'カナダ銀行', sourceUrl: 'https://www.bankofcanada.ca/', feedUrl: 'https://www.bankofcanada.ca/content_type/press-releases/feed/', label: 'Bank of Canada Press Releases' },
   { sourceType: 'official', category: '経済', subgroup: 'カナダ', sourceName: 'カナダ統計局', sourceUrl: 'https://www150.statcan.gc.ca/', feedUrl: 'https://www150.statcan.gc.ca/n1/rss/dai-quo/0-eng.atom', label: 'Statistics Canada The Daily', maxItems: 8 },
-  { sourceType: 'research', category: 'サイエンス', subgroup: 'カナダ', sourceName: 'CIFAR', sourceUrl: 'https://cifar.ca/', feedUrl: 'https://cifar.ca/feed/', label: 'CIFAR（カナダ先端研究機構）' },
+  { sourceType: 'research', category: 'サイエンス', subgroup: 'カナダ', sourceName: 'CIFAR', sourceUrl: 'https://cifar.ca/', feedUrl: 'https://cifar.ca/feed/', label: 'CIFAR（カナダ先端研究機構）', titleOnly: true },
   { sourceType: 'research', category: 'テクノロジー', subgroup: 'カナダ', sourceName: 'トロント大学工学部', sourceUrl: 'https://news.engineering.utoronto.ca/', feedUrl: 'https://news.engineering.utoronto.ca/feed/', label: 'U of T Engineering News', maxItems: 8 },
   { sourceType: 'research', category: '生成AI', subgroup: 'カナダ', sourceName: 'Vector Institute', sourceUrl: 'https://vectorinstitute.ai/', feedUrl: 'https://vectorinstitute.ai/feed/', label: 'Vector Institute（AI 研究所）', maxItems: 10 },
   // 欧州・米国のデジタル政策
@@ -158,32 +158,32 @@ export const officialFeeds: FeedSource[] = [
     label: 'arXiv cs.RO（Physical AI 関連の新着論文）', maxItems: 10
   },
   // 生成AI・AI 研究（企業の研究部門、研究機関、大学）
-  { sourceType: 'corporate', category: '生成AI', subgroup: '米国', sourceName: 'Microsoft Research', sourceUrl: 'https://www.microsoft.com/en-us/research/', feedUrl: 'https://www.microsoft.com/en-us/research/feed/', label: 'Microsoft Research Blog', maxItems: 8 },
+  { sourceType: 'corporate', category: '生成AI', subgroup: '米国', sourceName: 'Microsoft Research', sourceUrl: 'https://www.microsoft.com/en-us/research/', feedUrl: 'https://www.microsoft.com/en-us/research/feed/', label: 'Microsoft Research Blog', maxItems: 8, titleOnly: true },
   { sourceType: 'corporate', category: '生成AI', subgroup: '米国', sourceName: 'Google Research', sourceUrl: 'https://research.google/blog/', feedUrl: 'https://research.google/blog/rss/', label: 'Google Research Blog' },
   { sourceType: 'corporate', category: '生成AI', subgroup: '米国', sourceName: 'Apple', sourceUrl: 'https://machinelearning.apple.com/', feedUrl: 'https://machinelearning.apple.com/rss.xml', label: 'Apple Machine Learning Research', maxItems: 6 },
   { sourceType: 'corporate', category: '生成AI', subgroup: 'グローバル', sourceName: 'Hugging Face', sourceUrl: 'https://huggingface.co/blog', feedUrl: 'https://huggingface.co/blog/feed.xml', label: 'Hugging Face Blog（オープンなAIモデルの公開）', maxItems: 6 },
   { sourceType: 'npo', category: '生成AI', subgroup: '米国', sourceName: 'Ai2', sourceUrl: 'https://allenai.org/', feedUrl: 'https://allenai.org/rss.xml', label: 'Allen Institute for AI（非営利の AI 研究所）', maxItems: 6 },
   { sourceType: 'research', category: '生成AI', subgroup: '米国', sourceName: 'MIT', sourceUrl: 'https://news.mit.edu/topic/artificial-intelligence2', feedUrl: 'https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml', label: 'MIT News（AI の研究成果）', maxItems: 8 },
   // テクノロジー（半導体・通信・ロボティクス）
-  { sourceType: 'research', category: 'テクノロジー', subgroup: '米国', sourceName: 'カーネギーメロン大学', sourceUrl: 'https://www.ri.cmu.edu/news/', feedUrl: 'https://www.ri.cmu.edu/feed/', label: 'CMU Robotics Institute（ロボティクス研究）', maxItems: 8 },
+  { sourceType: 'research', category: 'テクノロジー', subgroup: '米国', sourceName: 'カーネギーメロン大学', sourceUrl: 'https://www.ri.cmu.edu/news/', feedUrl: 'https://www.ri.cmu.edu/feed/', label: 'CMU Robotics Institute（ロボティクス研究）', maxItems: 8, titleOnly: true },
   { sourceType: 'research', category: 'テクノロジー', subgroup: '米国', sourceName: 'MIT', sourceUrl: 'https://news.mit.edu/topic/robotics', feedUrl: 'https://news.mit.edu/topic/mitrobotics-rss.xml', label: 'MIT News（ロボティクス）', maxItems: 6 },
   { sourceType: 'corporate', category: 'テクノロジー', subgroup: '米国', sourceName: 'NVIDIA', sourceUrl: 'https://nvidianews.nvidia.com/', feedUrl: 'https://nvidianews.nvidia.com/releases.xml', label: 'NVIDIA Newsroom（プレスリリース）' },
   { sourceType: 'corporate', category: 'テクノロジー', subgroup: '日本', sourceName: 'NTT', sourceUrl: 'https://www.ntt.com/about-us/press-releases.html', feedUrl: 'https://www.ntt.com/index/rss.xml', label: 'NTT ドコモビジネス ニュースリリース', maxItems: 8 },
   { sourceType: 'corporate', category: 'テクノロジー', subgroup: 'カナダ', sourceName: 'Clearpath Robotics', sourceUrl: 'https://clearpathrobotics.com/', feedUrl: 'https://www.clearpathrobotics.com/feed/', label: 'Clearpath Robotics（キッチナーのロボット企業）' },
   { sourceType: 'corporate', category: 'テクノロジー', subgroup: 'カナダ', sourceName: 'Sanctuary AI', sourceUrl: 'https://sanctuary.ai/', feedUrl: 'https://sanctuary.ai/feed/', label: 'Sanctuary AI（バンクーバーのヒューマノイド企業）' },
-  { sourceType: 'research', category: 'テクノロジー', subgroup: '欧州', sourceName: 'Fraunhofer', sourceUrl: 'https://www.fraunhofer.de/en/press.html', feedUrl: 'https://www.fraunhofer.de/en/rss/press.rss', label: 'Fraunhofer（欧州最大の応用研究機関）', maxItems: 8 },
+  { sourceType: 'research', category: 'テクノロジー', subgroup: '欧州', sourceName: 'Fraunhofer', sourceUrl: 'https://www.fraunhofer.de/en/press.html', feedUrl: 'https://www.fraunhofer.de/en/rss/press.rss', label: 'Fraunhofer（欧州最大の応用研究機関）', maxItems: 8, titleOnly: true },
   // 宇宙・基礎科学
   { sourceType: 'official', category: 'サイエンス', subgroup: '米国', sourceName: 'NASA', sourceUrl: 'https://www.nasa.gov/news/', feedUrl: 'https://www.nasa.gov/news-release/feed/', label: 'NASA ニュースリリース', maxItems: 8, excludeRoutine: true },
-  { sourceType: 'official', category: 'サイエンス', subgroup: '日本', sourceName: 'JAXA', sourceUrl: 'https://www.jaxa.jp/press/', feedUrl: 'https://www.jaxa.jp/rss/press_j.rdf', label: '宇宙航空研究開発機構 プレスリリース' },
+  { sourceType: 'official', category: 'サイエンス', subgroup: '日本', sourceName: 'JAXA', sourceUrl: 'https://www.jaxa.jp/press/', feedUrl: 'https://www.jaxa.jp/rss/press_j.rdf', label: '宇宙航空研究開発機構 プレスリリース', titleOnly: true },
   { sourceType: 'research', category: 'サイエンス', subgroup: '日本', sourceName: '国立天文台', sourceUrl: 'https://www.nao.ac.jp/news/', feedUrl: 'https://www.nao.ac.jp/atom.xml', label: '国立天文台 ニュース', maxItems: 8 },
-  { sourceType: 'research', category: 'サイエンス', subgroup: '日本', sourceName: 'KEK', sourceUrl: 'https://www.kek.jp/ja/', feedUrl: 'https://www.kek.jp/ja/feed/', label: '高エネルギー加速器研究機構', maxItems: 6, excludeRoutine: true },
+  { sourceType: 'research', category: 'サイエンス', subgroup: '日本', sourceName: 'KEK', sourceUrl: 'https://www.kek.jp/ja/', feedUrl: 'https://www.kek.jp/ja/feed/', label: '高エネルギー加速器研究機構', maxItems: 6, excludeRoutine: true, titleOnly: true },
   { sourceType: 'research', category: 'サイエンス', subgroup: '日本', sourceName: 'Kavli IPMU', sourceUrl: 'https://www.ipmu.jp/', feedUrl: 'https://www.ipmu.jp/en/rss.xml', label: 'カブリ数物連携宇宙研究機構（数学・物理）', maxItems: 6 },
   { sourceType: 'official', category: 'サイエンス', subgroup: '欧州', sourceName: 'ESA', sourceUrl: 'https://www.esa.int/Science_Exploration/Space_Science', feedUrl: 'https://www.esa.int/rssfeed/Our_Activities/Space_Science', label: '欧州宇宙機関 宇宙科学' },
   { sourceType: 'research', category: 'サイエンス', subgroup: '欧州', sourceName: 'EMBL', sourceUrl: 'https://www.embl.org/news/', feedUrl: 'https://www.embl.org/news/feed/', label: '欧州分子生物学研究所' },
   { sourceType: 'research', category: 'サイエンス', subgroup: '米国', sourceName: 'MIT', sourceUrl: 'https://news.mit.edu/research', feedUrl: 'https://news.mit.edu/rss/research', label: 'MIT News（研究成果）', maxItems: 8 },
   // 数学・科学の新発見
   { sourceType: 'npo', category: 'サイエンス', subgroup: '米国', sourceName: 'Clay Mathematics Institute', sourceUrl: 'https://www.claymath.org/', feedUrl: 'https://www.claymath.org/news/feed/', label: 'クレイ数学研究所（ミレニアム懸賞問題）' },
-  { sourceType: 'research', category: 'サイエンス', subgroup: '米国', sourceName: 'Simons Foundation', sourceUrl: 'https://www.simonsfoundation.org/', feedUrl: 'https://www.simonsfoundation.org/feed/', label: 'Simons Foundation（数学・物理）' }
+  { sourceType: 'research', category: 'サイエンス', subgroup: '米国', sourceName: 'Simons Foundation', sourceUrl: 'https://www.simonsfoundation.org/', feedUrl: 'https://www.simonsfoundation.org/feed/', label: 'Simons Foundation（数学・物理）', titleOnly: true }
 ];
 
 // 見出しと説明文に含まれる語だけでカテゴリを追加する（推測による分類はしない）
@@ -629,6 +629,15 @@ export function dedupeSameDocument(items: NewsItem[]): NewsItem[] {
   return [...kept.values()];
 }
 
+// 利用条件が商用での利用・再配布を制限している発信元（SOURCE_TERMS.md の B1）は、見出しと原文へのリンクだけを表示する。
+// フィードの説明文と画像は持たない（蓄積済みの記事からも取り除く）。要約の作成・埋め込みにも説明文は使わない
+export function applyTitleOnly(items: NewsItem[]): NewsItem[] {
+  const feeds = new Set(officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.feedUrl));
+  return items.map(item => feeds.has(item.feedUrl)
+    ? { ...item, summary: '', imageUrl: undefined, imageChecked: true, titleOnly: true }
+    : item);
+}
+
 // maxItems を設定したフィード（日本銀行・財務省など）は、蓄積分も含めて1日あたりの件数を制限する
 function limitPerFeedPerDay(items: NewsItem[]): NewsItem[] {
   const limits = new Map(officialFeeds.filter(feed => feed.maxItems).map(feed => [feed.feedUrl, feed.maxItems!]));
@@ -705,9 +714,11 @@ async function collectNews(): Promise<NewsItem[]> {
   }
 
   const cutoff = Date.now() - ARCHIVE_DAYS * 24 * 60 * 60 * 1000;
-  const kept = limitPerFeedPerDay(dedupeSameDocument(sortByDate([...store.values()])))
-    .filter(item => new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
-    .slice(0, ARCHIVE_LIMIT);
+  const kept = applyTitleOnly(
+    limitPerFeedPerDay(dedupeSameDocument(sortByDate([...store.values()])))
+      .filter(item => new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
+      .slice(0, ARCHIVE_LIMIT)
+  );
 
   store.clear();
   kept.forEach(item => store.set(item.id, item));

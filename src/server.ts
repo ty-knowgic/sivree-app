@@ -167,7 +167,8 @@ app.get('/api/news/:id', async (req, res) => {
       return;
     }
     const { item } = detail;
-    const content = item.isSample
+    // 利用条件で見出しと原文へのリンクだけを表示する記事は、本文の冒頭も取得しない
+    const content = item.isSample || item.titleOnly
       ? { status: 'unavailable' as const, paragraphs: [], truncated: false }
       : await fetchArticleContent(item.sourceUrl);
 

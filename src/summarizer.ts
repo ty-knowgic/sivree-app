@@ -202,6 +202,8 @@ function buildSummary(input: SummaryInput, engine: Summarizer, draft: SummaryDra
 
 /** 保存済みの要約を返し、なければ作成して保存する */
 export async function summarize(item: NewsItem): Promise<SummaryResult> {
+  // 利用条件で見出しと原文へのリンクだけを表示する記事は、本文を取得せず、要約も作らない
+  if (item.titleOnly) return { status: 'error', message: 'この発信元の利用条件により、見出しと原文へのリンクのみを表示します。' };
   const saved = (await loadStore()).get(item.id);
   if (saved && saved.provider === provider.id) return { status: 'ok', summary: saved };
   if (item.isSample) return { status: 'error', message: 'サンプル記事は要約できません。' };
@@ -238,7 +240,7 @@ export async function summarizeLatestInBackground(items: NewsItem[]): Promise<vo
 
   try {
     const saved = await getStoredSummaries();
-    const queue = items.filter(item => !item.isSample && !saved.has(item.id)).slice(0, limit);
+    const queue = items.filter(item => !item.isSample && !item.titleOnly && !saved.has(item.id)).slice(0, limit);
     if (!queue.length) return;
 
     const workers = Array.from({ length: AUTO_SUMMARY_CONCURRENCY }, async () => {
