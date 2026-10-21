@@ -71,7 +71,7 @@ PDL1.0 と CC BY は、出典の記載と、加工した場合にその旨を示
 | GPIF | 私的使用・引用等、著作権法で認められる場合に限り可。出典の記載が必要 | [disclaimer](https://www.gpif.go.jp/disclaimer/) |
 | 国立天文台 | 著作権法の自由利用の範囲（私的・教育・引用・報道）で事前の許諾は不要 | [copyright](https://www.nao.ac.jp/terms/copyright.html) |
 | JPCERT/CC | 引用は自由。転載・再配布は連絡を依頼 | [guide](https://www.jpcert.or.jp/guide.html) |
-| 国連ニュース | 著作権は留保。ニュース関連の素材は、出典を示し国連に知らせれば利用できる | [copyright](https://www.un.org/en/about-us/copyright) |
+| 国連ニュース（2026-10-21 に取得をやめた。robots.txt が SivreeBot の取得を許可しない） | 著作権は留保。ニュース関連の素材は、出典を示し国連に知らせれば利用できる | [copyright](https://www.un.org/en/about-us/copyright) |
 | MIT（3件） | 再掲載には見出し・署名・MIT News へのリンクなどの条件。画像は非営利の CC BY-NC-ND | [terms](https://news.mit.edu/terms-of-use) |
 | @Press | 会員規約が、得た情報の営利目的の利用や第三者への譲渡を禁止（フィードの利用条件は未確認） | [規約](https://www.atpress.ne.jp/term_use/) |
 
