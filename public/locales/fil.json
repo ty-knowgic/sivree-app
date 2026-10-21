@@ -272,5 +272,8 @@
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Ang pamagat ay ang orihinal mula sa naglathala, at ang petsa ay ayon sa rehiyon nila. Suriin ang orihinal na artikulo bago ito banggitin.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (inilathala noong {date}), {url} (binisita noong {accessed})",
   "候補": "Mga opsyonal na source",
-  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Naka-off ang mga source na ito bilang default. Ang mga i-on mo lang ang lalabas sa iyong mga balita."
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Naka-off ang mga source na ito bilang default. Ang mga i-on mo lang ang lalabas sa iyong mga balita.",
+  "専門パック「{name}」": "Propesyonal na pack: {name}",
+  "法務・知財・規制対応": "Legal, IP at regulasyon",
+  "税務・金融規制": "Buwis at regulasyong pampinansiyal"
 }

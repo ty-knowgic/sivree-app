@@ -1,8 +1,8 @@
 // 候補（既定ではオフの情報源）の仕組みと、古い形式の設定の移行を確かめる。最重要の条件は「運営者の見え方が変わらない」こと。
 //  1. migrateProfile（読み込み・貼り付け・ドライブ同期が通る関数）の全分岐と、冪等であること
-//  2. 移行する5件の ID が、フィード一覧（src/feeds/core.ts）の同名の情報源と一致すること
+//  2. 移行する5件の ID が、フィード一覧（src/feeds/core.ts）の同名の情報源と一致すること。候補は、この5件と、凍結より後に足した情報源だけであること
 //  3. 本物のブラウザ用 API（src/browser/main.ts をその場でまとめたもの）に、古い形式の設定を渡して、
-//     記事の表示が、候補の仕組みの前の規則（excludedSources と地域だけ）と同じになること
+//     記事の表示が、候補の仕組みの前の規則（excludedSources と地域だけ）と同じになること。凍結より後に足した候補（専門パックなど）は、誰にも出ないこと
 //  4. 本物の public/app.js の設定画面で、候補をオン・オフし、古い画面が設定を保存しても戻らないこと
 // 設定の保存先は、サーバーと同じ ProfileSchema が検証する（本物のブラウザ用 API の中で）。
 import { build } from 'esbuild';
@@ -26,6 +26,10 @@ const check = (name: string, ok: boolean, detail: unknown = '') => {
 };
 
 const ids = LEGACY_DEFAULT_CANDIDATES.map(source => source.id);
+// 凍結（2026-10-20）より後に足した情報源（2026-10-21 の専門パックと無償の候補）。古い設定の利用者には、どれも出ない
+const frozenUrls = new Set((JSON.parse(await readFile(path.join(path.dirname(fileURLToPath(import.meta.url)), 'frozen-default-feeds.json'), 'utf8')) as { feedUrl: string }[]).map(row => row.feedUrl));
+const addedIds = [...new Set(officialFeeds.filter(feed => !frozenUrls.has(feed.feedUrl)).map(feed => sourceId(feed.feedUrl)))];
+const candidateCount = ids.length + addedIds.length;
 const idOf = (name: string) => LEGACY_DEFAULT_CANDIDATES.find(source => source.sourceName === name)!.id;
 const today = new Date().toISOString().slice(0, 10);
 
@@ -77,7 +81,7 @@ const parse = (raw: object): Profile => ProfileSchema.parse(raw);
     && createHash('sha1').update(feeds[index]!.feedUrl).digest('hex').slice(0, 10) === source.id));
   check('移行する5件の地域は、フィードの subgroup と同じ', LEGACY_DEFAULT_CANDIDATES.every((source, index) => feeds[index]!.subgroup === source.subgroup));
   const candidates = listSources().filter(source => source.candidate).map(source => source.id).sort();
-  check('候補（既定ではオフ）は、この5件だけ', candidates.join() === ids.slice().sort().join(), candidates);
+  check('候補（既定ではオフ）は、この5件と、凍結より後に足した情報源だけ', candidates.join() === [...ids, ...addedIds].sort().join() && addedIds.length === 22, candidates);
 }
 
 // ---------- 3. 本物のブラウザ用 API ----------
@@ -147,11 +151,11 @@ const api = async (w: any, url: string, init?: object) => {
 };
 const stored = (w: any): any => JSON.parse(w.localStorage.getItem('sivry.profile.v1') ?? 'null');
 const visibleIds = async (w: any) => (await api(w, '/api/news?limit=200')).body.map((entry: any) => entry.id as string).sort();
-/** 候補の仕組みの前の規則: excludedSources と、選んだ地域だけで決まる */
+/** 候補の仕組みの前の規則: excludedSources と、選んだ地域だけで決まる。凍結より後に足した情報源は、その頃なかったので出ない */
 const oldRule = (profile: { excludedSources: string[]; regions: string[] }) => items
   .filter((entry) => {
     const source = sources.find(candidate => candidate.feedUrl === entry.feedUrl)!;
-    return !profile.excludedSources.includes(source.id) && (!profile.regions.length || profile.regions.includes(source.subgroup));
+    return !addedIds.includes(source.id) && !profile.excludedSources.includes(source.id) && (!profile.regions.length || profile.regions.includes(source.subgroup));
   })
   .map(entry => entry.id).sort();
 
@@ -185,7 +189,9 @@ for (const [label, profile] of cases) {
   check('返された設定をそのまま保存しても変わらない', put.status === 200 && JSON.stringify(put.body) === JSON.stringify(profile) && JSON.stringify(stored(w)) === JSON.stringify(profile));
   const sourceList = (await api(w, '/api/sources')).body;
   const flagged = sourceList.filter((source: any) => source.candidate).map((source: any) => source.id).sort();
-  check('情報源の一覧: 候補は5件で、移行した分はオン', flagged.join() === ids.slice().sort().join() && sourceList.filter((source: any) => source.candidate).every((source: any) => source.enabled === true));
+  check('情報源の一覧: 移行した5件はオン、凍結より後に足した候補はオフ', flagged.join() === [...ids, ...addedIds].sort().join()
+    && sourceList.filter((source: any) => ids.includes(source.id)).every((source: any) => source.enabled === true)
+    && sourceList.filter((source: any) => addedIds.includes(source.id)).every((source: any) => source.enabled === false));
   check('情報源の一覧: 既定の情報源は候補ではなく、オンのまま', sourceList.filter((source: any) => !source.candidate).every((source: any) => source.enabled === true));
 }
 {
@@ -197,7 +203,7 @@ for (const [label, profile] of cases) {
   const actual = await visibleIds(w);
   check('新規の利用者: 候補の記事は出ず、既定の情報源の記事だけが出る', JSON.stringify(actual) === JSON.stringify(defaults), `${actual.length} / ${defaults.length}`);
   const list = (await api(w, '/api/sources')).body;
-  check('新規の利用者: 情報源の一覧で、候補はオフ', list.filter((source: any) => source.candidate).every((source: any) => source.enabled === false) && list.filter((source: any) => source.candidate).length === 5);
+  check('新規の利用者: 情報源の一覧で、候補はオフ', list.filter((source: any) => source.candidate).every((source: any) => source.enabled === false) && list.filter((source: any) => source.candidate).length === candidateCount);
   const options = (await api(w, '/api/options')).body;
   const canadaDefaults = sources.filter(source => source.subgroup === 'カナダ' && !source.candidate).length;
   check('初回の質問の情報源数は、候補を数えない', options.regions.find((region: any) => region.value === 'カナダ').sources === canadaDefaults, options.regions);
@@ -249,16 +255,16 @@ const openSources = async (w: any) => {
   const w = await browser({ 'sivry.profile.v1': JSON.stringify(legacy()) }, { app: true });
   check('設定の「情報源」に「候補」の節が出る', await openSources(w));
   const rows = $$(w, '[data-candidates] [data-source]') as HTMLInputElement[];
-  check('候補の節に5件が並び、移行した分はオン', rows.length === 5 && rows.every(row => row.checked), rows.map(row => row.checked));
+  check('候補の節に全候補が並び、移行した5件だけがオン', rows.length === candidateCount && rows.filter(row => row.checked).map(row => row.getAttribute('data-source')).sort().join() === ids.slice().sort().join(), rows.map(row => row.checked));
   check('候補は、種類ごとの一覧には出ない（同じ情報源が2か所に出ない）', $$(w, '.source-group[data-type] [data-source]').every(row => !ids.includes(row.getAttribute('data-source')!)));
-  check('「候補」の見出しに件数（オンの数/選べる数）が出る', $(w, '[data-candidates] .source-count')?.textContent === '5/5');
+  check('「候補」の見出しに件数（オンの数/選べる数）が出る', $(w, '[data-candidates] .source-count')?.textContent === `5/${candidateCount}`);
   check('説明文が出る', $(w, '[data-candidates] .settings-note')?.textContent?.includes('既定ではオフ') === true);
 
   // 1件をオフにして保存する
   const target = rows.find(row => row.getAttribute('data-source') === idOf('キッチナー市'))!;
   target.checked = false;
   target.dispatchEvent(new w.Event('change', { bubbles: true }));
-  check('オフにすると、候補の件数が更新される', $(w, '[data-candidates] .source-count')?.textContent === '4/5');
+  check('オフにすると、候補の件数が更新される', $(w, '[data-candidates] .source-count')?.textContent === `4/${candidateCount}`);
   click(w, $(w, '[data-action="save-profile"]'));
   check('保存すると、候補のオンから外れ、除外にも入る（古い画面が保存しても戻らないため）',
     await until(() => stored(w)?.extraSources?.length === 4), stored(w));
@@ -290,7 +296,7 @@ const openSources = async (w: any) => {
   const profile = defaultProfile();
   profile.onboarded = true;
   const fresh = await browser({ 'sivry.profile.v1': JSON.stringify(profile) }, { app: true });
-  check('新規の利用者: 候補の節は出るが、すべてオフ', await openSources(fresh) && ($$(fresh, '[data-candidates] [data-source]') as HTMLInputElement[]).every(row => !row.checked) && $(fresh, '[data-candidates] .source-count')?.textContent === '0/5');
+  check('新規の利用者: 候補の節は出るが、すべてオフ', await openSources(fresh) && ($$(fresh, '[data-candidates] [data-source]') as HTMLInputElement[]).every(row => !row.checked) && $(fresh, '[data-candidates] .source-count')?.textContent === `0/${candidateCount}`);
   const group = $(fresh, '.source-group[data-type="official"] [data-action="toggle-group"]');
   click(fresh, group);
   click(fresh, $(fresh, '.source-group[data-type="official"] [data-action="toggle-group"]'));
@@ -315,12 +321,25 @@ const openSources = async (w: any) => {
 {
   // 敵意のある名前・ラベルの候補でも、実行できるものが残らない
   const hostile = sources.map(source => (source.id === idOf('ウォータールー市')
-    ? { ...source, sourceName: '<img src=x onerror=window.__pwned=1>', label: '<script>window.__pwned=1</script>' }
+    ? { ...source, sourceName: '<img src=x onerror=window.__pwned=1>', label: '<script>window.__pwned=1</script>', packName: '<svg onload=window.__pwned=1>' }
     : source));
   const w = await browser({ 'sivry.profile.v1': JSON.stringify(legacy()) }, { app: true, sourcesOverride: hostile });
   check('敵意のある名前の候補でも設定画面が開く', await openSources(w));
-  check('敵意のある名前・ラベルは、タグとして解釈されず、スクリプトも動かない',
-    $(w, '[data-candidates] img') === null && $(w, '[data-candidates] script') === null && w.__pwned === undefined && $(w, '[data-candidates]')!.textContent!.includes('<img src=x'));
+  check('敵意のある名前・ラベル・パック名は、タグとして解釈されず、スクリプトも動かない',
+    $(w, '[data-candidates] img') === null && $(w, '[data-candidates] script') === null && $(w, '[data-candidates] svg:not(.source-link svg)') === null && w.__pwned === undefined
+    && $(w, '[data-candidates]')!.textContent!.includes('<img src=x') && $(w, '[data-candidates]')!.textContent!.includes('<svg onload'));
+}
+{
+  // 専門パックの候補は、行にパックの名前が出る（パックに属さない候補には出ない）
+  const w = await browser({ 'sivry.profile.v1': JSON.stringify(legacy()) }, { app: true });
+  await openSources(w);
+  const rowOf = (name: string) => $$(w, '[data-candidates] .source-row').find(row => row.querySelector('.source-name')?.textContent === name);
+  check('専門パックの候補の行に、パックの名前が出る',
+    rowOf('法務省')?.querySelector('.source-desc')?.textContent?.includes('専門パック「法務・知財・規制対応」') === true
+    && rowOf('米内国歳入庁')?.querySelector('.source-desc')?.textContent?.includes('専門パック「税務・金融規制」') === true,
+    rowOf('法務省')?.querySelector('.source-desc')?.textContent);
+  check('パックに属さない候補の行には、パックの名前が出ない',
+    ['BIS', 'ウォータールー市'].every(name => rowOf(name) && !rowOf(name)!.querySelector('.source-desc')!.textContent!.includes('専門パック')));
 }
 
 if (failures) {

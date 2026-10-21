@@ -32,16 +32,19 @@ check('無償でも since が付いていれば、既定ではオフの候補（
 check('regional・local は since が無くても、層が limited なので既定オンにならない', !defaultOn({ level: 'regional' }) && !defaultOn({ level: 'local' }));
 check('有償のパックは既定でオフ', !defaultOn({ level: 'national', pack: 'legal' }) && !defaultOn({ pack: 'legal', since: '2026-10-21' }));
 
-// ---------- いまのフィード（凍結した情報源）の内訳 ----------
+// ---------- いまのフィードの内訳 ----------
+// 凍結した既定の93本と、候補25本（ウォータールー周辺の5本、2026-10-21 に足した専門パック14本と無償の候補8本）
 const count = (tier: string) => officialFeeds.filter(feed => tierOf(feed) === tier).length;
-check('いまのフィード98件の層は、無償93・上限の対象5（オンタリオ州政府と、ウォータールー周辺の4自治体）・有償0',
-  officialFeeds.length === 98 && count('free') === 93 && count('limited') === 5 && count('paid') === 0, `${count('free')}/${count('limited')}/${count('paid')} of ${officialFeeds.length}`);
-const limitedNames = ['ウォータールー市', 'ウォータールー・リージョン', 'オンタリオ州政府', 'キッチナー市', 'ケンブリッジ市'].sort().join(',');
-check('上限の対象の5件は、オンタリオ州政府とウォータールー周辺の4自治体',
-  officialFeeds.filter(feed => tierOf(feed) === 'limited').map(feed => feed.sourceName).sort().join(',') === limitedNames);
-check('since が付いているのは、候補へ移したこの5件だけ（候補は既定ではオフ。既存の利用者には移行で引き継ぐ）',
-  officialFeeds.filter(feed => feed.since).map(feed => feed.sourceName).sort().join(',') === limitedNames);
-check('既定でオンの対象は93件（候補の5件を除く）', officialFeeds.filter(defaultOn).length === 93 && officialFeeds.filter(feed => !defaultOn(feed)).length === 5);
+check('いまのフィード120本の層は、無償98・上限の対象8・有償14',
+  officialFeeds.length === 120 && count('free') === 98 && count('limited') === 8 && count('paid') === 14, `${count('free')}/${count('limited')}/${count('paid')} of ${officialFeeds.length}`);
+const namesOf = (feeds: typeof officialFeeds) => [...new Set(feeds.map(feed => feed.sourceName))].sort().join(',');
+const legacyNames = ['ウォータールー市', 'ウォータールー・リージョン', 'オンタリオ州政府', 'キッチナー市', 'ケンブリッジ市'].sort().join(',');
+check('上限の対象は、オンタリオ州政府とウォータールー周辺の4自治体、オンタリオ州証券委員会',
+  namesOf(officialFeeds.filter(feed => tierOf(feed) === 'limited')) === [...legacyNames.split(','), 'オンタリオ州証券委員会'].sort().join(','), namesOf(officialFeeds.filter(feed => tierOf(feed) === 'limited')));
+check('有償の層は、専門パックの情報源だけ', officialFeeds.filter(feed => tierOf(feed) === 'paid').every(feed => feed.pack));
+check('無償の候補（since つきの free）は、e-Gov・公認会計士協会・税理士会連合会・BIS',
+  namesOf(officialFeeds.filter(feed => tierOf(feed) === 'free' && feed.since)) === ['BIS', 'e-Gov パブリック・コメント', '日本公認会計士協会', '日本税理士会連合会'].sort().join(','), namesOf(officialFeeds.filter(feed => tierOf(feed) === 'free' && feed.since)));
+check('既定でオンは93本（候補の27本を除く）', officialFeeds.filter(defaultOn).length === 93 && officialFeeds.filter(feed => !defaultOn(feed)).length === 27);
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);

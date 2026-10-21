@@ -6,6 +6,8 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { withStoredSummaries } from '../src/api.js';
 import { applyTitleOnly, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate } from '../src/newsPipeline.js';
+import { PACKS } from '../src/feeds/index.js';
+import { defaultOn } from '../src/sourceTier.js';
 import { SOURCE_LEVELS } from '../src/types.js';
 import type { FeedSource, NewsItem } from '../src/types.js';
 
@@ -28,6 +30,12 @@ ${arxivItem('2610.00002', 'new', 'A survey of gripper materials', 'Soft material
 ${arxivItem('2501.00003', 'replace', 'Humanoid balance revisited', 'A revised humanoid paper.')}
 ${arxivItem('2610.00004', 'cross', 'Embodied agents in the home', 'An embodied AI study.')}
 </channel></rss>`;
+// 消費者庁の新着の形（2026-10-21 の実際の見出し）。前の6件は除き、後の4件は残す
+const caaDropped = ['機能性表示食品制度届出データベース届出情報の更新 (10月21日)', '消費生活用製品の重大製品事故:リコール製品で火災等(ガストーチ)(10月20日)', '消費者安全法の重大事故等に係る公表について(10月16日)', '緊急システムメンテナンスに伴う特設サイト等の一時停止について', 'CSF(豚熱)に関する情報(2026年10月16日更新)', 'フードバンク認証制度説明会の開催のお知らせ'];
+const caaKept = ['株式会社giobaiに対する景品表示法に基づく措置命令について', '消費者被害防止ネットながさきとI.R.C株式会社との間の差止請求に関する協議が調ったことについて', '消費者支援かながわとワンニャンハウス株式会社との間の訴訟に関する控訴審判決について', '堀井長官記者会見要旨(10月15日)'];
+const caaRss = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>caa</title>
+${[...caaDropped, ...caaKept].map((title, index) => `<item><title>${title}</title><link>https://www.caa.go.jp/notice/${index}</link><pubDate>${new Date().toUTCString()}</pubDate></item>`).join('\n')}
+</channel></rss>`;
 const hits = new Map<string, number>();
 const server = createServer((request, response) => {
   const route = request.url ?? '';
@@ -41,6 +49,7 @@ const server = createServer((request, response) => {
   else if (route === '/html') { response.writeHead(200, { 'content-type': 'text/html' }).end('<!DOCTYPE html><html><body>maintenance</body></html>'); return; }
   else if (route === '/robots.txt') { response.writeHead(200, { 'content-type': 'text/plain' }).end('User-agent: SivreeBot\nDisallow: /blocked\n'); return; }
   else if (route === '/arxiv') { response.writeHead(200, { 'content-type': 'application/rss+xml' }).end(arxivRss); return; }
+  else if (route === '/caa') { response.writeHead(200, { 'content-type': 'application/rss+xml' }).end(caaRss); return; }
   response.writeHead(200, { 'content-type': 'application/rss+xml' }).end(rss);
 });
 await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -93,6 +102,11 @@ check('arXiv: 絞り込みに合う新着（new・cross）だけを取り込み�
   arxivItems.map(entry => entry.title).sort().join('|') === 'Embodied agents in the home|Humanoid walking with a world model', arxivItems.map(entry => entry.title).join('|'));
 check('arXiv: 説明文の先頭の「arXiv:… Announce Type: … Abstract:」を取り除く',
   arxivItems.length > 0 && arxivItems.every(entry => !entry.summary.includes('Announce Type') && /^(We present|An embodied)/.test(entry.summary)), arxivItems.map(entry => entry.summary).join(' | '));
+
+const caaSource = officialFeeds.find(feed => feed.sourceName === '消費者庁')!;
+const caaTitles = (await fetchFeed({ ...caaSource, feedUrl: `${base}/caa`, sourceUrl: `${base}/` })).map(entry => entry.title).sort();
+check('消費者庁: 製品事故・リコール・届出データベースの更新などの定型の公表を除き、措置命令・差止請求・判決・会見は残す',
+  caaTitles.join('|') === [...caaKept].sort().join('|'), caaTitles.join(' | '));
 
 console.warn = originalWarn;
 server.close();
@@ -168,9 +182,11 @@ const ordered = dedupeSameDocument([
 check('並び順は変わらない', titles(ordered) === 'new / dup / old', titles(ordered));
 
 // ---------- 見出しと原文へのリンクだけを表示する情報源（利用条件が商用を制限するもの） ----------
-const TITLE_ONLY = ['カナダ政府', 'オンタリオ州政府', 'ウォータールー・リージョン', 'ケンブリッジ市', 'JPX', 'JETRO', 'ジェトロ', 'JAXA', 'KEK', 'WHO', 'Fraunhofer', 'Microsoft Research', 'カーネギーメロン大学', 'Simons Foundation', 'CIFAR'];
+// 既定の15件と、2026-10-21 に足した候補のフィード5本（公認会計士協会2本、オンタリオ州証券委員会3本）
+const TITLE_ONLY = ['カナダ政府', 'オンタリオ州政府', 'ウォータールー・リージョン', 'ケンブリッジ市', 'JPX', 'JETRO', 'ジェトロ', 'JAXA', 'KEK', 'WHO', 'Fraunhofer', 'Microsoft Research', 'カーネギーメロン大学', 'Simons Foundation', 'CIFAR',
+  '日本公認会計士協会', '日本公認会計士協会', 'オンタリオ州証券委員会', 'オンタリオ州証券委員会', 'オンタリオ州証券委員会'];
 const flagged = officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.sourceName).sort();
-check('SOURCE_TERMS.md の B1 の15件だけが titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
+check('SOURCE_TERMS.md の B1 の情報源（既定の15件と候補の5本）だけが titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
 
 const restrictedFeed = officialFeeds.find(feed => feed.sourceName === 'JPX')!.feedUrl;
 const normalFeed = officialFeeds.find(feed => feed.sourceName === '総務省')!.feedUrl;
@@ -254,8 +270,8 @@ check('市の識別子（area と city の組）は、管轄ごとに1つ', new 
 
 // 階層の割り当て（PR の説明の一覧表と同じ。変えるときはユーザーの確認が要る）
 const namesAt = (level: string) => [...new Set(officialFeeds.filter(feed => feed.level === level).map(feed => feed.sourceName))].sort().join(',');
-check('国際機関・EU の機関の割り当て', namesAt('international') === ['ECB', 'ECDC', 'ESA', 'WHO', 'WTO', '欧州医薬品庁', '欧州委員会', '欧州委員会（デジタル）', '欧州理事会'].sort().join(','), namesAt('international'));
-check('州・県の政府の割り当て', namesAt('regional') === 'オンタリオ州政府', namesAt('regional'));
+check('国際機関・EU の機関の割り当て', namesAt('international') === ['BIS', 'ECB', 'ECDC', 'ESA', 'WHO', 'WIPO', 'WTO', '欧州データ保護会議', '欧州データ保護監察官', '欧州医薬品庁', '欧州委員会', '欧州委員会（デジタル）', '欧州理事会'].sort().join(','), namesAt('international'));
+check('州・県の政府の割り当て', namesAt('regional') === ['オンタリオ州政府', 'オンタリオ州証券委員会'].sort().join(','), namesAt('regional'));
 check('市区町村の割り当て', namesAt('local') === ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'].sort().join(','), namesAt('local'));
 
 // ---------- 既定の情報源の凍結 ----------
@@ -271,6 +287,25 @@ check('凍結より後に足した情報源には since が付いている（付
   officialFeeds.every(feed => feed.since || frozenUrls.has(feed.feedUrl)), officialFeeds.filter(feed => !feed.since && !frozenUrls.has(feed.feedUrl)).map(feed => feed.sourceName).join(','));
 // 2026-10-21: Cision Canada（Venture Capital の RSS が 404、代わりの RSS はカナダ向けではない）を外して、94件から93件に
 check('凍結の一覧は93件（同じフィードを2つのカテゴリで使う5件の重複を除く）', frozen.length === 93 && officialFeeds.length >= 98, `${frozen.length} / ${officialFeeds.length}`);
+
+// ---------- 専門パックと候補（2026-10-21 に足したもの） ----------
+// パックの構成は PR の説明の一覧表と同じ。変えるときはユーザーの確認が要る
+const added = officialFeeds.filter(feed => !frozenUrls.has(feed.feedUrl));
+const packMembers = (id: string) => [...new Set(officialFeeds.filter(feed => feed.pack === id).map(feed => feed.sourceName))].sort().join(',');
+check('パックの ID は PACKS にあり、どのパックにも情報源がある',
+  officialFeeds.every(feed => !feed.pack || PACKS.some(pack => pack.id === feed.pack)) && PACKS.every(pack => packMembers(pack.id) !== ''));
+check('パック「法務・知財・規制対応」の構成', packMembers('legal') === ['WIPO', '法務省', '消費者庁', '英国競争・市場庁', '英国知的財産庁', '米消費者金融保護局', '米連邦取引委員会', '欧州データ保護会議', '欧州データ保護監察官'].sort().join(','), packMembers('legal'));
+check('パック「税務・金融規制」の構成', packMembers('tax') === ['SEC', '英国歳入関税庁', '米内国歳入庁'].sort().join(','), packMembers('tax'));
+check('足した情報源は22本（パック14本、無償の候補8本）で、すべて既定ではオフ',
+  added.length === 22 && added.filter(feed => feed.pack).length === 14 && added.every(feed => feed.since && !defaultOn(feed)), `${added.length} / ${added.filter(feed => feed.pack).length}`);
+const localeDir = new URL('../public/locales/', import.meta.url);
+const languages = ['en', 'de', 'es', 'fil', 'fr', 'id', 'ms', 'pt', 'th', 'vi', 'zh-Hans', 'zh-Hant'];
+const missingPackNames = languages.flatMap(lang => {
+  const dictionary = JSON.parse(readFileSync(new URL(`${lang}.json`, localeDir), 'utf8')) as Record<string, string>;
+  return PACKS.filter(pack => !dictionary[pack.name]).map(pack => `${lang}: ${pack.name}`);
+});
+check('パックの名前は12言語すべてに訳がある', missingPackNames.length === 0, missingPackNames.join(', '));
+
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);

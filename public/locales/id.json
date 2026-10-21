@@ -263,5 +263,8 @@
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Judul adalah judul asli dari penerbit, dan tanggal mengikuti wilayah penerbit. Periksa artikel aslinya sebelum mengutip.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (dipublikasikan {date}), {url} (diakses {accessed})",
   "候補": "Sumber opsional",
-  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Sumber ini nonaktif secara default. Hanya sumber yang Anda aktifkan yang muncul di berita Anda."
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Sumber ini nonaktif secara default. Hanya sumber yang Anda aktifkan yang muncul di berita Anda.",
+  "専門パック「{name}」": "Paket profesional: {name}",
+  "法務・知財・規制対応": "Hukum, kekayaan intelektual, dan regulasi",
+  "税務・金融規制": "Pajak dan regulasi keuangan"
 }
