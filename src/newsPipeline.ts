@@ -9,6 +9,7 @@ import { isAllowedByRobots, USER_AGENT } from './robots.js';
 import { cleanFeedText, decodeEntities } from './text.js';
 import { CATEGORIES, SOURCE_TYPES, SUBGROUPS } from './types.js';
 import { officialFeeds } from './feeds/index.js';
+import { defaultOn } from './sourceTier.js';
 import type { CategoryKey, FeedSource, NewsFilters, NewsItem } from './types.js';
 
 interface MediaField {
@@ -586,6 +587,8 @@ export function listSources() {
     categories: feed.category ? [feed.category] : (feed.matchOnly ?? []),
     sourceUrl: feed.sourceUrl,
     feedUrl: feed.feedUrl,
+    // 既定ではオフの候補（利用者が設定でオンにしたものだけ表示する）
+    candidate: !defaultOn(feed),
     health: feedHealth.get(feed.feedUrl) ?? null
   }));
 }

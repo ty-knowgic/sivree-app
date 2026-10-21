@@ -61,6 +61,10 @@ const SavedItemSchema = z.object({
 
 export type SavedItem = z.infer<typeof SavedItemSchema>;
 
+export const EXTRA_SOURCES_LIMIT = 200;
+/** 情報源の持ち方の現在の版（候補の仕組みを入れた版） */
+export const SOURCES_VERSION = 1;
+
 export const ProfileSchema = z.object({
   name: z.string().max(60).default(''),
   /** 初回の質問（地域・分野）に答えたか */
@@ -72,6 +76,16 @@ export const ProfileSchema = z.object({
   topics: z.array(TopicSchema).max(30),
   /** 使わない情報源の ID（すべてのタブ・ブリーフィングから除き、誰も使わない情報源は取り込まない） */
   excludedSources: z.array(z.string().regex(/^[0-9a-f]{10}$/)).max(500).default([]),
+  /**
+   * オンにした候補の ID。候補は既定ではオフの情報源（src/sourceTier.ts の defaultOn でないもの）で、
+   * ここにあるものだけを表示する。既定の情報源のオン・オフは excludedSources で持つ。
+   * 候補をオフにしたときは、ここから外し、excludedSources にも入れる（古い画面が設定を保存して移行がやり直されても、戻さないため）
+   */
+  extraSources: z.array(z.string().regex(/^[0-9a-f]{10}$/)).max(EXTRA_SOURCES_LIMIT).default([]),
+  /** 情報源の持ち方の版。0 は候補の仕組みの前に保存された設定で、読み込み時に migrateProfile が現在の版に直す */
+  sourcesVersion: z.number().int().min(0).max(1000).default(0),
+  /** 利用者が候補の一覧を最後に見た日（YYYY-MM-DD）。これより後に追加された候補に「新しい候補」の目印を付ける */
+  candidatesSeenAt: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/).default(''),
   /** 「この記事を非表示」にした記事の ID（新しいものが後ろ。古いものから外れる） */
   hiddenItems: z.array(z.string().regex(/^[0-9a-f]{16}$/)).max(300).default([]),
   /** 保存した記事（新しいものが先頭） */
@@ -91,6 +105,9 @@ export const DEFAULT_PROFILE: Profile = {
   regions: [],
   categories: [],
   excludedSources: [],
+  extraSources: [],
+  sourcesVersion: SOURCES_VERSION,
+  candidatesSeenAt: '',
   hiddenItems: [],
   savedItems: [],
   topics: [
@@ -197,8 +214,46 @@ export function semanticQueries(profile: Profile): { id: string; description: st
 /** 初回の質問で選べるテーマ（表示順）。ほかのトピック（地域・提携など）は設定から有効にする */
 export const STARTER_TOPIC_IDS = ['genai', 'physical-ai', 'semiconductors', 'cybersecurity', 'us-eu-tech-policy', 'economy', 'trade', 'defense', 'health', 'climate-energy', 'space', 'math'];
 
-export function defaultProfile(): Profile {
-  return structuredClone(DEFAULT_PROFILE);
+export function defaultProfile(now = new Date()): Profile {
+  // 初期設定を作った日を「候補を見た日」にして、それ以前に追加された候補は新しい候補として目立たせない
+  return { ...structuredClone(DEFAULT_PROFILE), candidatesSeenAt: dayOf(now) };
+}
+
+function dayOf(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * 候補の仕組みの前は既定でオンだった情報源（ウォータールー周辺の4自治体とオンタリオ州政府）。
+ * ID は feedUrl の sha1 の先頭10桁で、src/feeds/core.ts の同名の情報源と一致することを scripts/test-migrate.ts が確かめる
+ * （このファイルはブラウザにも入るため、sha1 を計算せずに固定している）
+ */
+export const LEGACY_DEFAULT_CANDIDATES: readonly { id: string; sourceName: string; subgroup: string }[] = [
+  { id: 'b2518c5f40', sourceName: 'ウォータールー市', subgroup: 'カナダ' },
+  { id: 'f700452445', sourceName: 'キッチナー市', subgroup: 'カナダ' },
+  { id: '561a7adcbb', sourceName: 'ケンブリッジ市', subgroup: 'カナダ' },
+  { id: 'f02c95b6b6', sourceName: 'ウォータールー・リージョン', subgroup: 'カナダ' },
+  { id: '26f3b5d5db', sourceName: 'オンタリオ州政府', subgroup: 'カナダ' }
+];
+
+/**
+ * 古い形式の設定（sourcesVersion がない・古い）を、候補の仕組みの形に直す。何度実行しても同じ結果になる。
+ * それまで表示されていた候補（excludedSources にない、選んだ地域に含まれるもの）は extraSources に入れ、表示は変わらない。
+ * 外したもの、選んだ地域の外のものは足さない。すでにある extraSources は外さない。
+ * 設定の読み込み・保存、貼り付け、ドライブ同期は、いずれもプロフィールの入口（loadProfile / saveProfile）を通るので、ここで直る
+ */
+export function migrateProfile(profile: Profile, now = new Date()): Profile {
+  if (profile.sourcesVersion >= SOURCES_VERSION) return profile;
+  const inRegion = (subgroup: string) => profile.regions.length === 0 || profile.regions.includes(subgroup);
+  const inherited = LEGACY_DEFAULT_CANDIDATES
+    .filter(source => !profile.excludedSources.includes(source.id) && inRegion(source.subgroup))
+    .map(source => source.id);
+  return {
+    ...profile,
+    extraSources: [...new Set([...profile.extraSources, ...inherited])].slice(0, EXTRA_SOURCES_LIMIT),
+    sourcesVersion: SOURCES_VERSION,
+    candidatesSeenAt: profile.candidatesSeenAt || dayOf(now)
+  };
 }
 
 // ---------- 一致判定 ----------

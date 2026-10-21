@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { clearMatcherCache, DEFAULT_PROFILE, DEFAULT_PROFILE_ID, ProfileSchema, withDefaultDescriptions } from './profile.js';
+import { clearMatcherCache, DEFAULT_PROFILE, DEFAULT_PROFILE_ID, migrateProfile, ProfileSchema, withDefaultDescriptions } from './profile.js';
 import type { Profile } from './profile.js';
 
 /** サーバー側のプロフィールの保存（ファイル）。ブラウザ版は localStorage に保存する */
@@ -18,7 +18,7 @@ export async function loadProfile(id = DEFAULT_PROFILE_ID): Promise<Profile> {
   if (cached) return cached;
   let profile = DEFAULT_PROFILE;
   try {
-    profile = withDefaultDescriptions(ProfileSchema.parse(JSON.parse(await readFile(profilePath(id), 'utf8'))));
+    profile = migrateProfile(withDefaultDescriptions(ProfileSchema.parse(JSON.parse(await readFile(profilePath(id), 'utf8')))));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       console.warn(`[profile] 読み込みに失敗したため初期設定を使います: ${(error as Error).message}`);
@@ -39,7 +39,7 @@ export async function listProfileIds(): Promise<string[]> {
 }
 
 export async function saveProfile(input: unknown, id = DEFAULT_PROFILE_ID): Promise<Profile> {
-  const profile = ProfileSchema.parse(input);
+  const profile = migrateProfile(ProfileSchema.parse(input));
   await mkdir(PROFILE_DIR, { recursive: true });
   await writeFile(profilePath(id), JSON.stringify(profile, null, 2));
   cache.set(id, profile);

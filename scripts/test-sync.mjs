@@ -90,6 +90,23 @@ check('A: 競合でこの端末を選んでも、相手の保存した記事は�
 check('統合した記事は新しい順', a.profile.savedItems.map((e) => e.id[0]).join('') === 'dcba', a.profile.savedItems.map((e) => e.id[0]).join(''));
 await b.sync.syncNow();
 
+// 候補（既定ではオフの情報源）: オンにした候補（extraSources）は競合のとき選んだ側に揃え、候補を最後に見た日（candidatesSeenAt）は新しい方を使う
+a.edit({ extraSources: ['aaaaaaaaaa'], candidatesSeenAt: '2026-10-22' });
+b.edit({ extraSources: ['bbbbbbbbbb'], candidatesSeenAt: '2026-10-25' });
+await b.sync.syncNow();
+check('A: 競合でドライブ側を選ぶと、候補のオンはドライブ側（B）のものになり、見た日は新しい方', (await a.sync.syncNow(() => true)) === 'pull' && a.profile.extraSources.join() === 'bbbbbbbbbb' && a.profile.candidatesSeenAt === '2026-10-25', JSON.stringify([a.profile.extraSources, a.profile.candidatesSeenAt]));
+await b.sync.syncNow();
+a.edit({ extraSources: ['aaaaaaaaaa', 'cccccccccc'], candidatesSeenAt: '2026-10-23' });
+b.edit({ extraSources: [], candidatesSeenAt: '2026-10-28' });
+await b.sync.syncNow();
+check('A: 競合でこの端末を選ぶと、候補のオンはこの端末のままで、見た日は新しい方（B の日付）',
+  (await a.sync.syncNow(() => false)) === 'push' && a.profile.extraSources.join() === 'aaaaaaaaaa,cccccccccc' && a.profile.candidatesSeenAt === '2026-10-28' && drive.file.profile.candidatesSeenAt === '2026-10-28',
+  JSON.stringify([a.profile.extraSources, a.profile.candidatesSeenAt, drive.file.profile.candidatesSeenAt]));
+await b.sync.syncNow();
+b.edit({ extraSources: ['dddddddddd'] });
+check('B: 自分だけが変更したら、候補のオンも送信する', (await b.sync.syncNow()) === 'push' && drive.file.profile.extraSources.join() === 'dddddddddd');
+check('A: 相手だけが変更したら、候補のオンも取り込む', (await a.sync.syncNow()) === 'pull' && a.profile.extraSources.join() === 'dddddddddd');
+
 // 保存すると、数秒後に自動で送信される（トークンがあるとき）
 b.edit({ marker: 'auto' });
 b.window.dispatchEvent(new b.window.Event('sivree:profile-saved'));

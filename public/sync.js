@@ -124,6 +124,8 @@
   const localProfile = () => fetch('/api/profile').then((r) => r.json());
   /** 競合のとき、保存した記事はどちらの端末のものも残す（設定は選ばれたほうを使うが、記事は失わない） */
   const mergedSaved = (winner, other) => (window.SivreeSaved ? window.SivreeSaved.mergeSavedItems(winner?.savedItems, other?.savedItems) : winner?.savedItems ?? []);
+  /** 競合のとき、候補を最後に見た日は新しい方を使う（どちらの端末で見ても、見た候補を「新しい」と出さない） */
+  const laterSeen = (winner, other) => [winner?.candidatesSeenAt, other?.candidatesSeenAt].filter(Boolean).sort().pop() ?? '';
   async function applyLocal(profile) {
     applying = true;
     try {
@@ -153,7 +155,8 @@
         let incoming = remote.data.profile;
         let rev = remoteRev;
         if (conflict) {
-          incoming = { ...incoming, savedItems: mergedSaved(incoming, await localProfile()) };
+          const local = await localProfile();
+          incoming = { ...incoming, savedItems: mergedSaved(incoming, local), candidatesSeenAt: laterSeen(incoming, local) };
           await applyLocal(incoming);
           // この端末にしかなかった保存済みの記事があれば、ドライブにも反映して揃える
           if (incoming.savedItems.length > (remote.data.profile.savedItems?.length ?? 0)) {
@@ -168,7 +171,7 @@
       } else if (action === 'push') {
         let profile = await localProfile();
         if (conflict) {
-          profile = { ...profile, savedItems: mergedSaved(profile, remote.data.profile) };
+          profile = { ...profile, savedItems: mergedSaved(profile, remote.data.profile), candidatesSeenAt: laterSeen(profile, remote.data.profile) };
           await applyLocal(profile);
         }
         const rev = Math.max(remoteRev, baseRev) + 1;

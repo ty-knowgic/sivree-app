@@ -261,5 +261,7 @@
   "{n}件の引用をコピー": "Sao chép {n} trích dẫn",
   "保存できる上限（{n}件）に達しました。不要な記事の保存を解除してください。": "Đã đạt giới hạn {n} bài viết đã lưu. Hãy bỏ lưu bớt để lưu thêm.",
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Tiêu đề là bản gốc của nơi phát hành, ngày tháng tính theo khu vực của họ. Hãy kiểm tra bài gốc trước khi trích dẫn.",
-  "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (đăng ngày {date}), {url} (truy cập ngày {accessed})"
+  "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (đăng ngày {date}), {url} (truy cập ngày {accessed})",
+  "候補": "Nguồn tùy chọn",
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Các nguồn này tắt theo mặc định. Chỉ những nguồn bạn bật mới xuất hiện trong tin tức của bạn."
 }

@@ -21,6 +21,7 @@
     "test:feeds": "tsx scripts/test-feeds.ts",
     "test:saved": "tsx scripts/test-saved.ts",
     "test:tiers": "tsx scripts/test-tiers.ts",
+    "test:migrate": "tsx scripts/test-migrate.ts",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
     "check:source-names": "tsx scripts/check-source-names.ts",
     "check:brand": "node scripts/check-brand.mjs"
