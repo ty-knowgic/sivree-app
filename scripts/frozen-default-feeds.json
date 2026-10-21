@@ -1,0 +1,472 @@
+[
+ {
+  "id": "037ec69826",
+  "feedUrl": "https://allenai.org/rss.xml",
+  "sourceName": "Ai2"
+ },
+ {
+  "id": "682a74351c",
+  "feedUrl": "https://api.io.canada.ca/io-server/gc/news/en/v2?sort=publishedDate&orderBy=desc&pick=100&format=atom&atomtitle=Canada%20News%20Centre",
+  "sourceName": "カナダ政府"
+ },
+ {
+  "id": "c39414c568",
+  "feedUrl": "https://blog.google/technology/ai/rss/",
+  "sourceName": "Google"
+ },
+ {
+  "id": "40e9e37eb7",
+  "feedUrl": "https://blogs.nvidia.com/feed/",
+  "sourceName": "NVIDIA"
+ },
+ {
+  "id": "9b8b14fad8",
+  "feedUrl": "https://cifar.ca/feed/",
+  "sourceName": "CIFAR"
+ },
+ {
+  "id": "0ea3c11e0b",
+  "feedUrl": "https://deepmind.google/blog/rss.xml",
+  "sourceName": "Google DeepMind"
+ },
+ {
+  "id": "4602c502dd",
+  "feedUrl": "https://digital-strategy.ec.europa.eu/en/rss.xml",
+  "sourceName": "欧州委員会（デジタル）"
+ },
+ {
+  "id": "ee8888740d",
+  "feedUrl": "https://ec.europa.eu/commission/presscorner/api/rss?language=en",
+  "sourceName": "欧州委員会"
+ },
+ {
+  "id": "33e649875b",
+  "feedUrl": "https://huggingface.co/blog/feed.xml",
+  "sourceName": "Hugging Face"
+ },
+ {
+  "id": "eb3e3c054a",
+  "feedUrl": "https://machinelearning.apple.com/rss.xml",
+  "sourceName": "Apple"
+ },
+ {
+  "id": "fe1454e9d9",
+  "feedUrl": "https://news.engineering.utoronto.ca/feed/",
+  "sourceName": "トロント大学工学部"
+ },
+ {
+  "id": "25f3f722a3",
+  "feedUrl": "https://news.mit.edu/rss/research",
+  "sourceName": "MIT"
+ },
+ {
+  "id": "9046b51aad",
+  "feedUrl": "https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml",
+  "sourceName": "MIT"
+ },
+ {
+  "id": "4f2e55fb90",
+  "feedUrl": "https://news.mit.edu/topic/mitrobotics-rss.xml",
+  "sourceName": "MIT"
+ },
+ {
+  "id": "26f3b5d5db",
+  "feedUrl": "https://news.ontario.ca/newsroom/en/rss/allnews.rss",
+  "sourceName": "オンタリオ州政府"
+ },
+ {
+  "id": "0a5981951a",
+  "feedUrl": "https://nvidianews.nvidia.com/releases.xml",
+  "sourceName": "NVIDIA"
+ },
+ {
+  "id": "3ae57466b5",
+  "feedUrl": "https://openai.com/news/rss.xml",
+  "sourceName": "OpenAI"
+ },
+ {
+  "id": "4a854c2c8a",
+  "feedUrl": "https://partnershiponai.org/feed/",
+  "sourceName": "Partnership on AI"
+ },
+ {
+  "id": "b33cf393e9",
+  "feedUrl": "https://pm.gc.ca/en/news.rss",
+  "sourceName": "カナダ首相府"
+ },
+ {
+  "id": "bc876ddafa",
+  "feedUrl": "https://prtimes.jp/index.rdf",
+  "sourceName": "PR TIMES"
+ },
+ {
+  "id": "fd424ac45a",
+  "feedUrl": "https://research.google/blog/rss/",
+  "sourceName": "Google Research"
+ },
+ {
+  "id": "520ce7bd00",
+  "feedUrl": "https://rss.arxiv.org/rss/cs.RO",
+  "sourceName": "arXiv"
+ },
+ {
+  "id": "f4f75ae0cd",
+  "feedUrl": "https://sakana.ai/feed.xml",
+  "sourceName": "Sakana AI"
+ },
+ {
+  "id": "1984b9b048",
+  "feedUrl": "https://sanctuary.ai/feed/",
+  "sourceName": "Sanctuary AI"
+ },
+ {
+  "id": "d250eea15b",
+  "feedUrl": "https://tools.cdc.gov/api/v2/resources/media/132608.rss",
+  "sourceName": "米CDC"
+ },
+ {
+  "id": "3df3801e7c",
+  "feedUrl": "https://ustr.gov/rss.xml",
+  "sourceName": "米通商代表部"
+ },
+ {
+  "id": "ee8069e5b3",
+  "feedUrl": "https://vectorinstitute.ai/feed/",
+  "sourceName": "Vector Institute"
+ },
+ {
+  "id": "59b5acb68d",
+  "feedUrl": "https://www.arts.gov/rss.xml",
+  "sourceName": "全米芸術基金"
+ },
+ {
+  "id": "304dab34fe",
+  "feedUrl": "https://www.atpress.ne.jp/rss/index.rdf",
+  "sourceName": "@Press"
+ },
+ {
+  "id": "5d6d88323c",
+  "feedUrl": "https://www.bankofcanada.ca/content_type/press-releases/feed/",
+  "sourceName": "カナダ銀行"
+ },
+ {
+  "id": "2420ad0136",
+  "feedUrl": "https://www.bankofengland.co.uk/rss/news",
+  "sourceName": "イングランド銀行"
+ },
+ {
+  "id": "c86bb07556",
+  "feedUrl": "https://www.bea.gov/rss/rss.xml",
+  "sourceName": "米経済分析局"
+ },
+ {
+  "id": "b0f29e4eee",
+  "feedUrl": "https://www.boj.or.jp/rss/whatsnew.xml",
+  "sourceName": "日本銀行"
+ },
+ {
+  "id": "561a7adcbb",
+  "feedUrl": "https://www.cambridge.ca/news/rss",
+  "sourceName": "ケンブリッジ市"
+ },
+ {
+  "id": "decc9ac962",
+  "feedUrl": "https://www.cao.go.jp/rss/news.rdf",
+  "sourceName": "内閣府"
+ },
+ {
+  "id": "5bf8055a19",
+  "feedUrl": "https://www.cisa.gov/news.xml",
+  "sourceName": "CISA"
+ },
+ {
+  "id": "755cb2494d",
+  "feedUrl": "https://www.claymath.org/news/feed/",
+  "sourceName": "Clay Mathematics Institute"
+ },
+ {
+  "id": "f6de415518",
+  "feedUrl": "https://www.clearpathrobotics.com/feed/",
+  "sourceName": "Clearpath Robotics"
+ },
+ {
+  "id": "bd7770973a",
+  "feedUrl": "https://www.consilium.europa.eu/en/rss/pressreleases.ashx",
+  "sourceName": "欧州理事会"
+ },
+ {
+  "id": "0829885b97",
+  "feedUrl": "https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=945&max=10",
+  "sourceName": "米国防総省"
+ },
+ {
+  "id": "29efc54903",
+  "feedUrl": "https://www.digital.go.jp/rss/news.xml",
+  "sourceName": "デジタル庁"
+ },
+ {
+  "id": "570aa768b3",
+  "feedUrl": "https://www.ecb.europa.eu/rss/press.html",
+  "sourceName": "ECB"
+ },
+ {
+  "id": "7ffa9b31e2",
+  "feedUrl": "https://www.ecdc.europa.eu/en/taxonomy/term/1307/feed",
+  "sourceName": "ECDC"
+ },
+ {
+  "id": "00177ccb15",
+  "feedUrl": "https://www.ema.europa.eu/en/news.xml",
+  "sourceName": "欧州医薬品庁"
+ },
+ {
+  "id": "f5a02508e1",
+  "feedUrl": "https://www.embl.org/news/feed/",
+  "sourceName": "EMBL"
+ },
+ {
+  "id": "f9f809f0e3",
+  "feedUrl": "https://www.esa.int/rssfeed/Our_Activities/Space_Science",
+  "sourceName": "ESA"
+ },
+ {
+  "id": "58bfb36a48",
+  "feedUrl": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml",
+  "sourceName": "FDA"
+ },
+ {
+  "id": "fde95bab09",
+  "feedUrl": "https://www.federalreserve.gov/feeds/press_all.xml",
+  "sourceName": "FRB"
+ },
+ {
+  "id": "96c1a82bfe",
+  "feedUrl": "https://www.fraunhofer.de/en/rss/press.rss",
+  "sourceName": "Fraunhofer"
+ },
+ {
+  "id": "033d457639",
+  "feedUrl": "https://www.fsa.go.jp/fsaNewsListAll_rss2.xml",
+  "sourceName": "金融庁"
+ },
+ {
+  "id": "dcee037d3f",
+  "feedUrl": "https://www.gov.uk/government/organisations/ai-security-institute.atom",
+  "sourceName": "英国 AI Security Institute"
+ },
+ {
+  "id": "faf45fbbc9",
+  "feedUrl": "https://www.gov.uk/government/organisations/department-for-science-innovation-and-technology.atom",
+  "sourceName": "英国科学・イノベーション・技術省"
+ },
+ {
+  "id": "5abc287480",
+  "feedUrl": "https://www.gov.uk/government/organisations/foreign-commonwealth-development-office.atom",
+  "sourceName": "英国外務省"
+ },
+ {
+  "id": "f46baee886",
+  "feedUrl": "https://www.gpif.go.jp/rss.xml",
+  "sourceName": "GPIF"
+ },
+ {
+  "id": "3d08399c44",
+  "feedUrl": "https://www.ipmu.jp/en/rss.xml",
+  "sourceName": "Kavli IPMU"
+ },
+ {
+  "id": "663e4e5896",
+  "feedUrl": "https://www.jaxa.jp/rss/press_j.rdf",
+  "sourceName": "JAXA"
+ },
+ {
+  "id": "e0e5749958",
+  "feedUrl": "https://www.jetro.go.jp/rss/biznews.xml",
+  "sourceName": "JETRO"
+ },
+ {
+  "id": "73d66cd1f8",
+  "feedUrl": "https://www.jetro.go.jp/rss/news.xml",
+  "sourceName": "ジェトロ"
+ },
+ {
+  "id": "443f5fc1ac",
+  "feedUrl": "https://www.jpcert.or.jp/rss/jpcert.rdf",
+  "sourceName": "JPCERT/CC"
+ },
+ {
+  "id": "609037ae94",
+  "feedUrl": "https://www.jpx.co.jp/rss/jpx-news.xml",
+  "sourceName": "JPX"
+ },
+ {
+  "id": "25725265d2",
+  "feedUrl": "https://www.jst.go.jp/rss/press.xml",
+  "sourceName": "JST"
+ },
+ {
+  "id": "81fad48ce6",
+  "feedUrl": "https://www.kantei.go.jp/index-jnews.rdf",
+  "sourceName": "首相官邸"
+ },
+ {
+  "id": "0a5d5e9def",
+  "feedUrl": "https://www.kek.jp/ja/feed/",
+  "sourceName": "KEK"
+ },
+ {
+  "id": "f700452445",
+  "feedUrl": "https://www.kitchener.ca/news/rss",
+  "sourceName": "キッチナー市"
+ },
+ {
+  "id": "6b3ff5963c",
+  "feedUrl": "https://www.kyoto-u.ac.jp/ja/rss.xml",
+  "sourceName": "京都大学"
+ },
+ {
+  "id": "7135c4bec4",
+  "feedUrl": "https://www.linuxfoundation.org/press/rss.xml",
+  "sourceName": "Linux Foundation"
+ },
+ {
+  "id": "5359fc7a19",
+  "feedUrl": "https://www.mext.go.jp/b_menu/news/index.rdf",
+  "sourceName": "文部科学省"
+ },
+ {
+  "id": "da2510843c",
+  "feedUrl": "https://www.mhlw.go.jp/stf/news.rdf",
+  "sourceName": "厚生労働省"
+ },
+ {
+  "id": "263d8d0ce8",
+  "feedUrl": "https://www.microsoft.com/en-us/research/feed/",
+  "sourceName": "Microsoft Research"
+ },
+ {
+  "id": "95e5b62934",
+  "feedUrl": "https://www.mod.go.jp/j/rss/news.xml",
+  "sourceName": "防衛省"
+ },
+ {
+  "id": "35ec8e2628",
+  "feedUrl": "https://www.mof.go.jp/news.rss",
+  "sourceName": "財務省"
+ },
+ {
+  "id": "d1fc60aa1c",
+  "feedUrl": "https://www.nao.ac.jp/atom.xml",
+  "sourceName": "国立天文台"
+ },
+ {
+  "id": "a36c3fe90a",
+  "feedUrl": "https://www.nasa.gov/news-release/feed/",
+  "sourceName": "NASA"
+ },
+ {
+  "id": "f884c32981",
+  "feedUrl": "https://www.newswire.ca/rss/financial-services-latest-news/venture-capital-list.rss",
+  "sourceName": "Cision Canada"
+ },
+ {
+  "id": "aa316df8b9",
+  "feedUrl": "https://www.nist.gov/news-events/news/rss.xml",
+  "sourceName": "NIST"
+ },
+ {
+  "id": "30a40ab0c3",
+  "feedUrl": "https://www.noaa.gov/rss.xml",
+  "sourceName": "NOAA"
+ },
+ {
+  "id": "dae974b17d",
+  "feedUrl": "https://www.nsf.gov/rss/rss_www_news.xml",
+  "sourceName": "NSF"
+ },
+ {
+  "id": "08135207fd",
+  "feedUrl": "https://www.ntia.gov/rss.xml",
+  "sourceName": "NTIA"
+ },
+ {
+  "id": "c81cf2da56",
+  "feedUrl": "https://www.ntt.com/index/rss.xml",
+  "sourceName": "NTT"
+ },
+ {
+  "id": "b7b0a4e990",
+  "feedUrl": "https://www.openrobotics.org/blog?format=rss",
+  "sourceName": "Open Robotics"
+ },
+ {
+  "id": "e0a06c426e",
+  "feedUrl": "https://www.prnewswire.com/rss/financial-services-latest-news/earnings-list.rss",
+  "sourceName": "PR Newswire"
+ },
+ {
+  "id": "ff8508fcbc",
+  "feedUrl": "https://www.prnewswire.com/rss/financial-services-latest-news/mergers-and-acquisitions-list.rss",
+  "sourceName": "PR Newswire"
+ },
+ {
+  "id": "c603122e25",
+  "feedUrl": "https://www.prnewswire.com/rss/financial-services-latest-news/venture-capital-list.rss",
+  "sourceName": "PR Newswire"
+ },
+ {
+  "id": "0b8d22b120",
+  "feedUrl": "https://www.prnewswire.com/rss/general-business-latest-news/general-business-latest-news-list.rss",
+  "sourceName": "PR Newswire"
+ },
+ {
+  "id": "f02c95b6b6",
+  "feedUrl": "https://www.regionofwaterloo.ca/news-public-notices-and-council-info/rss",
+  "sourceName": "ウォータールー・リージョン"
+ },
+ {
+  "id": "9936b74f70",
+  "feedUrl": "https://www.ri.cmu.edu/feed/",
+  "sourceName": "カーネギーメロン大学"
+ },
+ {
+  "id": "e2ddd4e2e2",
+  "feedUrl": "https://www.sec.gov/news/pressreleases.rss",
+  "sourceName": "SEC"
+ },
+ {
+  "id": "87671b9d50",
+  "feedUrl": "https://www.simonsfoundation.org/feed/",
+  "sourceName": "Simons Foundation"
+ },
+ {
+  "id": "1800b6b3ea",
+  "feedUrl": "https://www.soumu.go.jp/news.rdf",
+  "sourceName": "総務省"
+ },
+ {
+  "id": "28fe2077f8",
+  "feedUrl": "https://www.state.gov/rss-feed/press-releases/feed/",
+  "sourceName": "米国務省"
+ },
+ {
+  "id": "b2518c5f40",
+  "feedUrl": "https://www.waterloo.ca/news/rss",
+  "sourceName": "ウォータールー市"
+ },
+ {
+  "id": "5f74cfa768",
+  "feedUrl": "https://www.who.int/rss-feeds/news-english.xml",
+  "sourceName": "WHO"
+ },
+ {
+  "id": "24f3cd9bf6",
+  "feedUrl": "https://www.wto.org/library/rss/latest_news_e.xml",
+  "sourceName": "WTO"
+ },
+ {
+  "id": "9b3202fd2e",
+  "feedUrl": "https://www150.statcan.gc.ca/n1/rss/dai-quo/0-eng.atom",
+  "sourceName": "カナダ統計局"
+ }
+]
