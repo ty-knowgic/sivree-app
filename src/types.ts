@@ -12,6 +12,17 @@ export type SubgroupKey = (typeof SUBGROUPS)[number];
 export const SOURCE_TYPES = ['official', 'corporate', 'research', 'npo'] as const;
 export type SourceType = (typeof SOURCE_TYPES)[number];
 
+/**
+ * 公的機関の階層。international は国際機関と EU の機関、national は中央政府、
+ * regional は州・県・準州の政府（ISO 3166-2 の第1階層）、local は市区町村
+ */
+export const SOURCE_LEVELS = ['international', 'national', 'regional', 'local'] as const;
+export type SourceLevel = (typeof SOURCE_LEVELS)[number];
+
+/** 利用条件の区分（SOURCE_TERMS.md）。A=再利用が明示、B1=商用を制限、B2=引用の範囲、C=読み取れない、D=取得できない */
+export const TERMS_CLASSES = ['A', 'B1', 'B2', 'C', 'D'] as const;
+export type TermsClass = (typeof TERMS_CLASSES)[number];
+
 export interface FeedSource {
   sourceType: SourceType;
   /** フィードの既定カテゴリ。省略した場合はキーワード規則に一致した記事だけを取り込む */
@@ -33,6 +44,18 @@ export interface FeedSource {
   categoryByUrl?: [RegExp, CategoryKey][];
   /** 発信元の利用条件が商用での利用・再配布を制限している場合（SOURCE_TERMS.md の B1）。見出しと原文へのリンクだけを表示し、説明文・要約・画像は出さない */
   titleOnly?: boolean;
+  /** 公的機関の階層。sourceType が official のときは必須。企業・研究機関・団体は national と同じに扱う */
+  level?: SourceLevel;
+  /** 管轄の ISO 3166-2 コード（例 'JP-13'、'CA-ON'）。level が regional または local のとき必須 */
+  area?: string;
+  /** 市の識別子（例 'toronto'）。area の中で一意。level が local のとき必須 */
+  city?: string;
+  /** 専門パックの ID。付いた情報源は有償のパックに属する。パックに入れるのは、利用条件が A の情報源だけ */
+  pack?: string;
+  /** 追加した日（YYYY-MM-DD）。凍結（2026-10-20）より後に足した情報源にだけ付ける。付いた情報源は、既定ではオフの候補になる */
+  since?: string;
+  /** 利用条件の区分。B1 は titleOnly が必須、pack を持つ情報源は A が必須 */
+  terms?: TermsClass;
   /** 見出しと説明文（短縮の前）がこの条件に合う記事だけを取り込む。フィード側で絞り込めないときに使う（arXiv の RSS など） */
   include?: RegExp;
   /** 見出しと説明文（短縮の前）がこの条件に合う記事は取り込まない */

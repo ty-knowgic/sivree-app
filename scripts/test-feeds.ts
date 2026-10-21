@@ -1,10 +1,12 @@
 // フィード取得の信頼性を確かめる。時間切れ・5xx は取り直し、4xx は取り直さないこと、HTML が返ったときに原因が分かること、
 // フィードも robots.txt に従うこと（禁止・確認できないときは取得せず、無ければ取得する）、arXiv の RSS を絞り込めること、
 // 同時に取得する数が絞られること、同じ記事の見出し違いが1件にまとまる（別の記事は残る）ことを、本物の通信なしで調べる。
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { withStoredSummaries } from '../src/api.js';
-import { applyTitleOnly, dedupeSameDocument, fetchFeed, mapWithConcurrency, officialFeeds } from '../src/newsPipeline.js';
+import { applyTitleOnly, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate } from '../src/newsPipeline.js';
+import { SOURCE_LEVELS } from '../src/types.js';
 import type { FeedSource, NewsItem } from '../src/types.js';
 
 let failures = 0;
@@ -184,6 +186,90 @@ check('それ以外の情報源は変えない', untouched.summary === '説明�
 const stored = new Map([['x', { headlineJa: '要点', summary: '要約', method: 'extractive' }]]) as unknown as Parameters<typeof withStoredSummaries>[0];
 const [withoutAi, withAi] = withStoredSummaries(stored, [item({ id: 'x', titleOnly: true }), item({ id: 'x' })]);
 check('titleOnly の記事には、保存済みの要約があっても添えない', !('ai' in withoutAi) && 'ai' in withAi);
+
+// ---------- 読めない形の日付 ----------
+// 日付が読めない記事は取り込まれない。実際のフィードで見つかった2つの崩れた形を、読める形に直す
+check('日付: 秒がなくコロンが残る形（e-Gov: 2026-10-19T15:00:Z）を読む', toIsoDate('2026-10-19T15:00:Z') === '2026-10-19T15:00:00.000Z', String(toIsoDate('2026-10-19T15:00:Z')));
+check('日付: 日付と時刻の間に JST が入る形（青森県）を読む', toIsoDate('2026-10-21JST10:55:00+09:00') === '2026-10-21T01:55:00.000Z', String(toIsoDate('2026-10-21JST10:55:00+09:00')));
+check('日付: 末尾が JST の形（千葉県など）は従来どおり読める', toIsoDate('Wed, 21 Oct 2026 10:30:00 JST') === '2026-10-21T01:30:00.000Z', String(toIsoDate('Wed, 21 Oct 2026 10:30:00 JST')));
+check('日付: 正しい形は変えない', toIsoDate('2026-10-19T15:00:00Z') === '2026-10-19T15:00:00.000Z' && toIsoDate('2026-10-19T15:00:00+09:00') === '2026-10-19T06:00:00.000Z');
+check('日付: 読めないものは未定義のまま', toIsoDate('not a date') === undefined && toIsoDate('') === undefined && toIsoDate(undefined) === undefined);
+
+const datedFeed = (items: string) => `<?xml version="1.0" encoding="UTF-8"?><rdf:RDF xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><channel rdf:about="x"><title>t</title><link>https://example.test/</link><description>d</description></channel>${items}</rdf:RDF>`;
+const brokenDates = datedFeed(`
+<item rdf:about="https://example.test/egov"><title>意見募集の案件</title><link>https://example.test/egov</link><description>案の公示日</description><dc:date>2026-10-19T15:00:Z</dc:date></item>
+<item rdf:about="https://example.test/aomori"><title>青森県の新着</title><link>https://example.test/aomori</link><description>更新情報</description><dc:date>2026-10-21JST10:55:00+09:00</dc:date></item>`);
+const dateServer = createServer((request, response) => {
+  if (request.url === '/robots.txt') { response.writeHead(404).end(); return; }
+  response.writeHead(200, { 'content-type': 'application/rss+xml' }).end(brokenDates);
+});
+await new Promise<void>(resolve => dateServer.listen(0, '127.0.0.1', resolve));
+const dateBase = `http://127.0.0.1:${(dateServer.address() as AddressInfo).port}`;
+const datedItems = await fetchFeed({ ...source('/'), sourceUrl: `${dateBase}/`, feedUrl: `${dateBase}/feed` });
+check('日付が崩れたフィードでも、記事を取り込む（e-Gov と青森県の形）',
+  datedItems.length === 2 && datedItems.map(entry => entry.publishedAt).sort().join(',') === '2026-10-19T15:00:00.000Z,2026-10-21T01:55:00.000Z',
+  datedItems.map(entry => entry.publishedAt).join(','));
+dateServer.close();
+
+// ---------- 取得全体の上限時間 ----------
+// 時計を差し替えて、上限を超えたら、まだ始めていないフィードを今回は取得しないことを確かめる
+const stubFeed = (name: string): FeedSource => ({ ...source('/'), sourceName: name, feedUrl: `https://example.test/${name}` });
+const stubFeeds = ['f0', 'f1', 'f2', 'f3', 'f4', 'f5'].map(stubFeed);
+let clock = 0;
+const fetchedNames: string[] = [];
+const warningsBefore = warnings.length;
+console.warn = (...args: unknown[]) => { warnings.push(args.join(' ')); };
+const within = await fetchFeedsWithin(stubFeeds, {
+  concurrency: 1, deadlineMs: 100, now: () => clock,
+  fetcher: async (feed) => { fetchedNames.push(feed.sourceName); clock += 60; return [item({ title: feed.sourceName, feedUrl: feed.feedUrl })]; }
+});
+check('上限時間を超えたら、後ろのフィードを今回は取得しない', fetchedNames.join(',') === 'f0,f1' && within.skipped.map(feed => feed.sourceName).join(',') === 'f2,f3,f4,f5', `fetched=${fetchedNames} skipped=${within.skipped.map(feed => feed.sourceName)}`);
+check('見送ったフィードは空の結果を返し、順序は保たれる', within.results.length === 6 && within.results[0].length === 1 && within.results[2].length === 0 && within.results[5].length === 0);
+check('見送ったことを記録に残す', warnings.slice(warningsBefore).some(line => line.includes('上限時間') && line.includes('f2')));
+clock = 0;
+const unlimited = await fetchFeedsWithin(stubFeeds, { concurrency: 2, now: () => clock, fetcher: async () => { clock += 1000; return []; } });
+check('既定の上限時間（8分）の中なら、すべて取得する', unlimited.skipped.length === 0);
+console.warn = originalWarn;
+
+// ---------- フィードの属性（level・area・city・pack・since・terms） ----------
+// 公的機関に level が必須、regional と local に area、local に city。pack を持つ情報源は利用条件が A、B1 は titleOnly
+const attributeProblems: string[] = [];
+for (const feed of officialFeeds) {
+  const name = feed.sourceName;
+  if (feed.sourceType === 'official' && !feed.level) attributeProblems.push(`${name}: level がない`);
+  if (feed.sourceType !== 'official' && feed.level) attributeProblems.push(`${name}: 公的機関でないのに level がある`);
+  if (feed.level && !(SOURCE_LEVELS as readonly string[]).includes(feed.level)) attributeProblems.push(`${name}: level が不正`);
+  const regionalOrLocal = feed.level === 'regional' || feed.level === 'local';
+  if (regionalOrLocal && !/^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(feed.area ?? '')) attributeProblems.push(`${name}: area がない・不正`);
+  if (!regionalOrLocal && (feed.area || feed.city)) attributeProblems.push(`${name}: regional・local でないのに area・city がある`);
+  if (feed.level === 'local' && !/^[a-z0-9-]+$/.test(feed.city ?? '')) attributeProblems.push(`${name}: city がない・不正`);
+  if (feed.level !== 'local' && feed.city) attributeProblems.push(`${name}: local でないのに city がある`);
+  if (feed.pack && feed.terms !== 'A') attributeProblems.push(`${name}: pack を持つのに利用条件が A でない`);
+  if (feed.terms === 'B1' && !feed.titleOnly) attributeProblems.push(`${name}: 利用条件が B1 なのに titleOnly でない`);
+  if (feed.since && !(/^\d{4}-\d{2}-\d{2}$/.test(feed.since) && feed.since > '2026-10-20')) attributeProblems.push(`${name}: since が不正（凍結の2026-10-20より後の日付）`);
+}
+const localKeys = officialFeeds.filter(feed => feed.level === 'local').map(feed => `${feed.area}/${feed.city}`);
+check('フィードの属性が規則に合う（level・area・city・pack・since・terms）', attributeProblems.length === 0, attributeProblems.join(' | '));
+check('市の識別子（area と city の組）は、管轄ごとに1つ', new Set(localKeys).size === localKeys.length, localKeys.join(','));
+
+// 階層の割り当て（PR の説明の一覧表と同じ。変えるときはユーザーの確認が要る）
+const namesAt = (level: string) => [...new Set(officialFeeds.filter(feed => feed.level === level).map(feed => feed.sourceName))].sort().join(',');
+check('国際機関・EU の機関の割り当て', namesAt('international') === ['ECB', 'ECDC', 'ESA', 'WHO', 'WTO', '欧州医薬品庁', '欧州委員会', '欧州委員会（デジタル）', '欧州理事会'].sort().join(','), namesAt('international'));
+check('州・県の政府の割り当て', namesAt('regional') === 'オンタリオ州政府', namesAt('regional'));
+check('市区町村の割り当て', namesAt('local') === ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'].sort().join(','), namesAt('local'));
+
+// ---------- 既定の情報源の凍結 ----------
+// 凍結（2026-10-20）までの情報源は、フィードの URL と ID を固定する。URL を替えると ID が変わり、利用者のオン・オフの記録が外れる。
+// 凍結より後に足す情報源は、since を付ける（既定ではオフの候補になり、既存の利用者の表示を変えない）
+const frozen = JSON.parse(readFileSync(new URL('./frozen-default-feeds.json', import.meta.url), 'utf8')) as { id: string; feedUrl: string; sourceName: string }[];
+const frozenUrls = new Set(frozen.map(row => row.feedUrl));
+const currentUrls = new Set(officialFeeds.map(feed => feed.feedUrl));
+check('凍結した情報源の URL が重複しない', frozenUrls.size === frozen.length);
+check('凍結した情報源の ID は、フィードの URL から決まる値のまま', frozen.every(row => sourceId(row.feedUrl) === row.id), frozen.filter(row => sourceId(row.feedUrl) !== row.id).map(row => row.sourceName).join(','));
+check('凍結した情報源が、すべて一覧に残っている（URL を替えていない）', [...frozenUrls].every(url => currentUrls.has(url)), [...frozenUrls].filter(url => !currentUrls.has(url)).join(' '));
+check('凍結より後に足した情報源には since が付いている（付いていないものは凍結の一覧にある）',
+  officialFeeds.every(feed => feed.since || frozenUrls.has(feed.feedUrl)), officialFeeds.filter(feed => !feed.since && !frozenUrls.has(feed.feedUrl)).map(feed => feed.sourceName).join(','));
+check('凍結の一覧は94件（同じフィードを2つのカテゴリで使う5件の重複を除く）', frozen.length === 94 && officialFeeds.length >= 99, `${frozen.length} / ${officialFeeds.length}`);
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);
