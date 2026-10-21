@@ -1,6 +1,6 @@
 import { buildBriefing, filterChoices, listCategoryGroups, listNews, newsDetail, onboardingOptions, sourcesWithUsage } from '../api.js';
 import type { ApiContext, SourceInfo } from '../api.js';
-import { defaultProfile, ProfileSchema, semanticQueries, withDefaultDescriptions } from '../profile.js';
+import { defaultProfile, migrateProfile, ProfileSchema, semanticQueries, withDefaultDescriptions } from '../profile.js';
 import type { Profile } from '../profile.js';
 import type { ArticleSummary, NewsItem } from '../types.js';
 import { createScorer, decodeVector, itemVectors, textKey } from '../vectors.js';
@@ -68,7 +68,7 @@ function load(): Promise<StaticData> {
 function loadProfile(): Profile {
   try {
     const saved = localStorage.getItem(PROFILE_KEY);
-    if (saved) return withDefaultDescriptions(ProfileSchema.parse(JSON.parse(saved)));
+    if (saved) return migrateProfile(withDefaultDescriptions(ProfileSchema.parse(JSON.parse(saved))));
   } catch {
     // 壊れた保存データは初期設定に戻す
   }
@@ -76,7 +76,7 @@ function loadProfile(): Profile {
 }
 
 function saveProfile(input: unknown): Profile {
-  const profile = ProfileSchema.parse(input);
+  const profile = migrateProfile(ProfileSchema.parse(input));
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   // 端末間の同期（sync.js）が「この端末で設定が変わった」ことを判断できるように、更新時刻を残して知らせる
   localStorage.setItem(PROFILE_UPDATED_KEY, String(Math.max(Date.now(), Number(localStorage.getItem(PROFILE_UPDATED_KEY)) + 1)));

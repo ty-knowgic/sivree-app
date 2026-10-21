@@ -11,7 +11,7 @@ Live: https://ty-knowgic.github.io/sivree-app/ (GitHub Pages; "Publish Sivree" w
 - `scripts/` checks and tests. `.github/workflows/publish.yml` runs them in CI.
 
 ## Before every commit (all must pass)
-`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run check:brand` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run test:feeds` · `npm run test:saved` · `npm run test:tiers` · `npm run build:site`
+`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run check:brand` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run test:feeds` · `npm run test:saved` · `npm run test:tiers` · `npm run test:migrate` · `npm run build:site`
 
 ## Conventions that bite
 - **i18n**: the Japanese text is the key. Every new UI string needs an entry in all 12 other `public/locales/*.json` (`check:locales` fails otherwise). New source names **and labels** go in `locales/sources.json`; `check:i18n-keys` fails if code uses a Japanese string that isn't in the dictionaries, `check:source-names` fails for untranslated feed names/labels. Anything generated into data (hashtags, labels) must be translated at render time.
@@ -19,6 +19,7 @@ Live: https://ty-knowgic.github.io/sivree-app/ (GitHub Pages; "Publish Sivree" w
 - jsdom tests: `const`/`let` in `app.js` are invisible to `window.eval`; expose what a test needs via `window.__t` (append `window.__t = {...}` / `window.__ready = i18nReady` to the evaluated source; `await window.i18nReady` is a no-op).
 - Static build is cached 10 min by GitHub Pages: asset URLs carry `?v=<sha>`.
 - **Feeds** live in `src/feeds/` (`officialFeeds` is re-exported from `src/newsPipeline.ts`). An official feed needs `level` (`international`/`national`/`regional`/`local`); regional/local also need `area` (ISO 3166-2), local needs `city`. The feeds that existed on 2026-10-20 (99 entries, 94 distinct URLs) are frozen in `scripts/frozen-default-feeds.json` (feed URL → id): don't change their `feedUrl` (it changes the id and drops users' on/off choices), and any feed added later must carry `since: 'YYYY-MM-DD'` (it then stays off by default). A feed in a `pack` must have `terms: 'A'`; `terms: 'B1'` requires `titleOnly`. `test:feeds` and `test:tiers` enforce this.
+- **Candidates**: a feed that is not `defaultOn` (`src/sourceTier.ts`) is a candidate: hidden unless its id is in `profile.extraSources` (`candidate: true` in `listSources()`). Turning a candidate off removes it from `extraSources` **and** adds it to `excludedSources`, so a migration redone after an old cached page saved the profile can't bring it back. `migrateProfile` (`src/profile.ts`, run by every `loadProfile`/`saveProfile`, so paste and Drive sync are covered) moves the old always-on Waterloo/Ontario sources into `extraSources`; their ids are fixed in `LEGACY_DEFAULT_CANDIDATES`. `test:migrate` checks that nobody's visible articles change.
 - CSP is a meta tag in `public/index.html`: any new external host must be added deliberately and justified in the privacy page.
 
 ## Decisions already made (don't reopen without being asked)

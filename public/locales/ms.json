@@ -261,5 +261,7 @@
   "{n}件の引用をコピー": "Salin {n} petikan",
   "保存できる上限（{n}件）に達しました。不要な記事の保存を解除してください。": "Had {n} artikel disimpan telah dicapai. Alih keluar beberapa untuk menyimpan lagi.",
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Tajuk ialah tajuk asal daripada penerbit, dan tarikh mengikut wilayah penerbit. Semak artikel asal sebelum memetik.",
-  "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (diterbitkan {date}), {url} (dicapai {accessed})"
+  "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (diterbitkan {date}), {url} (dicapai {accessed})",
+  "候補": "Sumber pilihan",
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Sumber ini dimatikan secara lalai. Hanya sumber yang anda hidupkan akan dipaparkan dalam berita anda."
 }

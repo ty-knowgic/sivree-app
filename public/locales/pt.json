@@ -291,5 +291,7 @@
   },
   "保存できる上限（{n}件）に達しました。不要な記事の保存を解除してください。": "Você atingiu o limite de {n} artigos salvos. Remova alguns para salvar mais.",
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "O título é o original do emissor e a data segue a região dele. Confira o artigo original antes de citar.",
-  "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (publicado em {date}), {url} (acessado em {accessed})"
+  "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (publicado em {date}), {url} (acessado em {accessed})",
+  "候補": "Fontes opcionais",
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Estas fontes estão desativadas por padrão. Apenas as que você ativar aparecem nas suas notícias."
 }

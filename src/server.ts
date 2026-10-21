@@ -75,8 +75,10 @@ async function updateCollectionFilter(): Promise<void> {
 }
 
 /** 利用者がオフにしておらず、選んだ地域に含まれる情報源か */
-function sourceInScope(source: { id: string; subgroup: string }, profile: Profile): boolean {
-  return !profile.excludedSources.includes(source.id) && (!profile.regions.length || profile.regions.includes(source.subgroup));
+function sourceInScope(source: { id: string; subgroup: string; candidate?: boolean }, profile: Profile): boolean {
+  // 候補は、利用者がオンにした（extraSources にある）ものだけ。既定の情報源は、オフにしていないもの
+  const chosen = source.candidate ? profile.extraSources.includes(source.id) : !profile.excludedSources.includes(source.id);
+  return chosen && (!profile.regions.length || profile.regions.includes(source.subgroup));
 }
 
 // 情報源の一覧（設定画面用）。直近30日の取り込み件数と、この利用者が使っているかを添える

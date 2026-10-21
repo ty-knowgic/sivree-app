@@ -1136,6 +1136,12 @@ main {
 
 .settings-note.is-warning { color: #c2410c; }
 
+/* 候補の節の説明文は、見出しと同じ余白に揃える */
+.source-candidates .settings-note {
+  margin: -2px 0 10px;
+  padding: 0 16px;
+}
+
 .settings-lead {
   margin: 8px 0 18px;
   color: var(--text-2);

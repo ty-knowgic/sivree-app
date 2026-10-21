@@ -23,6 +23,8 @@ export interface SourceInfo {
   sourceUrl: string;
   feedUrl: string;
   health: unknown;
+  /** 既定ではオフの候補か（src/sourceTier.ts の defaultOn でないもの）。古いデータには付いていない（候補ではない扱い） */
+  candidate?: boolean;
 }
 
 export interface ApiContext {
@@ -90,13 +92,26 @@ function groupForDisplay<T extends NewsItem & { score?: number }>(ctx: ApiContex
  * マイニュースとブリーフィングは関心トピックで選ぶため、分野では絞らない
  * （例: 「社会」を選んでいなくても、関心トピック「ウォータールー周辺」に一致する市の発表は表示する）
  */
-export function scopeOf(profile: Profile, forYou = false) {
-  return { excludedSources: new Set(profile.excludedSources), hiddenItems: new Set(profile.hiddenItems), regions: profile.regions, categories: forYou ? [] : profile.categories };
+export function scopeOf(profile: Profile, forYou = false, sources: SourceInfo[] = []) {
+  return { excludedSources: excludedSourceIds(profile, sources), hiddenItems: new Set(profile.hiddenItems), regions: profile.regions, categories: forYou ? [] : profile.categories };
+}
+
+/**
+ * 表示しない情報源の ID。既定の情報源は excludedSources にあるもの、候補は extraSources にないもの。
+ * （候補は excludedSources を見ない。オフにした候補が excludedSources にも入るのは、移行のやり直しで戻さないためだけ）
+ */
+function excludedSourceIds(profile: Profile, sources: SourceInfo[]): Set<string> {
+  const candidates = new Set(sources.filter(source => source.candidate).map(source => source.id));
+  const extra = new Set(profile.extraSources);
+  return new Set([
+    ...profile.excludedSources.filter(id => !candidates.has(id)),
+    ...[...candidates].filter(id => !extra.has(id))
+  ]);
 }
 
 /** 利用者の対象範囲（地域・情報源、マイニュース以外では分野も）に含まれる、蓄積中の全記事 */
 export function visibleNews(ctx: ApiContext, forYou = false): NewsItem[] {
-  return filterNews(ctx.items, scopeOf(ctx.profile, forYou), ctx.sourceIdOf).map(item => withPrimaryCategory(item, ctx.profile.categories));
+  return filterNews(ctx.items, scopeOf(ctx.profile, forYou, ctx.sources), ctx.sourceIdOf).map(item => withPrimaryCategory(item, ctx.profile.categories));
 }
 
 /** 記事の一覧（マイニュースは関心プロフィールに一致する記事を関連度順に、それ以外は新しい順）。どちらも一致したトピックを添える */
@@ -107,7 +122,7 @@ export function listNews(ctx: ApiContext, query: NewsQuery) {
     subgroup: query.subgroup,
     sourceType: query.sourceType,
     keyword: query.keyword,
-    ...scopeOf(profile, query.forYou)
+    ...scopeOf(profile, query.forYou, ctx.sources)
   }, ctx.sourceIdOf);
 
   const withSummaries = withStoredSummaries(ctx.summaries, filtered.map(item => withPrimaryCategory(item, profile.categories)));
@@ -213,7 +228,7 @@ export function sourcesWithUsage(ctx: ApiContext) {
   const { profile } = ctx;
   return ctx.sources.map(source => ({
     ...source,
-    enabled: !profile.excludedSources.includes(source.id),
+    enabled: source.candidate ? profile.extraSources.includes(source.id) : !profile.excludedSources.includes(source.id),
     // 選んだ地域の外にある情報源（設定の「地域・分野」で地域を加えると使われる）
     outOfRegion: Boolean(profile.regions.length) && !profile.regions.includes(source.subgroup),
     count: counts.get(source.id) ?? 0
@@ -229,7 +244,8 @@ export function filterChoices(profile: Profile) {
 /** 初回の質問の選択肢: 地域・分野ごとの情報源数と、直近30日の記事数 */
 export function onboardingOptions(ctx: ApiContext) {
   return {
-    regions: SUBGROUPS.map(region => ({ value: region, sources: ctx.sources.filter(source => source.subgroup === region).length })),
+    // 候補は既定ではオフなので、数に含めない
+    regions: SUBGROUPS.map(region => ({ value: region, sources: ctx.sources.filter(source => source.subgroup === region && !source.candidate).length })),
     categories: CATEGORIES.map(category => ({ value: category, articles: ctx.items.filter(item => item.categories.includes(category)).length })),
     // 初回の質問で選べるテーマ（マイニュースの関心トピックになる）
     topics: STARTER_TOPIC_IDS.flatMap((id) => {

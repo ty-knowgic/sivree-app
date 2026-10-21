@@ -1180,7 +1180,12 @@ async function articleAction(action) {
       const sources = await fetch('/api/sources').then(r => r.json());
       const source = sources.find(entry => entry.feedUrl === item.feedUrl) ?? sources.find(entry => entry.sourceName === item.sourceName);
       if (!source) throw new Error('source not found');
-      await updateProfile(profile => ({ ...profile, excludedSources: [...new Set([...profile.excludedSources, source.id])] }));
+      await updateProfile(profile => ({
+        ...profile,
+        // 候補は extraSources から外す（excludedSources にも入れるのは、古い画面が保存しても移行で戻さないため）
+        extraSources: source.candidate ? (profile.extraSources ?? []).filter(id => id !== source.id) : profile.extraSources,
+        excludedSources: [...new Set([...profile.excludedSources, source.id])]
+      }));
       state.items = [];
       leaveDetail();
       refreshNews();
@@ -1676,7 +1681,9 @@ function isOutOfRegion(source) {
 }
 
 function isSourceEnabled(source) {
-  return !profileDraft.excludedSources.includes(source.id) && !isOutOfRegion(source);
+  if (isOutOfRegion(source)) return false;
+  // 候補（既定ではオフの情報源）は、オンにしたもの（extraSources）だけが有効
+  return source.candidate ? profileDraft.extraSources.includes(source.id) : !profileDraft.excludedSources.includes(source.id);
 }
 
 function renderSourceRow(source) {
@@ -1707,7 +1714,7 @@ function renderSourceRow(source) {
 
 function renderSourceGroup(type) {
   const sources = sourcesDraft
-    .filter(source => source.sourceType === type)
+    .filter(source => source.sourceType === type && !source.candidate)
     // 選んだ地域の情報源を先に、対象外の地域の情報源は後ろにまとめる
     .sort((a, b) => Number(isOutOfRegion(a)) - Number(isOutOfRegion(b)) || REGION_ORDER.indexOf(a.subgroup) - REGION_ORDER.indexOf(b.subgroup));
   if (!sources.length) return '';
@@ -1724,9 +1731,30 @@ function renderSourceGroup(type) {
   `;
 }
 
+/** 候補（既定ではオフ）の一覧。オンにしたものは、上の情報源の一覧には出さず、ここでオフに戻す */
+function renderCandidateGroup() {
+  const sources = sourcesDraft
+    .filter(source => source.candidate)
+    .sort((a, b) => Number(isOutOfRegion(a)) - Number(isOutOfRegion(b)) || REGION_ORDER.indexOf(a.subgroup) - REGION_ORDER.indexOf(b.subgroup));
+  if (!sources.length) return '';
+  const enabledCount = sources.filter(isSourceEnabled).length;
+  const available = sources.filter(source => !isOutOfRegion(source)).length;
+  return `
+    <section class="source-group source-candidates" data-candidates>
+      <div class="source-group-head">
+        <h2>${escapeHtml(t('候補'))} <span class="source-count">${enabledCount}/${available}</span></h2>
+      </div>
+      <p class="settings-note">${escapeHtml(t('既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。'))}</p>
+      <ul class="source-list">${sources.map(renderSourceRow).join('')}</ul>
+    </section>
+  `;
+}
+
 function sourceSummary() {
-  const available = sourcesDraft.filter(source => !isOutOfRegion(source)).length;
-  const enabled = sourcesDraft.filter(isSourceEnabled).length;
+  // 件数は、既定の情報源と、オンにした候補を数える（オフの候補は「候補」の一覧で数える）
+  const selectable = sourcesDraft.filter(source => !isOutOfRegion(source) && (!source.candidate || isSourceEnabled(source)));
+  const available = selectable.length;
+  const enabled = selectable.filter(isSourceEnabled).length;
   return t('選んだ地域の{available}件中 <strong>{enabled}件</strong>を使用中', { available, enabled, n: enabled });
 }
 
@@ -1735,6 +1763,7 @@ function renderSourcesPane() {
     <p class="settings-lead">${escapeHtml(t('政府・自治体、企業、研究機関、団体・NPO が自ら公開した発表だけを集めています。報道機関の記事や論評は含みません。オフにした情報源は、すべてのタブとブリーフィングに表示されず、取り込みもしません。'))}</p>
     <p class="source-summary">${sourceSummary()}</p>
     ${SOURCE_TYPE_ORDER.map(renderSourceGroup).join('')}
+    ${renderCandidateGroup()}
   `;
 }
 
@@ -1906,7 +1935,7 @@ async function showSettings() {
       // 埋め込みモデルの接続状況は変わりうるため、設定画面を開くたびに確認する
       fetch('/api/config').then(r => r.json()).catch(() => state.config)
     ]);
-    profileDraft = { ...profile, excludedSources: profile.excludedSources ?? [] };
+    profileDraft = { ...profile, excludedSources: profile.excludedSources ?? [], extraSources: profile.extraSources ?? [] };
     // 空（未選択）は「すべて」を意味するため、画面ではすべて選んだ状態で表示する
     await loadChoiceOptions();
     if (!profileDraft.regions?.length) profileDraft.regions = choiceOptions.regions.map(option => option.value);
@@ -1921,18 +1950,33 @@ async function showSettings() {
 
 function setSourceEnabled(id, enabled) {
   const excluded = new Set(profileDraft.excludedSources);
-  if (enabled) excluded.delete(id); else excluded.add(id);
+  if (sourcesDraft.find(source => source.id === id)?.candidate) {
+    // 候補は extraSources が正。オフにしたら excludedSources にも入れる（古い画面が設定を保存して移行がやり直されても、戻さないため）
+    const extra = new Set(profileDraft.extraSources);
+    if (enabled) { extra.add(id); excluded.delete(id); } else { extra.delete(id); excluded.add(id); }
+    profileDraft.extraSources = [...extra];
+  } else if (enabled) {
+    excluded.delete(id);
+  } else {
+    excluded.add(id);
+  }
   profileDraft.excludedSources = [...excluded];
 }
 
 // 情報源の件数の表示を、切り替えに合わせて更新する（入力中の位置を保つため全体は描き直さない）
 function refreshSourceCounts() {
-  settingsView.querySelectorAll('.source-group').forEach((group) => {
+  settingsView.querySelectorAll('.source-group[data-type]').forEach((group) => {
     const html = renderSourceGroup(group.dataset.type);
     const next = document.createElement('div');
     next.innerHTML = html;
     group.querySelector('.source-group-head').replaceWith(next.querySelector('.source-group-head'));
   });
+  const candidates = settingsView.querySelector('[data-candidates]');
+  if (candidates) {
+    const next = document.createElement('div');
+    next.innerHTML = renderCandidateGroup();
+    candidates.querySelector('.source-group-head').replaceWith(next.querySelector('.source-group-head'));
+  }
   const summary = settingsView.querySelector('.source-summary');
   if (summary) summary.innerHTML = sourceSummary();
 }
@@ -1992,7 +2036,7 @@ settingsView.addEventListener('click', async (event) => {
   }
 
   if (action === 'toggle-group') {
-    const sources = sourcesDraft.filter(source => source.sourceType === event.target.closest('[data-type]').dataset.type && !isOutOfRegion(source));
+    const sources = sourcesDraft.filter(source => source.sourceType === event.target.closest('[data-type]').dataset.type && !source.candidate && !isOutOfRegion(source));
     const turnOn = !sources.some(isSourceEnabled);
     sources.forEach(source => setSourceEnabled(source.id, turnOn));
     renderSettings();
