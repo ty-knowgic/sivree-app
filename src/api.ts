@@ -25,6 +25,8 @@ export interface SourceInfo {
   health: unknown;
   /** 既定ではオフの候補か（src/sourceTier.ts の defaultOn でないもの）。古いデータには付いていない（候補ではない扱い） */
   candidate?: boolean;
+  /** 専門パックの名前（日本語。画面では t() で訳す）。パックに属さない情報源と古いデータには付いていない */
+  packName?: string;
 }
 
 export interface ApiContext {

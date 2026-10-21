@@ -1689,7 +1689,7 @@ function isSourceEnabled(source) {
 function renderSourceRow(source) {
   const enabled = isSourceEnabled(source);
   const outOfRegion = isOutOfRegion(source);
-  const details = [t(source.label) !== t(source.sourceName) ? t(source.label) : '', t(source.subgroup), formatList(source.categories.map(category => t(category))), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count })].filter(Boolean);
+  const details = [t(source.label) !== t(source.sourceName) ? t(source.label) : '', source.packName ? t('専門パック「{name}」', { name: t(source.packName) }) : '', t(source.subgroup), formatList(source.categories.map(category => t(category))), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count })].filter(Boolean);
   // 直近の取得に失敗した情報源（発信元のサイトの変更や、アクセスの制限など）
   const failing = !outOfRegion && source.health && !source.health.ok;
   const url = safeUrl(source.sourceUrl);

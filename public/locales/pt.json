@@ -293,5 +293,8 @@
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "O título é o original do emissor e a data segue a região dele. Confira o artigo original antes de citar.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (publicado em {date}), {url} (acessado em {accessed})",
   "候補": "Fontes opcionais",
-  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Estas fontes estão desativadas por padrão. Apenas as que você ativar aparecem nas suas notícias."
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Estas fontes estão desativadas por padrão. Apenas as que você ativar aparecem nas suas notícias.",
+  "専門パック「{name}」": "Pacote profissional: {name}",
+  "法務・知財・規制対応": "Jurídico, propriedade intelectual e regulação",
+  "税務・金融規制": "Tributação e regulação financeira"
 }

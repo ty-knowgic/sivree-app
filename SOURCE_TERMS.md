@@ -83,6 +83,28 @@ PDL1.0 と CC BY は、出典の記載と、加工した場合にその旨を示
 ## D: 取得できなかった
 防衛省、米国防総省、SEC、欧州理事会、OpenAI、NTT。サイトが 403 を返しました。回避せず、確認していません（防衛省は、検索結果の抜粋に政府標準利用規約〔第2.0版。CC BY 互換〕とありましたが、公式ページは見ていません）。
 
+## 2026-10-21 に足した候補（既定ではオフ）
+士業・企業法務向けに足した17の情報源（22フィード）です。利用条件は 2026-10-20 に規約のページを読んだ記録によります（2026-10-21 は、取得と robots.txt を確かめました）。上の表の件数には含めていません。専門パック（正式版では有償の予定）に入れるのは A だけで、A ではないものは無償の候補にしています。
+
+| 情報源 | 区分 | 記載の要点 | 確認したページ | 置き場所 |
+|---|---|---|---|---|
+| 法務省 | A | PDL1.0 | [利用規約](https://www.moj.go.jp/hisho06_00280.html) | パック「法務・知財・規制対応」 |
+| 消費者庁 | A | PDL1.0 | [terms_of_use](https://www.caa.go.jp/terms_of_use/) | 同上（製品事故・リコールの公表と届出データベースの更新は除く） |
+| 英国競争・市場庁（2本）・英国知的財産庁 | A | Open Government Licence v3.0 | [gov.uk terms](https://www.gov.uk/help/terms-conditions) | 同上 |
+| 米消費者金融保護局 | A | パブリックドメイン | [consumerfinance.gov](https://www.consumerfinance.gov/) | 同上 |
+| 米連邦取引委員会（連邦官報の規則・規則案） | A | 連邦官報は再利用の制限なし（1 CFR 2.6） | [federalregister.gov](https://www.federalregister.gov/reader-aids/understanding-the-federal-register) | 同上（FTC のサイトは 403 のため） |
+| 欧州データ保護会議・欧州データ保護監察官 | A | 出典を示せば商用も可 | [EDPB](https://www.edpb.europa.eu/copyright_en)・[EDPS](https://www.edps.europa.eu/about-edps/legal-notices/copyright_en) | 同上 |
+| WIPO | A | CC BY 4.0（例外あり） | [disclaim](https://www.wipo.int/tools/en/disclaim.html) | 同上 |
+| 英国歳入関税庁（2本） | A | Open Government Licence v3.0 | [gov.uk terms](https://www.gov.uk/help/terms-conditions) | パック「税務・金融規制」 |
+| 米内国歳入庁・SEC（連邦官報の規則・規則案） | A | 1 CFR 2.6 | [federalregister.gov](https://www.federalregister.gov/reader-aids/understanding-the-federal-register) | 同上（IRS 自身の RSS はない） |
+| e-Gov パブリック・コメント | C | e-gov.go.jp が 403 で、規約を読めていない | — | 無償の候補 |
+| 日本公認会計士協会（2本） | B1 | 事前の書面の許諾が必要（転載料あり） | [webuse](https://jicpa.or.jp/webuse/) | 無償の候補（見出しと原文へのリンクだけ） |
+| 日本税理士会連合会 | B2 | 著作権法上の引用・転載を、出所の明示で認める | [aboutsite](https://www.nichizeiren.or.jp/aboutsite/) | 無償の候補 |
+| BIS | B2 | 非商用は自由。出典つきの限定的な抜粋は無償 | [terms](https://www.bis.org/about/terms-conditions) | 無償の候補 |
+| オンタリオ州証券委員会（3本） | B1 | 非商用に限る限定的な許諾 | [legal](https://www.osc.ca/en/legal) | 無償の候補（州の機関。見出しと原文へのリンクだけ） |
+
+フィードがない・取得できないため入れていないもの: 国税庁・特許庁・個人情報保護委員会（RSS なし）、公正取引委員会（403）、経済産業省（空の応答が続く）、米国の IRS・USPTO 自身（RSS なし）と FTC（403）、OECD・FASB・FATF（403）ほか。
+
 ## これから決めること
 1. **B1（記事の約19%）**: 決定済み。見出しと原文へのリンクだけを表示する（2026-10-20）。許諾の依頼（カナダ政府・JPX・WHO・オンタリオ州政府など）は、利用状況とフィードバックを見て判断する。
 2. **配信サービス（記事の約24%）**: PR Newswire・PR TIMES・@Press に、商用の集約サービスでの再掲載の可否を問い合わせる。
