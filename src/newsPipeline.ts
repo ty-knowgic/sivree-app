@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import Parser from 'rss-parser';
 import { fetchArticleContent, isGenericImage } from './articleContent.js';
 import { filterNews } from './newsFilters.js';
-import { USER_AGENT } from './robots.js';
+import { isAllowedByRobots, USER_AGENT } from './robots.js';
 import { cleanFeedText, decodeEntities } from './text.js';
 import { CATEGORIES, SOURCE_TYPES, SUBGROUPS } from './types.js';
 import type { CategoryKey, FeedSource, NewsFilters, NewsItem } from './types.js';
@@ -134,7 +134,6 @@ export const officialFeeds: FeedSource[] = [
   { sourceType: 'official', category: '安全保障', subgroup: '米国', sourceName: '米国防総省', sourceUrl: 'https://www.defense.gov/', feedUrl: 'https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?ContentType=1&Site=945&max=10', label: 'U.S. Department of Defense News', maxItems: 8 },
   { sourceType: 'official', category: '安全保障', subgroup: '米国', sourceName: 'CISA', sourceUrl: 'https://www.cisa.gov/', feedUrl: 'https://www.cisa.gov/news.xml', label: 'CISA（米サイバーセキュリティ・インフラ安全保障庁）' },
   // 国際機関・経済・通商・医療・気候（一般の関心が高い分野の一次情報。2026-10 に取得できることを確認済み）
-  { sourceType: 'official', category: '国際', subgroup: 'グローバル', sourceName: '国連ニュース', sourceUrl: 'https://news.un.org/', feedUrl: 'https://news.un.org/feed/subscribe/en/news/all/rss.xml', label: 'UN News', maxItems: 8 },
   { sourceType: 'official', category: '経済', subgroup: 'グローバル', sourceName: 'WTO', sourceUrl: 'https://www.wto.org/', feedUrl: 'https://www.wto.org/library/rss/latest_news_e.xml', label: 'WTO（世界貿易機関）ニュース', maxItems: 8 },
   { sourceType: 'official', category: '経済', subgroup: '米国', sourceName: '米経済分析局', sourceUrl: 'https://www.bea.gov/', feedUrl: 'https://www.bea.gov/rss/rss.xml', label: 'BEA（米国経済分析局）', maxItems: 8 },
   { sourceType: 'official', category: '経済', subgroup: '米国', sourceName: '米通商代表部', sourceUrl: 'https://ustr.gov/', feedUrl: 'https://ustr.gov/rss.xml', label: 'USTR（米国通商代表部）', maxItems: 8 },
@@ -153,8 +152,12 @@ export const officialFeeds: FeedSource[] = [
   { sourceType: 'npo', category: 'テクノロジー', subgroup: 'グローバル', sourceName: 'Linux Foundation', sourceUrl: 'https://www.linuxfoundation.org/press', feedUrl: 'https://www.linuxfoundation.org/press/rss.xml', label: 'Linux Foundation プレスリリース', maxItems: 10 },
   {
     sourceType: 'research', category: 'テクノロジー', subgroup: 'グローバル', sourceName: 'arXiv', sourceUrl: 'https://arxiv.org/list/cs.RO/recent',
-    // ロボティクス論文のうち、基盤モデル・ヒューマノイド・VLA・世界モデル・身体性に関するもの（Physical AI）
-    feedUrl: 'https://export.arxiv.org/api/query?search_query=cat:cs.RO+AND+(abs:humanoid+OR+abs:%22foundation+model%22+OR+abs:%22vision-language-action%22+OR+abs:%22world+model%22+OR+abs:embodied)&sortBy=submittedDate&sortOrder=descending&max_results=15',
+    // ロボティクス論文のうち、基盤モデル・ヒューマノイド・VLA・世界モデル・身体性に関するもの（Physical AI）。
+    // API（export.arxiv.org）は robots.txt が全面禁止のため、制限のない公式の RSS を使い、絞り込みはこちらで行う。改訂（replace）は新着ではないので除く
+    feedUrl: 'https://rss.arxiv.org/rss/cs.RO',
+    include: /humanoid|foundation model|vision-language-action|world model|embodied/i,
+    exclude: /Announce Type:\s*replace/i,
+    summaryPrefix: /^\s*arXiv:\S+\s+Announce Type:\s*\S+\s+Abstract:\s*/i,
     label: 'arXiv cs.RO（Physical AI 関連の新着論文）', maxItems: 10
   },
   // 生成AI・AI 研究（企業の研究部門、研究機関、大学）
@@ -495,6 +498,12 @@ export async function mapWithConcurrency<T, R>(items: T[], limit: number, work: 
 
 export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
   try {
+    // 記事ページと同じく、フィードも robots.txt に従う（禁止されている、または robots.txt を確認できないときは取得しない）
+    if (!(await isAllowedByRobots(source.feedUrl))) {
+      console.warn(`[feed] ${source.sourceName}: robots.txt が許可しない、または確認できないため取得しません`);
+      recordHealth(source, { ok: false, entries: 0, imported: 0, error: 'robots.txt: disallowed or unavailable' });
+      return [];
+    }
     const response = await fetchWithRetry(source.feedUrl);
     if (!response.ok) {
       console.warn(`[feed] ${source.sourceName}: HTTP ${response.status}`);
@@ -529,7 +538,11 @@ export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
       const language = typeof item.language === 'string' ? item.language.toLowerCase() : '';
       if (source.languages && language && !source.languages.some(code => language.startsWith(code))) continue;
 
-      const description = trimSummary(textOf(item.contentSnippet ?? item.content ?? item.summary));
+      const rawDescription = textOf(item.contentSnippet ?? item.content ?? item.summary);
+      const haystack = `${title} ${rawDescription}`;
+      if (source.include && !source.include.test(haystack)) continue;
+      if (source.exclude?.test(haystack)) continue;
+      const description = trimSummary(source.summaryPrefix ? rawDescription.replace(source.summaryPrefix, '') : rawDescription);
       if (source.excludeRoutine && isRoutine(title)) continue;
       if (source.sourceType === 'official' && GREETINGS.test(title)) continue;
       if (source.sourceType === 'corporate' && PROMOTIONAL_NOISE.test(`${title} ${description}`)) continue;
@@ -714,9 +727,11 @@ async function collectNews(): Promise<NewsItem[]> {
   }
 
   const cutoff = Date.now() - ARCHIVE_DAYS * 24 * 60 * 60 * 1000;
+  // いまのフィード一覧にない情報源（取得をやめたもの、URL を替えたもの）の記事は、保存分からも外す
+  const currentFeedUrls = new Set(officialFeeds.map(feed => feed.feedUrl));
   const kept = applyTitleOnly(
     limitPerFeedPerDay(dedupeSameDocument(sortByDate([...store.values()])))
-      .filter(item => new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
+      .filter(item => currentFeedUrls.has(item.feedUrl) && new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
       .slice(0, ARCHIVE_LIMIT)
   );
 

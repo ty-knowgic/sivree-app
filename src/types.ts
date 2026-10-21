@@ -33,6 +33,12 @@ export interface FeedSource {
   categoryByUrl?: [RegExp, CategoryKey][];
   /** 発信元の利用条件が商用での利用・再配布を制限している場合（SOURCE_TERMS.md の B1）。見出しと原文へのリンクだけを表示し、説明文・要約・画像は出さない */
   titleOnly?: boolean;
+  /** 見出しと説明文（短縮の前）がこの条件に合う記事だけを取り込む。フィード側で絞り込めないときに使う（arXiv の RSS など） */
+  include?: RegExp;
+  /** 見出しと説明文（短縮の前）がこの条件に合う記事は取り込まない */
+  exclude?: RegExp;
+  /** 説明文の先頭から取り除く定型の文（arXiv の RSS の「arXiv:… Announce Type: … Abstract:」など） */
+  summaryPrefix?: RegExp;
 }
 
 export interface NewsItem {
