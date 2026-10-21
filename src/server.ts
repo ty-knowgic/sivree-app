@@ -208,7 +208,8 @@ app.get('/api/news/:id/summary', async (req, res) => {
   }
 });
 
-app.get('*', (_req, res) => {
+// Express 5 では、すべての道の受け口に名前つきのワイルドカードが要る（'*' は起動時にエラーになる）
+app.get('/{*path}', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 

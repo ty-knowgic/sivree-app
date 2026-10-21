@@ -269,7 +269,8 @@ check('凍結した情報源の ID は、フィードの URL から決まる値�
 check('凍結した情報源が、すべて一覧に残っている（URL を替えていない）', [...frozenUrls].every(url => currentUrls.has(url)), [...frozenUrls].filter(url => !currentUrls.has(url)).join(' '));
 check('凍結より後に足した情報源には since が付いている（付いていないものは凍結の一覧にある）',
   officialFeeds.every(feed => feed.since || frozenUrls.has(feed.feedUrl)), officialFeeds.filter(feed => !feed.since && !frozenUrls.has(feed.feedUrl)).map(feed => feed.sourceName).join(','));
-check('凍結の一覧は94件（同じフィードを2つのカテゴリで使う5件の重複を除く）', frozen.length === 94 && officialFeeds.length >= 99, `${frozen.length} / ${officialFeeds.length}`);
+// 2026-10-21: Cision Canada（Venture Capital の RSS が 404、代わりの RSS はカナダ向けではない）を外して、94件から93件に
+check('凍結の一覧は93件（同じフィードを2つのカテゴリで使う5件の重複を除く）', frozen.length === 93 && officialFeeds.length >= 98, `${frozen.length} / ${officialFeeds.length}`);
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);

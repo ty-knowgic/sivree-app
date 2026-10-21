@@ -34,14 +34,14 @@ check('有償のパックは既定でオフ', !defaultOn({ level: 'national', pa
 
 // ---------- いまのフィード（凍結した情報源）の内訳 ----------
 const count = (tier: string) => officialFeeds.filter(feed => tierOf(feed) === tier).length;
-check('いまのフィード99件の層は、無償94・上限の対象5（オンタリオ州政府と、ウォータールー周辺の4自治体）・有償0',
-  officialFeeds.length === 99 && count('free') === 94 && count('limited') === 5 && count('paid') === 0, `${count('free')}/${count('limited')}/${count('paid')} of ${officialFeeds.length}`);
+check('いまのフィード98件の層は、無償93・上限の対象5（オンタリオ州政府と、ウォータールー周辺の4自治体）・有償0',
+  officialFeeds.length === 98 && count('free') === 93 && count('limited') === 5 && count('paid') === 0, `${count('free')}/${count('limited')}/${count('paid')} of ${officialFeeds.length}`);
 const limitedNames = ['ウォータールー市', 'ウォータールー・リージョン', 'オンタリオ州政府', 'キッチナー市', 'ケンブリッジ市'].sort().join(',');
 check('上限の対象の5件は、オンタリオ州政府とウォータールー周辺の4自治体',
   officialFeeds.filter(feed => tierOf(feed) === 'limited').map(feed => feed.sourceName).sort().join(',') === limitedNames);
 check('since が付いているのは、候補へ移したこの5件だけ（候補は既定ではオフ。既存の利用者には移行で引き継ぐ）',
   officialFeeds.filter(feed => feed.since).map(feed => feed.sourceName).sort().join(',') === limitedNames);
-check('既定でオンの対象は94件（候補の5件を除く）', officialFeeds.filter(defaultOn).length === 94 && officialFeeds.filter(feed => !defaultOn(feed)).length === 5);
+check('既定でオンの対象は93件（候補の5件を除く）', officialFeeds.filter(defaultOn).length === 93 && officialFeeds.filter(feed => !defaultOn(feed)).length === 5);
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);
