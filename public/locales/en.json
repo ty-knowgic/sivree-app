@@ -298,5 +298,8 @@
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "The headline is the publisher’s original, and the date is in the publisher’s region. Check the original article before you cite it.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (published {date}), {url} (accessed {accessed})",
   "候補": "Optional sources",
-  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "These sources are off by default. Only the ones you turn on appear in your news."
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "These sources are off by default. Only the ones you turn on appear in your news.",
+  "専門パック「{name}」": "Professional pack: {name}",
+  "法務・知財・規制対応": "Legal, IP and regulatory",
+  "税務・金融規制": "Tax and financial regulation"
 }
