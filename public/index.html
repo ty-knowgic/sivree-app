@@ -73,7 +73,16 @@
         </div>
       </div>
 
-      <nav id="tabs" class="tabs" role="tablist" data-i18n-aria="カテゴリ" aria-label="カテゴリ"></nav>
+      <div class="tabs-bar">
+        <nav id="tabs" class="tabs" role="tablist" data-i18n-aria="カテゴリ" aria-label="カテゴリ"></nav>
+        <!-- マウスで操作する画面だけに出す、隠れたタブへ送るボタン（キーボードではタブ自体に移動できる） -->
+        <button class="tabs-arrow" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <button class="tabs-arrow" type="button" data-dir="1" tabindex="-1" aria-hidden="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+        </button>
+      </div>
     </header>
 
     <main>

@@ -307,9 +307,13 @@ svg {
 }
 
 /* カテゴリタブ（横スクロールのピル） */
-.tabs {
+.tabs-bar {
+  position: relative;
   max-width: 1080px;
   margin: 0 auto;
+}
+
+.tabs {
   display: flex;
   gap: 8px;
   padding: 6px 16px 12px;
@@ -320,6 +324,52 @@ svg {
 }
 
 .tabs::-webkit-scrollbar { display: none; }
+
+/* 横スクロールの帯で、隠れたものがある側の端をぼかす（app.js の watchOverflow が more-start / more-end を付ける） */
+.tabs.more-end,
+.filters.more-end {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+}
+
+.tabs.more-start,
+.filters.more-start {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 48px);
+  mask-image: linear-gradient(to right, transparent, #000 48px);
+}
+
+.tabs.more-start.more-end,
+.filters.more-start.more-end {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);
+}
+
+.tabs-arrow {
+  display: none;
+  position: absolute;
+  top: 6px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.tabs-arrow svg { width: 18px; height: 18px; stroke-width: 2.4; }
+.tabs-arrow[data-dir="-1"] { left: 8px; }
+.tabs-arrow[data-dir="1"] { right: 8px; }
+
+/* 指で横に払えない（マウスで操作する）画面では、隠れた側に送るボタンを出す */
+@media (hover: hover) and (pointer: fine) {
+  .tabs.more-start ~ .tabs-arrow[data-dir="-1"],
+  .tabs.more-end ~ .tabs-arrow[data-dir="1"] { display: grid; }
+  .tabs-arrow:hover { background: var(--surface-2); }
+}
 
 .tab {
   flex: 0 0 auto;
@@ -373,7 +423,7 @@ svg {
 
 .tab[aria-selected="true"]::before { background: rgba(255, 255, 255, 0.85); }
 
-body.is-detail .tabs,
+body.is-detail .tabs-bar,
 body.is-detail .search-bar,
 body.is-detail .brand,
 body.is-detail #searchToggle,

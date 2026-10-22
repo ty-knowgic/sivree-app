@@ -493,6 +493,33 @@ tabsEl.addEventListener('click', (event) => {
   if (tab) selectTab(tab.dataset.tab);
 });
 
+/**
+ * 横スクロールの帯（タブ・絞り込み）で、左右に隠れたものがあるかを more-start / more-end で示す。
+ * 中身の入れ替え（タブの作り直し）や文字幅の変化（フォントの読み込み・言語の切り替え）でも付け直す
+ */
+function watchOverflow(el) {
+  if (!window.ResizeObserver) return;
+  const update = () => {
+    const hidden = el.scrollWidth - el.clientWidth;
+    el.classList.toggle('more-start', el.scrollLeft > 1);
+    el.classList.toggle('more-end', el.scrollLeft < hidden - 1);
+  };
+  const sizes = new ResizeObserver(update);
+  const observeAll = () => {
+    sizes.disconnect();
+    [el, ...el.children].forEach(child => sizes.observe(child));
+  };
+  new MutationObserver(() => { observeAll(); update(); }).observe(el, { childList: true });
+  el.addEventListener('scroll', update, { passive: true });
+  observeAll();
+}
+
+watchOverflow(tabsEl);
+watchOverflow(document.querySelector('.filters'));
+document.querySelectorAll('.tabs-arrow').forEach(button => button.addEventListener('click', () => {
+  tabsEl.scrollBy({ left: Number(button.dataset.dir) * tabsEl.clientWidth * 0.7, behavior: 'smooth' });
+}));
+
 // ---------- 一覧 ----------
 
 function cardSummary(item) {
