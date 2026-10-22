@@ -251,6 +251,9 @@ svg {
 
 .icon-button svg { width: 22px; height: 22px; }
 
+/* 同期が有効で、この端末がまだドライブと同期していないときだけ出る */
+.sync-button { color: var(--accent); }
+
 .nav-back {
   display: inline-flex;
   align-items: center;

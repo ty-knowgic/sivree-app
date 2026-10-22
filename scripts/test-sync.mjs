@@ -9,12 +9,17 @@ const drive = { file: null, calls: [] }; // 共有のドライブ（appDataFolde
 let failures = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? '✓' : '✗'} ${name}${ok ? '' : ` ${detail}`}`); if (!ok) failures++; };
 
-function device() {
+// storage: 開く前の保存領域（{ local: {...}, session: {...} }）。翌日に開き直した端末や、読み込み直したタブを表す
+function device(storage = {}) {
   const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/', runScripts: 'outside-only' });
   const w = dom.window;
-  let profile = { regions: ['JP'], marker: 'initial' };
+  Object.entries(storage.local ?? {}).forEach(([k, v]) => w.localStorage.setItem(k, v));
+  Object.entries(storage.session ?? {}).forEach(([k, v]) => w.sessionStorage.setItem(k, v));
+  let profile = { regions: ['JP'], marker: 'initial', ...storage.profile };
+  const gis = { popups: 0 }; // Google の許可のポップアップを開いた回数
+  const events = [];
   w.google = { accounts: { oauth2: {
-    initTokenClient: (cfg) => ({ requestAccessToken: () => cfg.callback({ access_token: 'tok', expires_in: 3600 }) }),
+    initTokenClient: (cfg) => ({ requestAccessToken: () => { gis.popups++; cfg.callback({ access_token: 'tok', expires_in: 3600 }); } }),
     revoke: () => {}
   } } };
   w.fetch = async (url, options = {}) => {
@@ -41,8 +46,11 @@ function device() {
   };
   w.eval(savedSource);
   w.eval(source);
+  w.SivreeSync.on((event) => events.push(event.type));
   return {
     sync: w.SivreeSync,
+    gis,
+    events,
     get profile() { return profile; },
     edit(change) { profile = { ...profile, ...change }; w.localStorage.setItem('sivry.profile.updatedAt', String(Math.max(Date.now(), Number(w.localStorage.getItem('sivry.profile.updatedAt')) + 1))); },
     window: w
@@ -112,6 +120,35 @@ b.edit({ marker: 'auto' });
 b.window.dispatchEvent(new b.window.Event('sivree:profile-saved'));
 await new Promise((r) => setTimeout(r, 3300));
 check('B: 設定の保存後に自動で送信する', drive.file.profile.marker === 'auto');
+check('B: 許可を取ったタブには、トークンを有効期限つきで残す（読み込み直しても使える）', JSON.parse(b.window.sessionStorage.getItem('sivree:sync-token') ?? '{}').token === 'tok');
+
+// 翌日に開き直した端末（同期は有効、このタブにトークンはない）。Google の許可はタップの中でしか取れない
+const later = (marker) => device({ local: { 'sivry:sync': b.window.localStorage.getItem('sivry:sync'), 'sivry.profile.updatedAt': b.window.localStorage.getItem('sivry.profile.updatedAt') }, profile: { marker } });
+const c = later('auto');
+const callsBefore = drive.calls.length;
+check('C: 開いたときは、ポップアップを開かず（ブラウザに止められるため）、タップが必要と判断する',
+  (await c.sync.auto(() => true)) === null && c.gis.popups === 0 && c.sync.needsTap() === true && drive.calls.length === callsBefore);
+c.edit({ marker: 'from-C' });
+c.window.dispatchEvent(new c.window.Event('sivree:profile-saved'));
+check('C: トークンがないまま保存したら、送信せずにタップが必要と知らせる', c.events.includes('needs-tap') && c.gis.popups === 0 && drive.calls.length === callsBefore);
+const pending = c.sync.syncNow(() => true);
+check('C: 「今すぐ同期」は、待たずにその場で許可のポップアップを開く（タップの処理の中で開くため）', c.gis.popups === 1);
+check('C: タップで同期すると、この端末の変更を送信する', (await pending) === 'push' && drive.file.profile.marker === 'from-C' && c.sync.needsTap() === false);
+
+const d = later('from-B');
+let resolverAsked = 0;
+await d.sync.auto(() => { resolverAsked++; return false; }); // 開いたとき（トークンがないので同期はしない）
+d.sync.prepare();
+check('D: 保存ボタンのタップで、その場で許可を取りにいく', d.gis.popups === 1 && d.sync.needsTap() === false);
+d.edit({ marker: 'from-D' });
+d.window.dispatchEvent(new d.window.Event('sivree:profile-saved'));
+await new Promise((r) => setTimeout(r, 3300));
+check('D: 保存の後の自動送信でも、両方が変更していたら利用者に確認する（黙って取り込まない）', resolverAsked === 1 && drive.file.profile.marker === 'from-D' && d.profile.marker === 'from-D', JSON.stringify([resolverAsked, drive.file.profile.marker, d.profile.marker]));
+
+const e = device({ local: { 'sivry:sync': d.window.localStorage.getItem('sivry:sync'), 'sivry.profile.updatedAt': d.window.localStorage.getItem('sivry.profile.updatedAt') }, session: { 'sivree:sync-token': d.window.sessionStorage.getItem('sivree:sync-token') }, profile: { marker: 'from-D' } });
+check('E: 読み込み直したタブは、残したトークンで、ポップアップなしで同期する', e.sync.needsTap() === false && (await e.sync.auto()) === 'none' && e.gis.popups === 0);
+const expired = device({ local: { 'sivry:sync': '{"enabled":true}' }, session: { 'sivree:sync-token': JSON.stringify({ token: 'old', expiry: Date.now() - 1 }) } });
+check('期限の切れたトークンは使わない', expired.sync.needsTap() === true);
 
 await b.sync.deleteRemote();
 check('ドライブの保存データを削除できる', drive.file === null);
