@@ -365,11 +365,6 @@
   "sourceName": "NASA"
  },
  {
-  "id": "f884c32981",
-  "feedUrl": "https://www.newswire.ca/rss/financial-services-latest-news/venture-capital-list.rss",
-  "sourceName": "Cision Canada"
- },
- {
   "id": "aa316df8b9",
   "feedUrl": "https://www.nist.gov/news-events/news/rss.xml",
   "sourceName": "NIST"

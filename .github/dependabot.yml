@@ -10,3 +10,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # TypeScript 7 は、scripts/check-i18n-keys.mjs が使う JavaScript の API（createSourceFile など）を持たない（unstable/ の API だけ）。
+      # 安定した API が出たら外す（2026-10-21）
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']

@@ -42,7 +42,7 @@ npm run dev
 | 政治 | 首相官邸、総務省 | カナダ政府（全省庁）、オンタリオ州政府 | 米国務省 |
 | 経済（公的機関） | 日本銀行、財務省、経済産業省、金融庁、JPX | カナダ銀行、カナダ統計局、カナダ政府（財務・地域経済開発など） | FRB、ECB |
 | 経済（企業） | PR TIMES、@Press（企業活動に関する発表のみ） | | PR Newswire（決算・M&A・一般ビジネス） |
-| 投資 | GPIF、PR TIMES（資金調達など） | Cision Canada（Venture Capital）、カナダ政府・オンタリオ州の投資・助成 | PR Newswire（Venture Capital） |
+| 投資 | GPIF、PR TIMES（資金調達など） | カナダ政府・オンタリオ州の投資・助成 | PR Newswire（Venture Capital） |
 | 社会 | 厚生労働省、文部科学省 | ウォータールー市、キッチナー市、ケンブリッジ市、ウォータールー・リージョン、カナダ政府（保健・移民など） | 米CDC |
 | 国際 | JETRO ビジネス短信 | カナダ政府（グローバル・アフェアーズ） | WHO、欧州委員会、英国外務省 |
 | テクノロジー | デジタル庁、JST、NTT | カナダ政府（ISED）、CIFAR、Vector Institute、Clearpath Robotics、Sanctuary AI | NIST、NSF、NVIDIA（ブログ・ニュースルーム）、CMU Robotics Institute、MIT（ロボティクス）、欧州委員会（デジタル政策）、英国科学・イノベーション・技術省、Fraunhofer、Linux Foundation、arXiv（Physical AI 関連論文） |

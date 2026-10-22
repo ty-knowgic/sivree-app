@@ -76,7 +76,7 @@ PDL1.0 と CC BY は、出典の記載と、加工した場合にその旨を示
 | @Press | 会員規約が、得た情報の営利目的の利用や第三者への譲渡を禁止（フィードの利用条件は未確認） | [規約](https://www.atpress.ne.jp/term_use/) |
 
 ## C: 規約から条件を読み取れない／ページを確認できていない
-- **配信サービス**: PR Newswire（4件）、Cision Canada、PR TIMES。PR Newswire の規約は、他の利用者が投稿した内容を、所有者の書面の承認なしに再掲載することや AI の学習に使うことを禁じています。一方、同社の RSS のページはウェブ運営者向けの配信を案内しており、**商用の集約サービスでの扱いは明記がありません**。PR TIMES の規約は、掲載する企業向けのものです。
+- **配信サービス**: PR Newswire（4件）、Cision Canada（2026-10-21 にフィードが無くなり外した）、PR TIMES。PR Newswire の規約は、他の利用者が投稿した内容を、所有者の書面の承認なしに再掲載することや AI の学習に使うことを禁じています。一方、同社の RSS のページはウェブ運営者向けの配信を案内しており、**商用の集約サービスでの扱いは明記がありません**。PR TIMES の規約は、掲載する企業向けのものです。
 - **企業・団体のブログ**: NVIDIA（2件）、Google、Google Research、Google DeepMind、Apple、Hugging Face、Ai2、Sakana AI、Sanctuary AI、Clearpath Robotics、Linux Foundation、Partnership on AI、Open Robotics、Vector Institute、トロント大学工学部、京都大学、Kavli IPMU、Clay Mathematics Institute、EMBL、ESA。規約が見つからない、またはサイト利用の規約だけで、フィードの再利用に触れていません。
 - **政府・公的機関**: 内閣府、日本銀行、JST（2件）、カナダ首相府、キッチナー市、ウォータールー市、欧州医薬品庁、イングランド銀行、英国 AI Security Institute、WTO、NIST（2件）、NOAA、米CDC、NSF（2件）、米経済分析局、米通商代表部、NTIA、CISA、全米芸術基金、FRB。規約のページを見つけられなかった、または再利用の記載を読み取れませんでした。**米国連邦政府の機関の著作物は、一般に著作権の対象外**（17 U.S.C. §105）ですが、各サイトでの明記は確認していません。
 
