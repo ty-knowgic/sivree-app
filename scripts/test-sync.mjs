@@ -1,161 +1,249 @@
-// Google ドライブ同期（public/sync.js）の判断ロジックを、偽の Drive と偽の Google ログインで確かめる。
-// 実際の Google とは通信しない。2 台の端末は、別々の localStorage と別々の window で表す。
+// Google ドライブ同期（public/sync.js）を、偽の Drive と偽の Google ログインで確かめる。
+// 実際の Google とは通信しない。端末は、別々の localStorage と別々の window で表す。
+// 偽のログイン画面は iPhone の Safari と同じく、押した操作の中で（間に待ちを挟まずに）開いたときだけ開く。
 import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 
-const source = (await readFile(new URL('../public/sync.js', import.meta.url), 'utf8')).replace("const CLIENT_ID = '';", "const CLIENT_ID = 'test-client';");
-const savedSource = await readFile(new URL('../public/saved.js', import.meta.url), 'utf8');
-const drive = { file: null, calls: [] }; // 共有のドライブ（appDataFolder の 1 ファイル）
+const source = await readFile(new URL('../public/sync.js', import.meta.url), 'utf8');
+const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 let failures = 0;
 const check = (name, ok, detail = '') => { console.log(`${ok ? '✓' : '✗'} ${name}${ok ? '' : ` ${detail}`}`); if (!ok) failures++; };
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// storage: 開く前の保存領域（{ local: {...}, session: {...} }）。翌日に開き直した端末や、読み込み直したタブを表す
-function device(storage = {}) {
-  const dom = new JSDOM('<!doctype html><body></body>', { url: 'https://example.test/', runScripts: 'outside-only' });
+// 共有のドライブ（appDataFolder）。ファイルは更新の順番（modifiedTime）を持つ
+const drive = { files: [], calls: [], clock: 0, revoked: false, scope: SCOPE };
+const newest = () => [...drive.files].sort((a, b) => b.modifiedTime - a.modifiedTime)[0];
+const remote = () => newest()?.content;
+
+function device({ storage = {}, profile = { regions: ['JP'], marker: 'initial' }, gis = true } = {}) {
+  const dom = new JSDOM('<!doctype html><head></head><body></body>', { url: 'https://example.test/', runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
-  Object.entries(storage.local ?? {}).forEach(([k, v]) => w.localStorage.setItem(k, v));
-  Object.entries(storage.session ?? {}).forEach(([k, v]) => w.sessionStorage.setItem(k, v));
-  let profile = { regions: ['JP'], marker: 'initial', ...storage.profile };
-  const gis = { popups: 0 }; // Google の許可のポップアップを開いた回数
-  const events = [];
-  w.google = { accounts: { oauth2: {
-    initTokenClient: (cfg) => ({ requestAccessToken: () => { gis.popups++; cfg.callback({ access_token: 'tok', expires_in: 3600 }); } }),
-    revoke: () => {}
-  } } };
+  for (const [key, value] of Object.entries(storage)) w.localStorage.setItem(key, value);
+  const popups = { opened: 0, blocked: 0 };
+  let gesture = false;
+  const installGis = () => {
+    w.google = { accounts: { oauth2: {
+      initTokenClient: (cfg) => ({
+        requestAccessToken: () => {
+          if (!gesture) { popups.blocked++; setTimeout(() => cfg.error_callback?.({ type: 'popup_failed_to_open' }), 0); return; }
+          popups.opened++;
+          setTimeout(() => cfg.callback({ access_token: 'tok', expires_in: 3600, scope: drive.scope }), 5);
+        }
+      }),
+      hasGrantedAllScopes: (response, scope) => String(response.scope).split(' ').includes(scope),
+      revoke: () => {}
+    } } };
+  };
+  if (gis) installGis();
+  else {
+    // Google のスクリプトがまだない端末: <script> を追加すると、少し遅れて読み込まれる
+    const append = w.document.head.appendChild.bind(w.document.head);
+    w.document.head.appendChild = (node) => {
+      if (!String(node.src).includes('accounts.google.com')) return append(node);
+      setTimeout(() => { installGis(); node.onload?.(); }, 10);
+      return node;
+    };
+  }
+  const bump = () => w.localStorage.setItem('sivry.profile.updatedAt', String(Math.max(Date.now(), Number(w.localStorage.getItem('sivry.profile.updatedAt')) + 1)));
   w.fetch = async (url, options = {}) => {
     const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
     if (url === '/api/profile') {
       if (options.method === 'PUT') {
         profile = JSON.parse(options.body);
-        w.localStorage.setItem('sivry.profile.updatedAt', String(Math.max(Date.now(), Number(w.localStorage.getItem('sivry.profile.updatedAt')) + 1)));
+        bump();
         w.dispatchEvent(new w.Event('sivree:profile-saved'));
       }
       return json(profile);
     }
-    drive.calls.push(`${options.method || 'GET'} ${url.replace('https://www.googleapis.com', '').split('?')[0]}`);
-    if (options.headers?.Authorization !== 'Bearer tok') return json({}, 401);
-    if (url.includes('alt=media')) return json(drive.file);
-    if (url.includes('/drive/v3/files?') && !url.includes('/upload/')) return json({ files: drive.file ? [{ id: 'f1' }] : [] });
-    if (options.method === 'DELETE') { drive.file = null; return json({}); }
-    if (url.includes('/upload/')) {
+    const path = url.replace('https://www.googleapis.com', '');
+    drive.calls.push(`${options.method || 'GET'} ${path.split('?')[0]}`);
+    if (options.headers?.Authorization !== 'Bearer tok' || drive.revoked) return json({}, 401);
+    if (path.startsWith('/drive/v3/files?')) {
+      const files = path.includes('orderBy=modifiedTime%20desc') ? [...drive.files].sort((a, b) => b.modifiedTime - a.modifiedTime) : drive.files;
+      return json({ files: files.map((file) => ({ id: file.id })) });
+    }
+    const id = path.match(/files\/([^?/]+)/)?.[1];
+    const file = drive.files.find((f) => f.id === id);
+    if (path.includes('alt=media')) return file ? json(file.content) : json({}, 404);
+    if (options.method === 'DELETE') { drive.files = drive.files.filter((f) => f.id !== id); return json({}); }
+    if (path.startsWith('/upload/')) {
       const raw = options.body;
-      drive.file = JSON.parse(raw.includes('--sivree') ? raw.split('\r\n\r\n')[2].split('\r\n--')[0] : raw);
-      return json({ id: 'f1' });
+      const content = JSON.parse(raw.includes('--sivree') ? raw.split('\r\n\r\n')[2].split('\r\n--')[0] : raw);
+      if (file) { file.content = content; file.modifiedTime = ++drive.clock; return json({ id }); }
+      const created = { id: `f${drive.files.length + 1}-${drive.clock}`, modifiedTime: ++drive.clock, content };
+      drive.files.push(created);
+      return json({ id: created.id });
     }
     return json({}, 404);
   };
-  w.eval(savedSource);
   w.eval(source);
+  const events = [];
   w.SivreeSync.on((event) => events.push(event.type));
   return {
     sync: w.SivreeSync,
-    gis,
+    window: w,
+    popups,
     events,
     get profile() { return profile; },
-    edit(change) { profile = { ...profile, ...change }; w.localStorage.setItem('sivry.profile.updatedAt', String(Math.max(Date.now(), Number(w.localStorage.getItem('sivry.profile.updatedAt')) + 1))); },
-    window: w
+    edit(change) { profile = { ...profile, ...change }; bump(); },
+    /** 押した操作の中で呼ぶ（その間だけログイン画面を開ける） */
+    tap(fn) { gesture = true; try { return fn(); } finally { gesture = false; } },
+    /** 同じ端末でページを開き直す（localStorage と設定はそのまま） */
+    reload(options = {}) {
+      const copy = {};
+      for (let i = 0; i < w.localStorage.length; i++) copy[w.localStorage.key(i)] = w.localStorage.getItem(w.localStorage.key(i));
+      return device({ storage: copy, profile, ...options });
+    },
+    storage: (key) => JSON.parse(w.localStorage.getItem(key))
   };
 }
 
-const a = device();
-const b = device();
-check('クライアント ID があれば利用可能になる', a.sync.available === true);
-
-a.edit({ marker: 'from-A' });
-check('A: 初回はドライブが空なので送信する', (await a.sync.connect()) === 'push' && drive.file?.profile.marker === 'from-A' && drive.file.rev === 1);
-
-check('B: 未変更の端末は、ドライブの設定を取り込む', (await b.sync.connect()) === 'pull' && b.profile.marker === 'from-A');
-check('B: 取り込んだ直後は変更なしと判断する', (await b.sync.syncNow()) === 'none');
-
-b.edit({ marker: 'from-B' });
-check('B: 自分だけが変更したら送信する（版が 2 になる）', (await b.sync.syncNow()) === 'push' && drive.file.rev === 2);
-check('A: 相手だけが変更したら取り込む', (await a.sync.syncNow()) === 'pull' && a.profile.marker === 'from-B');
-
-a.edit({ marker: 'A-again' });
-b.edit({ marker: 'B-again' });
-await b.sync.syncNow();
-let asked = 0;
-check('A: 両方が変更していたら利用者に確認する（キャンセルで自分の設定を送信）', (await a.sync.syncNow(() => { asked++; return false; })) === 'push' && asked === 1 && drive.file.profile.marker === 'A-again');
-a.edit({ marker: 'A-third' });
-b.edit({ marker: 'B-third' });
-await a.sync.syncNow();
-check('B: 競合で OK を選ぶとドライブの設定を使う', (await b.sync.syncNow(() => true)) === 'pull' && b.profile.marker === 'A-third');
-
-// 保存した記事は、競合のときも両方の端末のものを残す（設定は選んだほうを使うが、記事は失わない）
-const entry = (id, savedAt) => ({ id: id.repeat(16), title: id, sourceName: 's', sourceType: 'official', subgroup: '', url: `https://example.test/${id}`, publishedAt: '2026-10-01T00:00:00.000Z', savedAt, note: '' });
+const entry = (id, savedAt = '2026-10-02T00:00:00.000Z') => ({ id: id.repeat(16), title: id, sourceName: 's', sourceType: 'official', subgroup: '', url: `https://example.test/${id}`, publishedAt: '2026-10-01T00:00:00.000Z', savedAt, note: '' });
 const ids = (profile) => (profile.savedItems ?? []).map((e) => e.id[0]).sort().join('');
-await a.sync.syncNow();
-await b.sync.syncNow();
-a.edit({ savedItems: [entry('a', '2026-10-02T00:00:00.000Z')] });
-b.edit({ savedItems: [entry('b', '2026-10-03T00:00:00.000Z')] });
-check('B: 自分だけが変更したので送信する', (await b.sync.syncNow()) === 'push' && ids(drive.file.profile) === 'b');
-check('A: 競合でドライブ側を選んでも、この端末だけの保存した記事は残り、ドライブにも反映される', (await a.sync.syncNow(() => true)) === 'pull' && ids(a.profile) === 'ab' && ids(drive.file.profile) === 'ab', [ids(a.profile), ids(drive.file.profile)]);
-check('B: 次の同期で両方を受け取る', (await b.sync.syncNow()) === 'pull' && ids(b.profile) === 'ab');
-a.edit({ savedItems: [...a.profile.savedItems, entry('c', '2026-10-04T00:00:00.000Z')] });
-b.edit({ savedItems: [...b.profile.savedItems, entry('d', '2026-10-05T00:00:00.000Z')] });
-await b.sync.syncNow();
-check('A: 競合でこの端末を選んでも、相手の保存した記事は残る（この端末にもドライブにも）', (await a.sync.syncNow(() => false)) === 'push' && ids(a.profile) === 'abcd' && ids(drive.file.profile) === 'abcd', [ids(a.profile), ids(drive.file.profile)]);
-check('統合した記事は新しい順', a.profile.savedItems.map((e) => e.id[0]).join('') === 'dcba', a.profile.savedItems.map((e) => e.id[0]).join(''));
-await b.sync.syncNow();
+const tapSync = (d) => d.tap(() => d.sync.syncNow());
 
-// 候補（既定ではオフの情報源）: オンにした候補（extraSources）は競合のとき選んだ側に揃え、候補を最後に見た日（candidatesSeenAt）は新しい方を使う
+let a = device();
+check('クライアント ID があれば利用可能になる', a.sync.available === true);
+check('同期していない端末は、開いても Google と通信しない', (await a.sync.auto()) === null && a.popups.opened + a.popups.blocked === 0 && drive.calls.length === 0);
+
+// ---------- ログイン画面は押した操作の中でだけ開く（iPhone の条件） ----------
+await a.sync.syncNow().then(() => check('押した操作の外では開けない', false), (error) => check('押した操作の外では開けない（ポップアップは止められる）', error.message === 'popup' && a.popups.blocked === 1));
+a.edit({ marker: 'from-A' });
+check('A: 押すとログイン画面が開き、初回はドライブが空なので送信する', (await tapSync(a)) === 'push' && a.popups.opened === 1 && remote()?.profile.marker === 'from-A' && remote().rev === 1);
+
+// Google のスクリプトをまだ読み込んでいない端末で初めて押したとき: 読み込みを待つ間に操作の扱いが切れたら、もう一度押してもらう
+let b = device({ gis: false, profile: { regions: ['CA'], marker: 'b-onboarding', onboarded: true, savedItems: [entry('x')] } });
+b.edit({});
+let firstTap = 'none';
+await b.tap(() => b.sync.connect()).catch((error) => { firstTap = error.message; });
+check('B: スクリプトの読み込みを待った後は開けず、もう一度押すよう知らせる', firstTap === 'popup' && b.popups.opened === 0, firstTap);
+
+// ---------- 初めて同期する端末は、確認なしにドライブの設定を使い、保存した記事は両方を残す ----------
+check('B: 2 回目に押すと開き、ドライブの設定（A の設定）を取り込む', (await b.tap(() => b.sync.connect())) === 'pull' && b.popups.opened === 1 && b.profile.marker === 'from-A' && b.profile.regions.join() === 'JP', JSON.stringify(b.profile));
+check('B: この端末だけにあった保存した記事は残り、ドライブにも上がる', ids(b.profile) === 'x' && ids(remote().profile) === 'x' && remote().rev === 2);
+check('B: 取り込みの後は「読み込んだ」と知らせる（画面を読み込み直す合図）', b.events.includes('pulled'));
+check('A: 許可が残っていれば、押してもログイン画面を出さずに取り込む', (await tapSync(a)) === 'pull' && a.popups.opened === 1 && ids(a.profile) === 'x');
+check('A: 取り込んだ直後は変更なし', (await tapSync(a)) === 'none');
+
+// ---------- 開き直しても許可は残る（約 1 時間） ----------
+a = a.reload();
+check('A: 開き直すと、ログイン画面を出さずに自動で同期する', (await a.sync.auto()) === 'none' && a.popups.opened + a.popups.blocked === 0 && a.sync.needsAuth() === false);
+a.edit({ marker: 'auto' });
+a.window.dispatchEvent(new a.window.Event('sivree:profile-saved'));
+await sleep(3300);
+check('A: 開き直した後も、設定を保存すると数秒後に自動で送信する', remote().profile.marker === 'auto');
+
+// ---------- 2 台の変更は確認なしに合わせる ----------
+await tapSync(b);
+await sleep(5);
+a.edit({ excludedSources: ['aaaaaaaaaa'] });
+b.edit({ savedItems: [entry('y', '2026-10-03T00:00:00.000Z'), ...b.profile.savedItems] });
+check('B: 自分だけが変更したので送信する', (await tapSync(b)) === 'push' && ids(remote().profile) === 'xy');
+check('A: 情報源の変更（A）と保存した記事（B）の両方が残る', (await tapSync(a)) === 'pull' && a.profile.excludedSources.join() === 'aaaaaaaaaa' && ids(a.profile) === 'xy' && remote().profile.excludedSources.join() === 'aaaaaaaaaa', JSON.stringify(a.profile));
+check('B: 次の同期で A の情報源の変更を受け取る', (await tapSync(b)) === 'pull' && b.profile.excludedSources.join() === 'aaaaaaaaaa');
+check('統合した記事は新しい順', a.profile.savedItems.map((e) => e.id[0]).join('') === 'yx');
+
+// 削除も伝わる（両方の端末が変えていても、消した記事は戻らない）
+a.edit({ savedItems: a.profile.savedItems.filter((e) => e.id[0] !== 'x') });
+b.edit({ savedItems: [entry('z', '2026-10-04T00:00:00.000Z'), ...b.profile.savedItems] });
+await tapSync(a);
+check('B: A が消した記事は消え、B が加えた記事は残る', (await tapSync(b)) === 'pull' && ids(b.profile) === 'yz' && ids(remote().profile) === 'yz', ids(b.profile));
+check('A: 同じ結果になる', (await tapSync(a)) === 'pull' && ids(a.profile) === 'yz');
+b.edit({ excludedSources: [] });
+await tapSync(b);
+check('A: 情報源をオンに戻したことも伝わる', (await tapSync(a)) === 'pull' && a.profile.excludedSources.length === 0);
+
+// 同じ設定を両方で変えたら、後から変えたほうを使う
+a.edit({ marker: 'A-first' });
+await sleep(5);
+b.edit({ marker: 'B-later' });
+await tapSync(b);
+check('A: 相手のほうが後に変えた設定は、相手のものになる', (await tapSync(a)) === 'pull' && a.profile.marker === 'B-later');
+b.edit({ marker: 'B-first' });
+await tapSync(b);
+await sleep(5);
+a.edit({ marker: 'A-later' });
+check('A: 自分のほうが後に変えた設定は、自分のものになる', (await tapSync(a)) === 'push' && a.profile.marker === 'A-later' && remote().profile.marker === 'A-later');
+check('B: それを受け取る', (await tapSync(b)) === 'pull' && b.profile.marker === 'A-later');
+
+// 候補（既定ではオフの情報源）: 両方でオンにした候補はどちらも残り、候補を最後に見た日は新しい方
 a.edit({ extraSources: ['aaaaaaaaaa'], candidatesSeenAt: '2026-10-22' });
 b.edit({ extraSources: ['bbbbbbbbbb'], candidatesSeenAt: '2026-10-25' });
-await b.sync.syncNow();
-check('A: 競合でドライブ側を選ぶと、候補のオンはドライブ側（B）のものになり、見た日は新しい方', (await a.sync.syncNow(() => true)) === 'pull' && a.profile.extraSources.join() === 'bbbbbbbbbb' && a.profile.candidatesSeenAt === '2026-10-25', JSON.stringify([a.profile.extraSources, a.profile.candidatesSeenAt]));
-await b.sync.syncNow();
-a.edit({ extraSources: ['aaaaaaaaaa', 'cccccccccc'], candidatesSeenAt: '2026-10-23' });
-b.edit({ extraSources: [], candidatesSeenAt: '2026-10-28' });
-await b.sync.syncNow();
-check('A: 競合でこの端末を選ぶと、候補のオンはこの端末のままで、見た日は新しい方（B の日付）',
-  (await a.sync.syncNow(() => false)) === 'push' && a.profile.extraSources.join() === 'aaaaaaaaaa,cccccccccc' && a.profile.candidatesSeenAt === '2026-10-28' && drive.file.profile.candidatesSeenAt === '2026-10-28',
-  JSON.stringify([a.profile.extraSources, a.profile.candidatesSeenAt, drive.file.profile.candidatesSeenAt]));
-await b.sync.syncNow();
-b.edit({ extraSources: ['dddddddddd'] });
-check('B: 自分だけが変更したら、候補のオンも送信する', (await b.sync.syncNow()) === 'push' && drive.file.profile.extraSources.join() === 'dddddddddd');
-check('A: 相手だけが変更したら、候補のオンも取り込む', (await a.sync.syncNow()) === 'pull' && a.profile.extraSources.join() === 'dddddddddd');
+await tapSync(b);
+check('A: 候補のオンは両方が残り、見た日は新しい方', (await tapSync(a)) === 'pull' && [...a.profile.extraSources].sort().join() === 'aaaaaaaaaa,bbbbbbbbbb' && a.profile.candidatesSeenAt === '2026-10-25', JSON.stringify([a.profile.extraSources, a.profile.candidatesSeenAt]));
+await tapSync(b);
+b.edit({ extraSources: ['bbbbbbbbbb'] });
+await tapSync(b);
+check('A: 相手が候補をオフにしたら、こちらでもオフになる', (await tapSync(a)) === 'pull' && a.profile.extraSources.join() === 'bbbbbbbbbb');
 
-// 保存すると、数秒後に自動で送信される（トークンがあるとき）
-b.edit({ marker: 'auto' });
-b.window.dispatchEvent(new b.window.Event('sivree:profile-saved'));
-await new Promise((r) => setTimeout(r, 3300));
-check('B: 設定の保存後に自動で送信する', drive.file.profile.marker === 'auto');
-check('B: 許可を取ったタブには、トークンを有効期限つきで残す（読み込み直しても使える）', JSON.parse(b.window.sessionStorage.getItem('sivree:sync-token') ?? '{}').token === 'tok');
-
-// 翌日に開き直した端末（同期は有効、このタブにトークンはない）。Google の許可はタップの中でしか取れない
-const later = (marker) => device({ local: { 'sivry:sync': b.window.localStorage.getItem('sivry:sync'), 'sivry.profile.updatedAt': b.window.localStorage.getItem('sivry.profile.updatedAt') }, profile: { marker } });
-const c = later('auto');
+// ---------- 許可の期限切れ・取り消し ----------
+const expired = a.reload();
+const token = expired.storage('sivree:sync-token');
+expired.window.localStorage.setItem('sivree:sync-token', JSON.stringify({ ...token, expiresAt: Date.now() - 1 }));
+check('期限が切れていたら、開いても Google の画面は出さず、同期ボタンを出す合図をする', (await expired.sync.auto()) === null && expired.popups.opened + expired.popups.blocked === 0 && expired.sync.needsAuth() && expired.events.includes('needs-auth'));
 const callsBefore = drive.calls.length;
-check('C: 開いたときは、ポップアップを開かず（ブラウザに止められるため）、タップが必要と判断する',
-  (await c.sync.auto(() => true)) === null && c.gis.popups === 0 && c.sync.needsTap() === true && drive.calls.length === callsBefore);
-c.edit({ marker: 'from-C' });
-c.window.dispatchEvent(new c.window.Event('sivree:profile-saved'));
-check('C: トークンがないまま保存したら、送信せずにタップが必要と知らせる', c.events.includes('needs-tap') && c.gis.popups === 0 && drive.calls.length === callsBefore);
-const pending = c.sync.syncNow(() => true);
-check('C: 「今すぐ同期」は、待たずにその場で許可のポップアップを開く（タップの処理の中で開くため）', c.gis.popups === 1);
-check('C: タップで同期すると、この端末の変更を送信する', (await pending) === 'push' && drive.file.profile.marker === 'from-C' && c.sync.needsTap() === false);
+expired.edit({ marker: 'offline-edit' });
+expired.window.dispatchEvent(new expired.window.Event('sivree:profile-saved'));
+await sleep(50);
+check('期限切れの間に保存しても送信はしない', drive.calls.length === callsBefore);
+check('同期ボタンを押すと許可を取り直し、待っていた変更を送信する', (await tapSync(expired)) === 'push' && expired.popups.opened === 1 && remote().profile.marker === 'offline-edit' && !expired.sync.needsAuth());
+a = expired;
+drive.revoked = true;
+check('別の端末で許可が取り消されたら、自動の同期は止まり、同期ボタンを出す', (await a.sync.auto()) === null && a.sync.needsAuth());
+drive.revoked = false;
+check('押すと許可を取り直して続ける', (await tapSync(a)) === 'none' && !a.sync.needsAuth());
 
-const d = later('from-B');
-let resolverAsked = 0;
-await d.sync.auto(() => { resolverAsked++; return false; }); // 開いたとき（トークンがないので同期はしない）
-d.sync.prepare();
-check('D: 保存ボタンのタップで、その場で許可を取りにいく', d.gis.popups === 1 && d.sync.needsTap() === false);
-d.edit({ marker: 'from-D' });
-d.window.dispatchEvent(new d.window.Event('sivree:profile-saved'));
-await new Promise((r) => setTimeout(r, 3300));
-check('D: 保存の後の自動送信でも、両方が変更していたら利用者に確認する（黙って取り込まない）', resolverAsked === 1 && drive.file.profile.marker === 'from-D' && d.profile.marker === 'from-D', JSON.stringify([resolverAsked, drive.file.profile.marker, d.profile.marker]));
+// 設定の保存・貼り付けのタップ（prepare）: 許可が切れていれば、そのタップでログイン画面を開き、保存した変更を送る
+const saver = a.reload();
+saver.window.localStorage.setItem('sivree:sync-token', JSON.stringify({ ...saver.storage('sivree:sync-token'), expiresAt: Date.now() - 1 }));
+saver.sync.prepare();
+await sleep(20);
+check('保存のタップの外で呼んでも、ログイン画面は開かず、同期ボタンを出す合図をする', saver.popups.opened === 0 && saver.events.includes('needs-auth') && saver.sync.needsAuth());
+saver.tap(() => saver.sync.prepare());
+await saver.window.fetch('/api/profile', { method: 'PUT', body: JSON.stringify({ ...saver.profile, marker: 'saved-with-tap' }) });
+await sleep(100);
+check('保存のタップでログイン画面を開き、許可が取れたら保存した変更を送る', saver.popups.opened === 1 && remote().profile.marker === 'saved-with-tap' && !saver.sync.needsAuth(), remote().profile.marker);
+saver.tap(() => saver.sync.prepare());
+check('許可が残っていれば、保存のタップでもログイン画面は開かない', saver.popups.opened === 1);
+drive.scope = 'openid';
+const noScope = a.reload();
+noScope.window.localStorage.removeItem('sivree:sync-token');
+await noScope.tap(() => noScope.sync.syncNow()).then(() => check('ドライブへのアクセスが許可されなかったら知らせる', false), (error) => check('ドライブへのアクセスが許可されなかったら知らせる', error.message === 'scope'));
+drive.scope = SCOPE;
 
-const e = device({ local: { 'sivry:sync': d.window.localStorage.getItem('sivry:sync'), 'sivry.profile.updatedAt': d.window.localStorage.getItem('sivry.profile.updatedAt') }, session: { 'sivree:sync-token': d.window.sessionStorage.getItem('sivree:sync-token') }, profile: { marker: 'from-D' } });
-check('E: 読み込み直したタブは、残したトークンで、ポップアップなしで同期する', e.sync.needsTap() === false && (await e.sync.auto()) === 'none' && e.gis.popups === 0);
-const expired = device({ local: { 'sivry:sync': '{"enabled":true}' }, session: { 'sivree:sync-token': JSON.stringify({ token: 'old', expiry: Date.now() - 1 }) } });
-check('期限の切れたトークンは使わない', expired.sync.needsTap() === true);
+// ---------- アプリに戻ったときに、別の端末での変更を取り込む ----------
+b.edit({ marker: 'while-away' });
+await tapSync(b);
+a.window.localStorage.setItem('sivry:sync', JSON.stringify({ ...a.storage('sivry:sync'), lastAt: Date.now() - 120000 }));
+a.window.document.dispatchEvent(new a.window.Event('visibilitychange'));
+await sleep(100);
+check('戻ったときに自動で取り込む', a.profile.marker === 'while-away');
 
-await b.sync.deleteRemote();
-check('ドライブの保存データを削除できる', drive.file === null);
-await b.sync.disconnect();
-check('同期をやめると状態を消す', b.window.localStorage.getItem('sivry:sync') === null);
-check('同期をやめた端末は自動同期しない', (await b.sync.auto()) === null);
-check('サーバー（Sivree）への通信はない: 通信先は /api/profile と Google のみ', drive.calls.every((c) => /\/(drive|upload)\//.test(c)));
+// ---------- 前の版で同期していた端末 ----------
+const legacyRemote = remote();
+const legacy = device({
+  storage: {
+    'sivry:sync': JSON.stringify({ enabled: true, baseRev: legacyRemote.rev, syncedAt: 1, lastAt: 1 }),
+    'sivree:sync-token': JSON.stringify({ value: 'tok', expiresAt: Date.now() + 3600000 }),
+    'sivry.profile.updatedAt': String(Date.now())
+  },
+  profile: { ...legacyRemote.profile, marker: 'legacy-unsent' }
+});
+check('前の版の端末: 送れていなかった変更は、ドライブが変わっていなければそのまま送る', (await legacy.sync.auto()) === 'push' && remote().profile.marker === 'legacy-unsent');
+await tapSync(b);
+
+// ---------- ドライブに設定ファイルが 2 つあるとき ----------
+drive.files.unshift({ id: 'stale', modifiedTime: -1, content: { rev: 99, savedAt: '2026-01-01T00:00:00.000Z', profile: { marker: 'stale' } } });
+const c = device({ profile: { marker: 'c' } });
+check('ファイルが複数あれば、最後に更新されたものを使う（どの端末でも同じものを選ぶ）', (await tapSync(c)) === 'pull' && c.profile.marker === b.profile.marker, c.profile.marker);
+
+// ---------- 削除・同期をやめる ----------
+await c.sync.deleteRemote();
+check('ドライブの保存データを削除できる（重複したファイルも含む）', drive.files.length === 0);
+await c.sync.disconnect();
+check('同期をやめると状態と許可を消す', c.window.localStorage.getItem('sivry:sync') === null && c.window.localStorage.getItem('sivree:sync-token') === null && c.window.localStorage.getItem('sivree:sync-base') === null);
+check('同期をやめた端末は自動同期しない', (await c.sync.auto()) === null && !c.sync.needsAuth());
+check('サーバー（Sivree）への通信はない: 通信先は /api/profile と Google のみ', drive.calls.every((call) => /\/(drive|upload)\//.test(call)));
 
 console.log(failures ? `失敗: ${failures}` : 'すべて成功');
 process.exit(failures ? 1 : 0);

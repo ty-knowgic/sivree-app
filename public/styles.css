@@ -251,7 +251,7 @@ svg {
 
 .icon-button svg { width: 22px; height: 22px; }
 
-/* 同期が有効で、この端末がまだドライブと同期していないときだけ出る */
+/* 同期が有効で、Google の許可がない（期限切れなど）ときだけ出る */
 .sync-button { color: var(--accent); }
 
 .nav-back {

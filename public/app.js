@@ -1852,8 +1852,12 @@ function renderSyncSection() {
   if (!window.SivreeSync?.available) return '';
   const state = window.SivreeSync.state();
   const button = (action, label) => `<button class="secondary-button" type="button" data-action="${action}">${escapeHtml(t(label))}</button>`;
+  const time = (value) => new Date(value).toLocaleString(locale());
+  // ドライブ側の更新時刻は、2 台で同じ時刻なら同じファイル（同じ Google アカウント）を見ていると確かめられる
   const status = state.enabled && state.lastAt
-    ? `<p class="settings-note">${escapeHtml(t('同期は有効です。最終同期: {time}', { time: new Date(state.lastAt).toLocaleString(locale()) }))}</p>`
+    ? `<p class="settings-note">${escapeHtml(t('同期は有効です。最終同期: {time}', { time: time(state.lastAt) }))}${
+      state.remoteSavedAt ? `<br>${escapeHtml(t('ドライブ上の設定の更新: {time}', { time: time(state.remoteSavedAt) }))}` : ''}</p>${
+      window.SivreeSync.needsAuth() ? `<p class="settings-note">${escapeHtml(t('同期を再開するには「今すぐ同期」を押してください（Google の許可は約 1 時間で切れます）。'))}</p>` : ''}`
     : '';
   const howTo = state.enabled
     ? t('設定を保存するとドライブにも反映します。ほかの端末で変えた設定は「今すぐ同期」で読み込みます。')
@@ -1870,42 +1874,45 @@ function renderSyncSection() {
       </div>`;
 }
 
-function syncConflict() {
-  return confirm(t('ドライブの設定と、この端末の設定が異なります。ドライブの設定を使いますか？（キャンセルでこの端末の設定をドライブに上書きします）'));
-}
-
+/** 同期を始める。押した操作から、間に await を挟まずに呼ぶこと（iPhone では、挟むと Google のログイン画面が開かない） */
 async function runSync(operation) {
   try {
     const action = await operation();
     if (action !== 'pull') showToast(t('同期しました'));
     if (settingsView && !settingsView.hidden) renderSettings();
-  } catch {
-    showToast(t('同期できませんでした'));
+  } catch (error) {
+    const reason = error?.message;
+    // 利用者が閉じた・もう一度押した場合は、知らせることがない
+    if (reason === 'popup_closed' || reason === 'superseded') return;
+    if (reason === 'popup' || reason === 'auth') showToast(t('もう一度押すと、Google のログイン画面を開きます。'));
+    else if (reason === 'scope') showToast(t('同期するには、Google の画面で Google ドライブへのアクセスを許可してください。'));
+    else showToast(t('同期できませんでした'));
   }
 }
 
-/** 同期ボタンは、同期が有効でこのタブがまだ同期していない（タップが必要な）ときだけ出す */
+/** 同期ボタンは、同期が有効で Google の許可がない（期限切れなど、タップが必要な）ときだけ出す */
 function updateSyncButton() {
-  syncButton.hidden = !window.SivreeSync?.needsTap();
+  syncButton.hidden = !window.SivreeSync?.needsAuth();
 }
 
 /** タップの処理の中で呼ぶ（Google の許可はタップの中でしか取れない） */
-const syncFromTap = () => runSync(() => window.SivreeSync.syncNow(syncConflict));
+const syncFromTap = () => runSync(() => window.SivreeSync.syncNow());
 syncButton.addEventListener('click', syncFromTap);
 
 if (window.SivreeSync) {
-  // ドライブ側の設定を取り込んだら、画面を読み込み直して反映する
   window.SivreeSync.on((event) => {
-    if (event.type === 'needs-tap' || event.type === 'error') {
-      syncButton.hidden = false;
-      return;
-    }
     updateSyncButton();
     if (event.type !== 'pulled') return;
+    // ドライブ側の設定を取り込んだら、画面を読み込み直して反映する。
+    // 設定画面を開いている間に自動で取り込んだときは、編集中の内容を消さないよう、読み込み直すかどうかを利用者に任せる
+    if (!event.interactive && !settingsView.hidden) {
+      showToast(t('ドライブの設定を読み込みました'), { label: t('再読み込み'), run: () => location.reload() });
+      return;
+    }
     showToast(t('ドライブの設定を読み込みました'));
     setTimeout(() => location.reload(), 900);
   });
-  window.SivreeSync.auto(syncConflict);
+  window.SivreeSync.auto();
 }
 
 // 入力欄の内容を下書きに反映する（再描画の前に呼ぶ）
@@ -2102,7 +2109,7 @@ settingsView.addEventListener('click', async (event) => {
       showToast(t('設定の形式が正しくありません'));
     }
   } else if (action === 'sync-connect' || action === 'sync-now') {
-    await runSync(() => window.SivreeSync.connect(syncConflict));
+    await runSync(() => window.SivreeSync.connect());
   } else if (action === 'sync-disconnect') {
     await window.SivreeSync.disconnect();
     renderSettings();
@@ -2111,8 +2118,8 @@ settingsView.addEventListener('click', async (event) => {
     try {
       await window.SivreeSync.deleteRemote();
       showToast(t('削除しました'));
-    } catch {
-      showToast(t('同期できませんでした'));
+    } catch (error) {
+      showToast(t(error?.message === 'popup' || error?.message === 'auth' ? 'もう一度押すと、Google のログイン画面を開きます。' : '同期できませんでした'));
     }
   } else if (action === 'restore-hidden') {
     try {
@@ -2276,7 +2283,7 @@ function updateToday() {
   syncFilterControls();
   route();
   // ほかの端末で変えた設定は、タップして同期するまで読み込めない
-  if (window.SivreeSync?.needsTap()) {
+  if (window.SivreeSync?.needsAuth()) {
     syncButton.hidden = false;
     showToast(t('ドライブの設定をまだ確認していません'), { label: t('今すぐ同期'), run: syncFromTap });
   }
