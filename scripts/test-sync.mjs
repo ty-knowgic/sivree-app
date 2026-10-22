@@ -192,6 +192,19 @@ drive.revoked = true;
 check('別の端末で許可が取り消されたら、自動の同期は止まり、同期ボタンを出す', (await a.sync.auto()) === null && a.sync.needsAuth());
 drive.revoked = false;
 check('押すと許可を取り直して続ける', (await tapSync(a)) === 'none' && !a.sync.needsAuth());
+
+// 設定の保存・貼り付けのタップ（prepare）: 許可が切れていれば、そのタップでログイン画面を開き、保存した変更を送る
+const saver = a.reload();
+saver.window.localStorage.setItem('sivree:sync-token', JSON.stringify({ ...saver.storage('sivree:sync-token'), expiresAt: Date.now() - 1 }));
+saver.sync.prepare();
+await sleep(20);
+check('保存のタップの外で呼んでも、ログイン画面は開かず、同期ボタンを出す合図をする', saver.popups.opened === 0 && saver.events.includes('needs-auth') && saver.sync.needsAuth());
+saver.tap(() => saver.sync.prepare());
+await saver.window.fetch('/api/profile', { method: 'PUT', body: JSON.stringify({ ...saver.profile, marker: 'saved-with-tap' }) });
+await sleep(100);
+check('保存のタップでログイン画面を開き、許可が取れたら保存した変更を送る', saver.popups.opened === 1 && remote().profile.marker === 'saved-with-tap' && !saver.sync.needsAuth(), remote().profile.marker);
+saver.tap(() => saver.sync.prepare());
+check('許可が残っていれば、保存のタップでもログイン画面は開かない', saver.popups.opened === 1);
 drive.scope = 'openid';
 const noScope = a.reload();
 noScope.window.localStorage.removeItem('sivree:sync-token');

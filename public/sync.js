@@ -378,6 +378,14 @@
     needsAuth: () => Boolean(readState().enabled) && !currentToken(),
     connect: syncFromTap,
     syncNow: syncFromTap,
+    /**
+     * 設定の保存・貼り付けなど、設定を変える押した操作の中で、保存より前に呼ぶ。
+     * 同期が有効で許可が切れていれば、ここでログイン画面を開き、許可が取れたら保存した変更をドライブに送る
+     */
+    prepare: () => {
+      if (!readState().enabled || currentToken()) return;
+      authorize().then(background, () => notify({ type: 'needs-auth' }));
+    },
     /** ページを開いたとき。許可が残っていれば画面を出さずに同期する。Google のスクリプトは、押したらすぐ開けるよう先に読み込む */
     auto: () => {
       if (!readState().enabled) return Promise.resolve(null);

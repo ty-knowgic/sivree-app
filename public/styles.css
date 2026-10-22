@@ -251,6 +251,9 @@ svg {
 
 .icon-button svg { width: 22px; height: 22px; }
 
+/* 同期が有効で、Google の許可がない（期限切れなど）ときだけ出る */
+.sync-button { color: var(--accent); }
+
 .nav-back {
   display: inline-flex;
   align-items: center;
@@ -1968,9 +1971,6 @@ html:lang(vi) body { line-height: 1.6; }
 .icon-badge[hidden] { display: none; }
 
 svg.is-filled path { fill: currentColor; }
-
-/* 同期が止まっている（Google の許可が切れた）ときだけ出る */
-#syncButton { color: var(--accent); }
 
 #saveButton.is-on { color: var(--accent); }
 #saveButton.is-on svg path { fill: currentColor; }
