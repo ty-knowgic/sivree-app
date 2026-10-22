@@ -21,6 +21,7 @@ const onboardingView = document.getElementById('onboardingView');
 const savedView = document.getElementById('savedView');
 const savedButton = document.getElementById('savedButton');
 const savedCount = document.getElementById('savedCount');
+const syncButton = document.getElementById('syncButton');
 
 const ALL_TAB = '';
 // 関心プロフィールに一致する記事を関連度順に並べるタブ
@@ -1854,9 +1855,13 @@ function renderSyncSection() {
   const status = state.enabled && state.lastAt
     ? `<p class="settings-note">${escapeHtml(t('同期は有効です。最終同期: {time}', { time: new Date(state.lastAt).toLocaleString(locale()) }))}</p>`
     : '';
+  const howTo = state.enabled
+    ? t('設定を保存するとドライブにも反映します。ほかの端末で変えた設定は「今すぐ同期」で読み込みます。')
+    : t('ほかの端末でも、同じ Google アカウントでこのボタンを押してください。');
   return `
       <h2 class="settings-subtitle">${escapeHtml(t('Google ドライブで同期'))}</h2>
       <p class="settings-note">${escapeHtml(t('設定を、あなたの Google ドライブ内のこのアプリ専用の非表示フォルダに保存して、端末間で同期します。Sivree のサーバーには保存されません。Google へのログインは同期のためだけに使い、このフォルダ以外のファイルは読めません。'))}</p>
+      <p class="settings-note">${escapeHtml(howTo)}</p>
       ${status}
       <div class="extra-actions">
         ${state.enabled
@@ -1879,9 +1884,23 @@ async function runSync(operation) {
   }
 }
 
+/** 同期ボタンは、同期が有効でこのタブがまだ同期していない（タップが必要な）ときだけ出す */
+function updateSyncButton() {
+  syncButton.hidden = !window.SivreeSync?.needsTap();
+}
+
+/** タップの処理の中で呼ぶ（Google の許可はタップの中でしか取れない） */
+const syncFromTap = () => runSync(() => window.SivreeSync.syncNow(syncConflict));
+syncButton.addEventListener('click', syncFromTap);
+
 if (window.SivreeSync) {
   // ドライブ側の設定を取り込んだら、画面を読み込み直して反映する
   window.SivreeSync.on((event) => {
+    if (event.type === 'needs-tap' || event.type === 'error') {
+      syncButton.hidden = false;
+      return;
+    }
+    updateSyncButton();
     if (event.type !== 'pulled') return;
     showToast(t('ドライブの設定を読み込みました'));
     setTimeout(() => location.reload(), 900);
@@ -2069,6 +2088,7 @@ settingsView.addEventListener('click', async (event) => {
     const text = settingsView.querySelector('.paste-box textarea').value.trim();
     try {
       const parsed = JSON.parse(text);
+      window.SivreeSync?.prepare();
       // 貼り付けた設定に保存した記事がなくても（古い設定のコピーなど）、この端末の保存した記事は消さない
       const current = await fetch('/api/profile').then(r => r.json());
       parsed.savedItems = SivreeSaved.mergeSavedItems(parsed.savedItems, current.savedItems);
@@ -2123,6 +2143,8 @@ settingsView.addEventListener('click', async (event) => {
       return;
     }
     profileDraft.topics = profileDraft.topics.filter(topic => topic.keywords.length || topic.description || topic.sources?.length);
+    // 同期が有効なら、このタップのうちに Google の許可を取り、保存した設定をドライブにも反映する
+    window.SivreeSync?.prepare();
     const response = await fetch('/api/profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -2253,5 +2275,10 @@ function updateToday() {
   renderTabs(categories);
   syncFilterControls();
   route();
+  // ほかの端末で変えた設定は、タップして同期するまで読み込めない
+  if (window.SivreeSync?.needsTap()) {
+    syncButton.hidden = false;
+    showToast(t('ドライブの設定をまだ確認していません'), { label: t('今すぐ同期'), run: syncFromTap });
+  }
   if (!state.needsOnboarding) await refreshNews();
 })();
