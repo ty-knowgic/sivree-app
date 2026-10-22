@@ -1969,6 +1969,9 @@ html:lang(vi) body { line-height: 1.6; }
 
 svg.is-filled path { fill: currentColor; }
 
+/* 同期が止まっている（Google の許可が切れた）ときだけ出る */
+#syncButton { color: var(--accent); }
+
 #saveButton.is-on { color: var(--accent); }
 #saveButton.is-on svg path { fill: currentColor; }
 
