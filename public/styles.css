@@ -1650,7 +1650,8 @@ body.is-onboarding .appbar { display: none; }
   transition: opacity 0.2s ease;
 }
 
-.source-row.is-off .source-meta { opacity: 0.45; }
+.source-row.is-off .source-name { color: var(--text-2); }
+.source-candidates .source-desc { color: var(--text-2); }
 
 .source-meta {
   display: grid;
