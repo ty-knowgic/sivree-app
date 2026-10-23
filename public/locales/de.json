@@ -310,5 +310,12 @@
   "この端末に未同期の変更があります。": "Auf diesem Gerät gibt es noch nicht synchronisierte Änderungen.",
   "ほかの端末でお使いですか？": "Nutzen Sie Sivree bereits auf einem anderen Gerät?",
   "Google ドライブに同期した設定を読み込めば、質問への回答は不要です。": "Laden Sie Ihre mit Google Drive synchronisierten Einstellungen, um diese Fragen zu überspringen.",
-  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Keine synchronisierten Einstellungen gefunden. Beantworten Sie die folgenden Fragen, um zu beginnen."
+  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Keine synchronisierten Einstellungen gefunden. Beantworten Sie die folgenden Fragen, um zu beginnen.",
+  "国の機関": "Nationale Behörden",
+  "州・都道府県の機関": "Behörden der Bundesländer und Provinzen",
+  "自治体": "Kommunen",
+  "国際機関": "Internationale Organisationen",
+  "自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。": "Kommunale Vorschläge umfassen nur die derzeit im Verzeichnis erfassten Gebiete. Sie werden nicht automatisch anhand Ihres Standorts ausgewählt.",
+  "情報源を検索": "Quellen suchen",
+  "該当する情報源がありません": "Keine passenden Quellen"
 }

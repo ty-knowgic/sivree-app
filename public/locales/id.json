@@ -280,5 +280,12 @@
   "この端末に未同期の変更があります。": "Ada perubahan di perangkat ini yang belum disinkronkan.",
   "ほかの端末でお使いですか？": "Sudah menggunakan Sivree di perangkat lain?",
   "Google ドライブに同期した設定を読み込めば、質問への回答は不要です。": "Muat pengaturan yang disinkronkan ke Google Drive untuk melewati pertanyaan ini.",
-  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Tidak ditemukan pengaturan tersinkron. Jawab pertanyaan di bawah untuk memulai."
+  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Tidak ditemukan pengaturan tersinkron. Jawab pertanyaan di bawah untuk memulai.",
+  "国の機関": "Lembaga nasional",
+  "州・都道府県の機関": "Lembaga negara bagian atau provinsi",
+  "自治体": "Pemerintah kota",
+  "国際機関": "Organisasi internasional",
+  "自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。": "Pilihan pemerintah kota hanya mencakup wilayah yang terdaftar dalam katalog kami. Pilihan tidak ditentukan otomatis berdasarkan lokasi Anda.",
+  "情報源を検索": "Cari sumber",
+  "該当する情報源がありません": "Tidak ada sumber yang cocok"
 }

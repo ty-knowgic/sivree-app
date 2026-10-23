@@ -315,5 +315,12 @@
   "この端末に未同期の変更があります。": "There are changes on this device that have not synced.",
   "ほかの端末でお使いですか？": "Already using Sivree on another device?",
   "Google ドライブに同期した設定を読み込めば、質問への回答は不要です。": "Load your settings synced to Google Drive to skip these questions.",
-  "同期済みの設定がありません。以下の質問から設定を始めてください。": "No synced settings were found. Answer the questions below to get started."
+  "同期済みの設定がありません。以下の質問から設定を始めてください。": "No synced settings were found. Answer the questions below to get started.",
+  "国の機関": "National agencies",
+  "州・都道府県の機関": "State / provincial agencies",
+  "自治体": "Municipalities",
+  "国際機関": "International organizations",
+  "自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。": "Municipal candidates cover only the areas currently in our catalog. They are not selected automatically based on your location.",
+  "情報源を検索": "Search sources",
+  "該当する情報源がありません": "No matching sources"
 }

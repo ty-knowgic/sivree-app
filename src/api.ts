@@ -19,6 +19,9 @@ export interface SourceInfo {
   sourceName: string;
   label: string;
   subgroup: string;
+  level?: import('./types.js').SourceLevel;
+  area?: string;
+  city?: string;
   categories: string[];
   sourceUrl: string;
   feedUrl: string;

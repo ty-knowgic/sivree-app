@@ -280,5 +280,12 @@
   "この端末に未同期の変更があります。": "Có thay đổi trên thiết bị này chưa được đồng bộ.",
   "ほかの端末でお使いですか？": "Bạn đã dùng Sivree trên thiết bị khác?",
   "Google ドライブに同期した設定を読み込めば、質問への回答は不要です。": "Tải cài đặt đã đồng bộ với Google Drive để bỏ qua các câu hỏi này.",
-  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Không tìm thấy cài đặt đã đồng bộ. Hãy trả lời các câu hỏi bên dưới để bắt đầu."
+  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Không tìm thấy cài đặt đã đồng bộ. Hãy trả lời các câu hỏi bên dưới để bắt đầu.",
+  "国の機関": "Cơ quan quốc gia",
+  "州・都道府県の機関": "Cơ quan bang hoặc tỉnh",
+  "自治体": "Chính quyền địa phương",
+  "国際機関": "Tổ chức quốc tế",
+  "自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。": "Các nguồn địa phương chỉ bao gồm những khu vực hiện có trong danh mục. Chúng không được tự động chọn theo vị trí của bạn.",
+  "情報源を検索": "Tìm nguồn tin",
+  "該当する情報源がありません": "Không có nguồn phù hợp"
 }

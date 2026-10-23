@@ -1158,13 +1158,16 @@ main {
   border-top: 1px solid var(--line);
 }
 
-.candidate-category { border-top: 1px solid var(--line); }
-.candidate-category > summary {
+.candidate-region { border-top: 1px solid var(--line); }
+.candidate-region > summary {
   padding: 14px 16px;
   cursor: pointer;
   font-weight: 700;
   font-size: 0.92rem;
 }
+.candidate-kind h4 { margin: 0; padding: 12px 16px; background: var(--surface-2); font-size: 0.85rem; }
+.candidate-search { display: block; padding: 4px 16px 16px; }
+.candidate-search input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
 
 .source-pack-head {
   display: flex;

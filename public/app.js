@@ -1794,17 +1794,36 @@ function renderSourceGroup(type) {
 }
 
 /** 候補（既定ではオフ）の一覧。オンにしたものは、上の情報源の一覧には出さず、ここでオフに戻す */
-function renderCandidateCategories(sources) {
-  // Each source appears once, under its primary field. Other fields and its
-  // region remain visible on the row, including for specialist packs.
-  const categories = [...new Set(sources.map(source => source.categories[0]))];
-  return categories.map(category => {
-    const group = sources.filter(source => source.categories[0] === category);
-    const enabled = group.filter(isSourceEnabled).length;
-    const available = group.filter(source => !isOutOfRegion(source)).length;
-    return `<details class="candidate-category" data-candidate-category="${escapeHtml(category)}" ${enabled ? 'open' : ''}>
-      <summary>${escapeHtml(t(category))} <span class="source-count">${enabled}/${available}</span></summary>
-      <ul class="source-list">${group.map(renderSourceRow).join('')}</ul>
+const CANDIDATE_KIND_LABELS = {
+  national: '国の機関', regional: '州・都道府県の機関', local: '自治体',
+  international: '国際機関', official: '政府・自治体',
+  research: '研究機関', corporate: '企業', npo: '団体・NPO'
+};
+const CANDIDATE_KIND_ORDER = ['local', 'regional', 'national', 'international', 'official', 'research', 'corporate', 'npo'];
+const SOURCE_AREA_LABELS = { 'CA-ON': 'オンタリオ州' };
+const candidateKind = source => source.sourceType === 'official' ? (source.level || 'official') : source.sourceType;
+function candidateCount(sources) {
+  return `${sources.filter(isSourceEnabled).length}/${sources.filter(source => !isOutOfRegion(source)).length}`;
+}
+
+function renderCandidateRegions(sources) {
+  const regions = [...new Set(sources.map(source => source.subgroup))];
+  return regions.map(region => {
+    const regional = sources.filter(source => source.subgroup === region);
+    return `<details class="candidate-region" data-candidate-region="${escapeHtml(region)}" ${regional.some(isSourceEnabled) ? 'open' : ''}>
+      <summary>${escapeHtml(t(region))} <span class="source-count">${candidateCount(regional)}</span></summary>
+      ${CANDIDATE_KIND_ORDER.map(kind => {
+        const typed = regional.filter(source => candidateKind(source) === kind);
+        const areas = [...new Set(typed.map(source => ['local', 'regional'].includes(kind) ? (source.area || '') : ''))];
+        return areas.map(area => {
+          const group = typed.filter(source => (['local', 'regional'].includes(kind) ? (source.area || '') : '') === area);
+          const areaLabel = SOURCE_AREA_LABELS[area];
+          return `<section class="candidate-kind" data-candidate-kind="${escapeHtml(kind)}">
+            <h4>${escapeHtml(t(CANDIDATE_KIND_LABELS[kind]))}${areaLabel ? ` · ${escapeHtml(t(areaLabel))}` : ''} <span class="source-count">${candidateCount(group)}</span></h4>
+            <ul class="source-list">${group.map(renderSourceRow).join('')}</ul>
+          </section>`;
+        }).join('');
+      }).join('')}
     </details>`;
   }).join('');
 }
@@ -1824,7 +1843,10 @@ function renderCandidateGroup() {
         <h2>${escapeHtml(t('候補'))} <span class="source-count">${enabledCount}/${available}</span></h2>
       </div>
       <p class="settings-note">${escapeHtml(t('既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。'))}</p>
-      ${renderCandidateCategories(sources.filter(source => !source.pack))}
+      <p class="settings-note">${escapeHtml(t('自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。'))}</p>
+      <label class="candidate-search"><span class="visually-hidden">${escapeHtml(t('情報源を検索'))}</span><input type="search" data-candidate-search placeholder="${escapeHtml(t('情報源を検索'))}" /></label>
+      <p class="settings-note" data-candidate-empty hidden>${escapeHtml(t('該当する情報源がありません'))}</p>
+      ${renderCandidateRegions(sources.filter(source => !source.pack))}
       ${packs.map(pack => `
         <div class="source-pack" data-pack="${escapeHtml(pack.id)}">
           <div class="source-pack-head">
@@ -1832,7 +1854,7 @@ function renderCandidateGroup() {
             <span class="source-badge">${escapeHtml(t('正式版では有償（ベータ中は無料）'))}</span>
           </div>
           <p class="settings-note">${escapeHtml(t(pack.blurb))}</p>
-          ${renderCandidateCategories(sources.filter(source => source.pack?.id === pack.id))}
+          ${renderCandidateRegions(sources.filter(source => source.pack?.id === pack.id))}
         </div>
       `).join('')}
     </section>
@@ -2104,7 +2126,7 @@ function refreshSourceCounts() {
     const next = document.createElement('div');
     next.innerHTML = renderCandidateGroup();
     candidates.querySelector('.source-group-head').replaceWith(next.querySelector('.source-group-head'));
-    candidates.querySelectorAll('.candidate-category').forEach(group => {
+    candidates.querySelectorAll('.candidate-region, .candidate-kind').forEach(group => {
       const rows = [...group.querySelectorAll('[data-source]')];
       group.querySelector('.source-count').textContent = `${rows.filter(input => input.checked && !input.disabled).length}/${rows.filter(input => !input.disabled).length}`;
     });
@@ -2112,6 +2134,22 @@ function refreshSourceCounts() {
   const summary = settingsView.querySelector('.source-summary');
   if (summary) summary.innerHTML = sourceSummary();
 }
+
+settingsView.addEventListener('input', event => {
+  if (!event.target.matches('[data-candidate-search]')) return;
+  const candidates = event.target.closest('[data-candidates]');
+  const query = event.target.value.trim().toLocaleLowerCase(locale());
+  candidates.querySelectorAll('.source-row').forEach(row => {
+    const source = sourcesDraft.find(source => source.id === row.querySelector('[data-source]').dataset.source);
+    const searchable = [row.textContent, source.sourceName, source.label, source.subgroup, source.pack?.name, ...source.categories].join(' ').toLocaleLowerCase(locale());
+    row.hidden = Boolean(query) && !searchable.includes(query);
+  });
+  candidates.querySelectorAll('.candidate-kind, .candidate-region, .source-pack').forEach(group => {
+    group.hidden = ![...group.querySelectorAll('.source-row')].some(row => !row.hidden);
+    if (query && !group.hidden && group.matches('details')) group.open = true;
+  });
+  candidates.querySelector('[data-candidate-empty]').hidden = [...candidates.querySelectorAll('.source-row')].some(row => !row.hidden);
+});
 
 /** 表示言語を切り替える。設定の入力途中の内容は保ったまま、画面全体を描き直す */
 async function switchLanguage(lang) {

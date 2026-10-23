@@ -2,7 +2,7 @@
 // 上限の判定と絞り込みは別の段階で足すので、ここでは関数の全分岐と、いまのフィードの層の内訳だけを確かめる
 import { coreFeeds } from '../src/feeds/core.js';
 import { professionalFeeds } from '../src/feeds/professional.js';
-import { officialFeeds } from '../src/newsPipeline.js';
+import { officialFeeds, listSources } from '../src/newsPipeline.js';
 import { defaultOn, tierOf } from '../src/sourceTier.js';
 import { SOURCE_LEVELS } from '../src/types.js';
 import type { SourceLevel } from '../src/types.js';
@@ -15,6 +15,7 @@ const check = (name: string, ok: boolean, detail = '') => {
 
 // ---------- tierOf ----------
 const levels: (SourceLevel | undefined)[] = [...SOURCE_LEVELS, undefined];
+check('設定画面へ行政階層・州・市を渡し、記事の分野と別に分類できる', listSources().every((source, i) => source.level === officialFeeds[i].level && source.area === officialFeeds[i].area && source.city === officialFeeds[i].city));
 for (const level of levels) {
   check(`pack があれば、level が ${level ?? '未指定'} でも有償`, tierOf({ level, pack: 'legal' }) === 'paid');
 }

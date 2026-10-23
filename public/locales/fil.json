@@ -289,5 +289,12 @@
   "この端末に未同期の変更があります。": "May mga pagbabago sa device na ito na hindi pa na-sync.",
   "ほかの端末でお使いですか？": "Gumagamit ka na ba ng Sivree sa ibang device?",
   "Google ドライブに同期した設定を読み込めば、質問への回答は不要です。": "I-load ang mga setting na naka-sync sa Google Drive para laktawan ang mga tanong na ito.",
-  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Walang nakitang naka-sync na setting. Sagutin ang mga tanong sa ibaba para magsimula."
+  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Walang nakitang naka-sync na setting. Sagutin ang mga tanong sa ibaba para magsimula.",
+  "国の機関": "Mga pambansang ahensya",
+  "州・都道府県の機関": "Mga ahensya ng estado o lalawigan",
+  "自治体": "Mga munisipalidad",
+  "国際機関": "Mga internasyonal na organisasyon",
+  "自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。": "Saklaw lamang ng mga pagpipiliang munisipal ang mga lugar na nasa aming katalogo. Hindi sila awtomatikong pinipili batay sa iyong lokasyon.",
+  "情報源を検索": "Maghanap ng mga source",
+  "該当する情報源がありません": "Walang katugmang source"
 }

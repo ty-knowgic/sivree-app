@@ -105,18 +105,33 @@ check('選ばなかったトピックは無効のまま', saved?.topics.find(t =
 check('地域・分野が保存され、初回の質問は完了になる', saved?.onboarded === true && saved.regions.join() === '日本' && saved.categories.join() === '経済');
 
 await until(() => view().hidden);
-const source = (id, categories, region = '日本', pack) => ({ id, categories, subgroup: region, pack, candidate: true, sourceType: 'official', sourceName: id, label: id, sourceUrl: 'https://example.test/', count: 1 });
-const sources = [source('economy', ['経済', 'テクノロジー']), source('technology', ['テクノロジー']), source('outside', ['経済'], '米国'), source('specialist', ['経済'], '日本', { id: 'test', name: 'Test pack', blurb: 'Test' })];
-saved = { ...saved, extraSources: ['economy'], candidatesSeenAt: '', savedItems: [] };
+const source = (id, categories, region = '日本', pack) => ({ id, categories, subgroup: region, pack, candidate: true, sourceType: 'official', level: 'national', sourceName: id, label: id, sourceUrl: 'https://example.test/', count: 1 });
+const sources = [source('economy', ['経済', 'テクノロジー']), source('technology', ['テクノロジー']), source('outside', ['経済'], '米国'), source('specialist', ['経済'], '日本', { id: 'test', name: 'Test pack', blurb: 'Test' }),
+  { ...source('waterloo', ['社会'], 'カナダ'), sourceName: 'ウォータールー市', level: 'local', area: 'CA-ON', city: 'waterloo' },
+  { ...source('mlit', ['社会']), sourceName: '国土交通省' },
+  { ...source('shiho', ['社会']), sourceName: '日本司法書士会連合会', sourceType: 'npo', level: undefined }];
+saved = { ...saved, regions: ['日本', 'カナダ'], extraSources: ['economy'], candidatesSeenAt: '', savedItems: [] };
 w.settingsFixture(saved, sources);
 const settings = w.document.getElementById('settingsView');
-check('候補が分野ごとに整理され、複数分野の情報源も重複しない', settings.querySelectorAll('.candidate-category').length === 3 && settings.querySelectorAll('[data-source="economy"]').length === 1);
-check('有効な候補の分野は開き、地域外の候補は選べない', settings.querySelector('[data-candidate-category="経済"]').open && settings.querySelector('[data-source="outside"]').disabled);
-check('専門パックの説明・区分を維持する', settings.querySelector('[data-pack="test"] .candidate-category [data-source="specialist"]') !== null);
+check('候補は国・地域でまとまり、情報源が重複しない', settings.querySelectorAll('.candidate-region').length === 4 && settings.querySelectorAll('[data-source="economy"]').length === 1);
+check('有効な候補の国は開き、対象外の国の候補は選べない', settings.querySelector('[data-candidate-region="日本"]').open && settings.querySelector('[data-source="outside"]').disabled);
+check('ウォータールー市はカナダの自治体・オンタリオ州にある', settings.querySelector('[data-source="waterloo"]').closest('[data-candidate-region]').dataset.candidateRegion === 'カナダ' && settings.querySelector('[data-source="waterloo"]').closest('[data-candidate-kind]').dataset.candidateKind === 'local' && settings.querySelector('[data-source="waterloo"]').closest('section').textContent.includes('オンタリオ州'));
+check('同じ社会分野でも国交省と司法書士会を自治体と混ぜない', settings.querySelector('[data-source="mlit"]').closest('[data-candidate-kind]').dataset.candidateKind === 'national' && settings.querySelector('[data-source="shiho"]').closest('[data-candidate-kind]').dataset.candidateKind === 'npo');
+check('専門パックの説明・区分を維持する', settings.querySelector('[data-pack="test"] .candidate-region [data-source="specialist"]') !== null);
 const technology = settings.querySelector('[data-source="technology"]');
 technology.checked = true;
 technology.dispatchEvent(new w.Event('change', { bubbles: true }));
-check('候補の選択数が切り替え直後に更新される', technology.closest('details').querySelector('.source-count').textContent === '1/1');
+check('国と発信主体の選択数が切り替え直後に更新される', technology.closest('section').querySelector('.source-count').textContent === '2/3' && technology.closest('details').querySelector('.source-count').textContent === '2/4');
+const search = settings.querySelector('[data-candidate-search]');
+search.value = 'ウォータールー';
+search.dispatchEvent(new w.Event('input', { bubbles: true }));
+check('名称検索で該当する国を開き、他の情報源を隠す', !settings.querySelector('[data-source="waterloo"]').closest('li').hidden && settings.querySelector('[data-source="waterloo"]').closest('details').open && technology.closest('li').hidden);
+search.value = 'unregistered-city';
+search.dispatchEvent(new w.Event('input', { bubbles: true }));
+check('未登録の情報源は検索結果なしと明示する', !settings.querySelector('[data-candidate-empty]').hidden);
+search.value = '';
+search.dispatchEvent(new w.Event('input', { bubbles: true }));
+check('検索を解除しても候補の選択は保持される', technology.checked && !technology.closest('li').hidden);
 // Hold the filter request open longer than the old toast window, without a
 // wall-clock sleep: success must be announced after navigation is ready.
 w.document.querySelectorAll('.toast').forEach(el => el.remove());
