@@ -2,9 +2,11 @@
 
 ## おすすめ: 公開サイト（GitHub Pages）で使う（外出先でも・無料・保守不要）
 
-1. iPhone の Safari で https://ty-knowgic.github.io/sivree-app/ を開く
+1. iPhone の Safari で https://sivree.com/ を開く
 2. 共有ボタン →「ホーム画面に追加」
 3. 以後はアプリのように起動できます。Mac の電源やネットワーク設定は不要です。
+
+2026-10-23 に、アドレスを ty-knowgic.github.io/sivree-app から sivree.com に移しました。ブラウザの保存データはアドレスごとなので、古いアドレスでホーム画面に追加したアイコンには、新しいアドレスの設定が出ません。古いアイコンを削除して、sivree.com から追加し直してください。設定は Google ドライブ同期か「設定をコピー」で移します。
 
 - 記事は GitHub Actions が3時間ごとに集めて更新します（`.github/workflows/publish.yml`）。
 - 関心プロフィールは iPhone のブラウザ内（localStorage）に保存され、端末間では同期されません。
