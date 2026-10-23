@@ -80,18 +80,10 @@ export const professionalFeeds: FeedSource[] = [
     htmlList: { rows: 'div.field--item', link: 'h2 a[href]', date: '.field--name-field-pup-description-abstract' },
     label: 'IRS News Releases'
   },
-  {
-    sourceType: 'official', level: 'international', category: '経済', subgroup: '欧州', pack: 'finance', terms: 'A', since: SINCE, sourceName: '欧州証券市場監督機構', sourceUrl: 'https://www.esma.europa.eu/',
-    // RSS（/rss.xml）は記事の日付がないため、ニュースの一覧ページの「22/10/2026」の形の日付を使う
-    feedUrl: 'https://www.esma.europa.eu/press-news/esma-news',
-    htmlList: { rows: 'article.node--type-news', link: '.search-title', date: '.search-date', dateOrder: 'dmy' },
-    label: 'ESMA News'
-  },
 
   // 無償の候補: 利用条件が商用を制限する（B1）ため、見出しと原文へのリンクだけ
   { sourceType: 'official', level: 'national', category: '政治', subgroup: 'カナダ', terms: 'B1', titleOnly: true, since: SINCE, sourceName: 'カナダ官報', sourceUrl: 'https://gazette.gc.ca/', feedUrl: 'https://gazette.gc.ca/rss/p1-eng.xml', label: 'Canada Gazette Part I' },
   { sourceType: 'official', level: 'national', category: '政治', subgroup: 'カナダ', terms: 'B1', titleOnly: true, since: SINCE, sourceName: 'カナダ官報', sourceUrl: 'https://gazette.gc.ca/', feedUrl: 'https://gazette.gc.ca/rss/p2-eng.xml', label: 'Canada Gazette Part II (Regulations)' },
-  { sourceType: 'official', level: 'national', category: '政治', subgroup: 'カナダ', terms: 'B1', titleOnly: true, since: SINCE, sourceName: 'カナダ議会', sourceUrl: 'https://www.parl.ca/legisinfo/', feedUrl: 'https://www.parl.ca/legisinfo/en/bills/rss', label: 'LEGISinfo: Bills', maxItems: 10 },
   { sourceType: 'official', level: 'national', category: '経済', subgroup: 'カナダ', terms: 'B1', titleOnly: true, since: SINCE, sourceName: 'カナダ歳入庁', sourceUrl: 'https://www.canada.ca/en/revenue-agency.html', feedUrl: 'https://api.io.canada.ca/io-server/gc/news/en/v2?dept=revenueagency&sort=publishedDate&orderBy=desc&pick=20&format=atom&atomtitle=Canada%20Revenue%20Agency', label: 'Canada Revenue Agency News' },
   { sourceType: 'official', level: 'national', category: 'テクノロジー', subgroup: 'カナダ', terms: 'B1', titleOnly: true, since: SINCE, sourceName: 'カナダ知的財産庁', sourceUrl: 'https://ised-isde.canada.ca/site/canadian-intellectual-property-office/en', feedUrl: 'https://api.io.canada.ca/io-server/gc/news/en/v2?dept=intellectualpropertyoffice&sort=publishedDate&orderBy=desc&pick=20&format=atom&atomtitle=Canadian%20Intellectual%20Property%20Office', label: 'CIPO News' },
   { sourceType: 'official', level: 'national', category: '社会', subgroup: 'カナダ', terms: 'B1', titleOnly: true, since: SINCE, sourceName: 'カナダ・プライバシー・コミッショナー', sourceUrl: 'https://www.priv.gc.ca/', feedUrl: 'https://www.priv.gc.ca/en/rss/news/', label: 'OPC News' },
