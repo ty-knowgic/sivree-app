@@ -286,5 +286,8 @@
   "新しい法律と重要な規則、裁判所・特許の当局の発表、意見募集、競争・消費者・個人情報の当局の発表（米国・EU・日本）": "Mga bagong batas at mahahalagang patakaran, mga anunsiyo ng mga korte at tanggapan ng patent, mga pampublikong konsultasyon, at mga awtoridad sa kompetisyon, proteksiyon ng mamimili at privacy (US, EU, Japan)",
   "税の規則、証券・デリバティブ・銀行・保険の監督当局、制裁とマネロン対策、監査の監督（米国・EU・日本）": "Mga patakaran sa buwis, mga regulator ng securities, derivatives, bangko at insurance, mga parusa at laban sa money laundering, at pangangasiwa sa audit (US, EU, Japan)",
   "正式版では有償（ベータ中は無料）": "May bayad sa buong bersyon (libre habang beta)",
-  "この端末に未同期の変更があります。": "May mga pagbabago sa device na ito na hindi pa na-sync."
+  "この端末に未同期の変更があります。": "May mga pagbabago sa device na ito na hindi pa na-sync.",
+  "ほかの端末でお使いですか？": "Gumagamit ka na ba ng Sivree sa ibang device?",
+  "Google ドライブに同期した設定を読み込めば、質問への回答は不要です。": "I-load ang mga setting na naka-sync sa Google Drive para laktawan ang mga tanong na ito.",
+  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Walang nakitang naka-sync na setting. Sagutin ang mga tanong sa ibaba para magsimula."
 }

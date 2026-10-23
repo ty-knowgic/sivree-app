@@ -212,7 +212,7 @@ function showToast(message, action) {
     toast.append(button);
   }
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), action ? 6000 : 2200);
+  setTimeout(() => toast.remove(), action ? 6000 : 4500);
 }
 
 /** 保存済みのプロフィールを読み、変更して保存する。保存した結果を返す */
@@ -1477,6 +1477,7 @@ function toggleChoice(button, selected) {
 // 質問の順番と、選んだ値を入れる場所
 const ONBOARDING_STEPS = ['regions', 'categories', 'topics'];
 const onboarding = { step: 1, regions: [], categories: [], topics: [] };
+let onboardingSyncing = false;
 
 function renderOnboarding() {
   const key = ONBOARDING_STEPS[onboarding.step - 1];
@@ -1492,6 +1493,13 @@ function renderOnboarding() {
   onboardingView.innerHTML = `
     <div class="onb-inner">
       <div class="onb-language">${renderLanguageSelect()}</div>
+      ${onboarding.step === 1 && window.SivreeSync?.available ? `
+        <section class="onb-restore" aria-label="${escapeHtml(t('ほかの端末でお使いですか？'))}">
+          <h2>${escapeHtml(t('ほかの端末でお使いですか？'))}</h2>
+          <p>${escapeHtml(t('Google ドライブに同期した設定を読み込めば、質問への回答は不要です。'))}</p>
+          <button class="secondary-button" type="button" data-action="restore-profile" ${onboardingSyncing ? 'disabled' : ''}>${escapeHtml(t(onboardingSyncing ? '読み込み中…' : 'Google でログインして同期'))}</button>
+        </section>` : ''}
+      <fieldset class="onb-questions" ${onboardingSyncing ? 'disabled' : ''}>
       <div class="onb-progress" aria-hidden="true">${ONBOARDING_STEPS.map((_, index) => `<span class="${index < onboarding.step ? 'is-active' : ''}"></span>`).join('')}</div>
       <p class="onb-step">${escapeHtml(t('質問 {step} / 3', { step: onboarding.step }))}</p>
       <h1 class="onb-title">${escapeHtml(title)}</h1>
@@ -1503,6 +1511,7 @@ function renderOnboarding() {
         <button class="primary-action" type="button" data-action="next" ${selected.length ? '' : 'disabled'}>${escapeHtml(last ? t('はじめる') : t('次へ'))}</button>
       </div>
       <p class="onb-note">${escapeHtml(t('あとから設定でいつでも変更できます。'))}</p>
+      </fieldset>
     </div>
   `;
 }
@@ -1538,7 +1547,24 @@ onboardingView.addEventListener('click', async (event) => {
     return;
   }
   const action = event.target.closest('[data-action]')?.dataset.action;
-  if (action === 'select-all') {
+  if (action === 'restore-profile' && !onboardingSyncing) {
+    onboardingSyncing = true;
+    // Start authorization inside this tap, before awaiting anything (Safari).
+    const pending = runSync(() => window.SivreeSync.connect());
+    renderOnboarding();
+    try {
+      const result = await pending;
+      if (result !== undefined) {
+        const profile = await fetch('/api/profile').then(response => response.json());
+        if (profile.onboarded === false) showToast(t('同期済みの設定がありません。以下の質問から設定を始めてください。'));
+      }
+    } catch {
+      showToast(t('同期できませんでした'));
+    } finally {
+      onboardingSyncing = false;
+      renderOnboarding();
+    }
+  } else if (action === 'select-all') {
     const all = choiceOptions[key].map(option => option.value);
     onboarding[key] = onboarding[key].length === all.length ? [] : all;
     renderOnboarding();
@@ -1768,6 +1794,21 @@ function renderSourceGroup(type) {
 }
 
 /** 候補（既定ではオフ）の一覧。オンにしたものは、上の情報源の一覧には出さず、ここでオフに戻す */
+function renderCandidateCategories(sources) {
+  // Each source appears once, under its primary field. Other fields and its
+  // region remain visible on the row, including for specialist packs.
+  const categories = [...new Set(sources.map(source => source.categories[0]))];
+  return categories.map(category => {
+    const group = sources.filter(source => source.categories[0] === category);
+    const enabled = group.filter(isSourceEnabled).length;
+    const available = group.filter(source => !isOutOfRegion(source)).length;
+    return `<details class="candidate-category" data-candidate-category="${escapeHtml(category)}" ${enabled ? 'open' : ''}>
+      <summary>${escapeHtml(t(category))} <span class="source-count">${enabled}/${available}</span></summary>
+      <ul class="source-list">${group.map(renderSourceRow).join('')}</ul>
+    </details>`;
+  }).join('');
+}
+
 function renderCandidateGroup() {
   const sources = sourcesDraft
     .filter(source => source.candidate)
@@ -1783,7 +1824,7 @@ function renderCandidateGroup() {
         <h2>${escapeHtml(t('候補'))} <span class="source-count">${enabledCount}/${available}</span></h2>
       </div>
       <p class="settings-note">${escapeHtml(t('既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。'))}</p>
-      <ul class="source-list">${sources.filter(source => !source.pack).map(renderSourceRow).join('')}</ul>
+      ${renderCandidateCategories(sources.filter(source => !source.pack))}
       ${packs.map(pack => `
         <div class="source-pack" data-pack="${escapeHtml(pack.id)}">
           <div class="source-pack-head">
@@ -1791,7 +1832,7 @@ function renderCandidateGroup() {
             <span class="source-badge">${escapeHtml(t('正式版では有償（ベータ中は無料）'))}</span>
           </div>
           <p class="settings-note">${escapeHtml(t(pack.blurb))}</p>
-          <ul class="source-list">${sources.filter(source => source.pack?.id === pack.id).map(renderSourceRow).join('')}</ul>
+          ${renderCandidateCategories(sources.filter(source => source.pack?.id === pack.id))}
         </div>
       `).join('')}
     </section>
@@ -1930,6 +1971,7 @@ async function runSync(operation) {
     const action = await operation();
     if (action !== 'pull') showToast(t('同期しました'));
     if (settingsView && !settingsView.hidden) renderSettings();
+    return action;
   } catch (error) {
     const reason = error?.message;
     // 利用者が閉じた・もう一度押した場合は、知らせることがない
@@ -2062,6 +2104,10 @@ function refreshSourceCounts() {
     const next = document.createElement('div');
     next.innerHTML = renderCandidateGroup();
     candidates.querySelector('.source-group-head').replaceWith(next.querySelector('.source-group-head'));
+    candidates.querySelectorAll('.candidate-category').forEach(group => {
+      const rows = [...group.querySelectorAll('[data-source]')];
+      group.querySelector('.source-count').textContent = `${rows.filter(input => input.checked && !input.disabled).length}/${rows.filter(input => !input.disabled).length}`;
+    });
   }
   const summary = settingsView.querySelector('.source-summary');
   if (summary) summary.innerHTML = sourceSummary();
@@ -2226,7 +2272,6 @@ settingsView.addEventListener('click', async (event) => {
       showToast(t('保存できませんでした'));
       return;
     }
-    showToast(t('保存しました'));
     await reloadFilters().catch(() => {});
     // 関心トピックを編集した場合は、結果を確かめられるようマイニュースを開く
     if (settingsPane === 'topics') {
@@ -2236,7 +2281,12 @@ settingsView.addEventListener('click', async (event) => {
     }
     state.items = [];
     listScrollY = 0;
+    // Dismiss the mobile keyboard, finish navigation, then start the notice's
+    // display time. Slow filter loads must not consume its visibility window.
+    document.activeElement?.blur();
     location.hash = '#/';
+    route();
+    showToast(t('保存しました'));
     refreshNews();
   }
 });

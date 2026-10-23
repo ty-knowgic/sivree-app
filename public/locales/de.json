@@ -307,5 +307,8 @@
   "新しい法律と重要な規則、裁判所・特許の当局の発表、意見募集、競争・消費者・個人情報の当局の発表（米国・EU・日本）": "Neue Gesetze und wichtige Vorschriften, Mitteilungen von Gerichten und Patentämtern, öffentliche Konsultationen sowie Wettbewerbs-, Verbraucherschutz- und Datenschutzbehörden (USA, EU, Japan)",
   "税の規則、証券・デリバティブ・銀行・保険の監督当局、制裁とマネロン対策、監査の監督（米国・EU・日本）": "Steuervorschriften, Aufsichtsbehörden für Wertpapiere, Derivate, Banken und Versicherungen, Sanktionen und Geldwäschebekämpfung sowie Abschlussprüferaufsicht (USA, EU, Japan)",
   "正式版では有償（ベータ中は無料）": "In der Vollversion kostenpflichtig (während der Beta kostenlos)",
-  "この端末に未同期の変更があります。": "Auf diesem Gerät gibt es noch nicht synchronisierte Änderungen."
+  "この端末に未同期の変更があります。": "Auf diesem Gerät gibt es noch nicht synchronisierte Änderungen.",
+  "ほかの端末でお使いですか？": "Nutzen Sie Sivree bereits auf einem anderen Gerät?",
+  "Google ドライブに同期した設定を読み込めば、質問への回答は不要です。": "Laden Sie Ihre mit Google Drive synchronisierten Einstellungen, um diese Fragen zu überspringen.",
+  "同期済みの設定がありません。以下の質問から設定を始めてください。": "Keine synchronisierten Einstellungen gefunden. Beantworten Sie die folgenden Fragen, um zu beginnen."
 }

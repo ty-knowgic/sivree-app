@@ -1097,10 +1097,18 @@ main {
   color: var(--bg);
   font-size: 0.85rem;
   font-weight: 600;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 @media (max-width: 480px) {
+  .toast {
+    top: calc(76px + env(safe-area-inset-top));
+    bottom: auto;
+    border-radius: 16px;
+  }
   .thumb,
   .thumb-placeholder { width: 80px; height: 80px; border-radius: 12px; }
   .thumb-placeholder { font-size: 1.4rem; }
@@ -1148,6 +1156,14 @@ main {
 /* 候補の中の専門パック（パックごとの見出し・有償の表示・説明） */
 .source-pack {
   border-top: 1px solid var(--line);
+}
+
+.candidate-category { border-top: 1px solid var(--line); }
+.candidate-category > summary {
+  padding: 14px 16px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.92rem;
 }
 
 .source-pack-head {
@@ -1367,9 +1383,20 @@ body.is-onboarding .appbar { display: none; }
   margin: 0 auto;
 }
 
+.onb-restore {
+  margin: 16px 0 28px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.onb-restore h2 { margin: 0; font-size: 1.05rem; }
+.onb-restore p { color: var(--text-2); line-height: 1.6; }
+.onb-questions { border: 0; padding: 0; margin: 0; min-width: 0; }
+
 .onb-progress {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   margin-bottom: 22px;
 }
