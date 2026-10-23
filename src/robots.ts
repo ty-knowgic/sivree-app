@@ -9,7 +9,7 @@ const robotsParser = createRequire(import.meta.url)('robots-parser') as (url: st
  * robots.txt が無い（4xx）場合は取得してよい。応答が得られない（5xx・通信エラー）場合は、取得を控える
  */
 export const CRAWLER_NAME = 'SivreeBot';
-export const USER_AGENT = `Mozilla/5.0 (compatible; ${CRAWLER_NAME}/1.0; +https://github.com/ty-knowgic/sivree-app)`;
+export const USER_AGENT = `Mozilla/5.0 (compatible; ${CRAWLER_NAME}/1.0; +https://sivree.com/legal.html#en-sources)`;
 
 const TTL_MS = 6 * 60 * 60 * 1000;
 const FAILURE_TTL_MS = 10 * 60 * 1000;

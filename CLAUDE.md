@@ -3,7 +3,7 @@
 The app was named Sivry until 2026-10-20 (旧名 Sivry). Persisted identifiers keep the old `sivry` prefix on purpose (localStorage keys, the Drive file `sivry-settings.json`); `npm run check:brand` flags any other leftover.
 
 Personal news app that shows only **primary sources** (governments, companies, research bodies, NPOs). Read `PRODUCT.md` (principles) and `BACKLOG.md` (decisions, market view) before proposing features.
-Live: https://ty-knowgic.github.io/sivree-app/ (GitHub Pages; "Publish Sivree" workflow runs on push and every ~3 h).
+Live: https://sivree.com/ (GitHub Pages with the custom domain since 2026-10-23; www redirects to it, and the old https://ty-knowgic.github.io/sivree-app/ redirects too. "Publish Sivree" workflow runs on push and every ~3 h). DNS is at Porkbun: leave the Workspace mail records (MX, SPF, google-site-verification, google._domainkey, _dmarc) alone.
 
 ## Layout
 - `src/` Express + TypeScript server and shared logic (profile matching, pipeline, robots, vectors). `src/browser/main.ts` is the in-browser API used by the static site (bundled to `static-api.js`).
