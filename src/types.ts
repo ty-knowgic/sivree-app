@@ -62,6 +62,12 @@ export interface FeedSource {
   exclude?: RegExp;
   /** 説明文の先頭から取り除く定型の文（arXiv の RSS の「arXiv:… Announce Type: … Abstract:」など） */
   summaryPrefix?: RegExp;
+  /**
+   * RSS のない一覧ページから、見出し・日付・リンクだけを読む（feedUrl はその一覧ページ。src/htmlList.ts）。
+   * rows は行、link と date は行の中の要素の CSS セレクター。年が元号なし（会計検査院の「8年10月21日」）なら era で元号を指定する。
+   * 説明文と画像は取らず、記事ページも取得しない（titleOnly と同じく、見出しと原文へのリンクだけを表示する）
+   */
+  htmlList?: { rows: string; link: string; date: string; era?: 'reiwa' };
 }
 
 export interface NewsItem {

@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { withStoredSummaries } from '../src/api.js';
 import { PACKS } from '../src/feeds/packs.js';
 import { applyTitleOnly, ARCHIVE_LIMIT, CANDIDATE_ARCHIVE_LIMIT, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate, trimArchive } from '../src/newsPipeline.js';
+import { parseListDate } from '../src/htmlList.js';
 import { defaultOn } from '../src/sourceTier.js';
 import { SOURCE_LEVELS } from '../src/types.js';
 import type { FeedSource, NewsItem } from '../src/types.js';
@@ -30,6 +31,13 @@ ${arxivItem('2610.00002', 'new', 'A survey of gripper materials', 'Soft material
 ${arxivItem('2501.00003', 'replace', 'Humanoid balance revisited', 'A revised humanoid paper.')}
 ${arxivItem('2610.00004', 'cross', 'Embodied agents in the home', 'An embodied AI study.')}
 </channel></rss>`;
+// RSS のない一覧ページ（会計検査院の「注目の検査結果」の形: 見出しの行、元号なしの令和の日付、相対パスのリンク、日付のない行）
+const listPage = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><script>window.__ran = 1</script></head><body>
+<table class="table3"><tr><th>公表年月日</th><th>件名</th></tr>
+<tr><td nowrap>8年<br class="sp">10月21日</td><td><a href="/report/new/r081021.html">共済システムの再構築について（34条処置要求）</a></td></tr>
+<tr><td nowrap>8年<br class="sp">10月9日</td><td><a href="r081009.html"> 用途廃止された航空機からの部品取りについて（処置済） </a></td></tr>
+<tr><td>（日付なし）</td><td><a href="/report/x.html">日付のない行</a></td></tr>
+</table></body></html>`;
 const hits = new Map<string, number>();
 const server = createServer((request, response) => {
   const route = request.url ?? '';
@@ -43,6 +51,8 @@ const server = createServer((request, response) => {
   else if (route === '/html') { response.writeHead(200, { 'content-type': 'text/html' }).end('<!DOCTYPE html><html><body>maintenance</body></html>'); return; }
   else if (route === '/robots.txt') { response.writeHead(200, { 'content-type': 'text/plain' }).end('User-agent: SivreeBot\nDisallow: /blocked\n'); return; }
   else if (route === '/arxiv') { response.writeHead(200, { 'content-type': 'application/rss+xml' }).end(arxivRss); return; }
+  else if (route === '/report/list.html') { response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(listPage); return; }
+  else if (route === '/report/changed.html') { response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end('<!DOCTYPE html><html><body><ul><li>新しい構成</li></ul></body></html>'); return; }
   response.writeHead(200, { 'content-type': 'application/rss+xml' }).end(rss);
 });
 await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -95,6 +105,24 @@ check('arXiv: 絞り込みに合う新着（new・cross）だけを取り込み�
   arxivItems.map(entry => entry.title).sort().join('|') === 'Embodied agents in the home|Humanoid walking with a world model', arxivItems.map(entry => entry.title).join('|'));
 check('arXiv: 説明文の先頭の「arXiv:… Announce Type: … Abstract:」を取り除く',
   arxivItems.length > 0 && arxivItems.every(entry => !entry.summary.includes('Announce Type') && /^(We present|An embodied)/.test(entry.summary)), arxivItems.map(entry => entry.summary).join(' | '));
+
+// RSS のない一覧ページ（htmlList）: 見出し・日付・リンクだけを読む
+check('一覧ページの日付: 元号なしの令和・全角の数字・西暦・ISO の形を、日本の暦のその日として読む',
+  parseListDate('8年10月21日', 'reiwa') === '2026-10-20T15:00:00.000Z' && parseListDate('令和８年１０月２１日') === '2026-10-20T15:00:00.000Z'
+  && parseListDate('2026年10月21日') === '2026-10-20T15:00:00.000Z' && parseListDate('2026/10/21') === '2026-10-20T15:00:00.000Z' && parseListDate('平成31年4月30日') === '2019-04-29T15:00:00.000Z',
+  String(parseListDate('8年10月21日', 'reiwa')));
+check('一覧ページの日付: 元号の指定がない「8年」や、読めない日付は読まない', parseListDate('8年10月21日') === undefined && parseListDate('（日付なし）') === undefined && parseListDate('2026年13月1日') === undefined);
+const listSource: FeedSource = { ...source('/report/list.html'), htmlList: { rows: 'table.table3 tr', link: 'a[href]', date: 'td:first-child', era: 'reiwa' } };
+const listItems = await fetchFeed(listSource);
+check('一覧ページ: HTML でもフィードとして扱い、日付とリンクのある行だけを取り込む（見出しの行・日付のない行は除く）',
+  listItems.map(entry => entry.title).join('|') === '共済システムの再構築について（34条処置要求）|用途廃止された航空機からの部品取りについて（処置済）', listItems.map(entry => entry.title).join('|'));
+check('一覧ページ: リンクはページからの絶対 URL、日付は日本の暦のその日',
+  listItems[0]?.sourceUrl === `${base}/report/new/r081021.html` && listItems[1]?.sourceUrl === `${base}/report/r081009.html` && listItems[0]?.publishedAt === '2026-10-20T15:00:00.000Z',
+  listItems.map(entry => `${entry.sourceUrl} ${entry.publishedAt}`).join(' | '));
+check('一覧ページ: 説明文は取らない', listItems.every(entry => entry.summary === ''));
+const changedItems = await fetchFeed({ ...listSource, feedUrl: `${base}/report/changed.html` });
+check('一覧ページの構成が変わって読める行がないときは、空にし、原因が分かる記録を残す',
+  changedItems.length === 0 && warnings.some(line => line.includes('layout may have changed')), warnings.slice(-2).join(' | '));
 
 console.warn = originalWarn;
 server.close();
@@ -210,6 +238,10 @@ check('titleOnly の情報源は、説明文と画像を持たず、画像の確
   limited.summary === '' && limited.imageUrl === undefined && limited.imageChecked === true && limited.titleOnly === true && limited.title === 'JPX の発表',
   JSON.stringify(limited));
 check('それ以外の情報源は変えない', untouched.summary === '説明文' && untouched.imageUrl === 'https://example.test/b.jpg' && !untouched.titleOnly);
+const listFeed = officialFeeds.find(feed => feed.htmlList)!;
+const [listed] = applyTitleOnly([item({ feedUrl: listFeed.feedUrl, sourceName: listFeed.sourceName, summary: '説明文', imageUrl: 'https://example.test/c.jpg' })]);
+check('一覧ページから読む情報源（htmlList）も、見出しと原文へのリンクだけ（記事ページを取得しないので、画像も確認済み扱い）',
+  listed.summary === '' && listed.imageUrl === undefined && listed.imageChecked === true && listed.titleOnly === true);
 
 const stored = new Map([['x', { headlineJa: '要点', summary: '要約', method: 'extractive' }]]) as unknown as Parameters<typeof withStoredSummaries>[0];
 const [withoutAi, withAi] = withStoredSummaries(stored, [item({ id: 'x', titleOnly: true }), item({ id: 'x' })]);
@@ -290,7 +322,9 @@ check('州・県の政府の割り当て', namesAt('regional') === ['オンタ�
 // 専門パックの中身（PR の説明の一覧表と同じ。変えるときはユーザーの確認が要る）
 const packNames = (pack: string) => [...new Set(officialFeeds.filter(feed => feed.pack === pack).map(feed => feed.sourceName))].sort().join(',');
 check('専門パック「法務・知財・立法」の情報源', packNames('legal') === ['米政府出版局', '米連邦官報', '米連邦取引委員会', 'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', 'e-Gov パブリック・コメント', '消費者庁'].sort().join(','), packNames('legal'));
-check('専門パック「税務・会計・金融規制」の情報源', packNames('finance') === ['米連邦官報', '米商品先物取引委員会', '米消費者金融保護局', '欧州銀行監督機構', '欧州保険・年金監督機構', '証券取引等監視委員会', '公認会計士・監査審査会'].sort().join(','), packNames('finance'));
+check('専門パック「税務・会計・金融規制」の情報源', packNames('finance') === ['米連邦官報', '米商品先物取引委員会', '米消費者金融保護局', '欧州銀行監督機構', '欧州保険・年金監督機構', '証券取引等監視委員会', '公認会計士・監査審査会',
+  // 公的部門の会計検査（2026-10-23 に追加）
+  '米会計検査院', '会計検査院'].sort().join(','), packNames('finance'));
 check('専門パックはすべて既定でオフ（候補）', officialFeeds.filter(feed => feed.pack).every(feed => !defaultOn(feed)));
 check('市区町村の割り当て', namesAt('local') === ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'].sort().join(','), namesAt('local'));
 

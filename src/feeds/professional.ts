@@ -35,6 +35,15 @@ export const professionalFeeds: FeedSource[] = [
   { sourceType: 'official', level: 'national', category: '経済', subgroup: '日本', pack: 'finance', terms: 'A', since: SINCE, sourceName: '証券取引等監視委員会', sourceUrl: 'https://www.fsa.go.jp/sesc/', feedUrl: 'https://www.fsa.go.jp/sescReportList_rss2.xml', label: '証券取引等監視委員会 報道発表' },
   { sourceType: 'official', level: 'national', category: '経済', subgroup: '日本', pack: 'finance', terms: 'A', since: SINCE, sourceName: '証券取引等監視委員会', sourceUrl: 'https://www.fsa.go.jp/sesc/', feedUrl: 'https://www.fsa.go.jp/sescOtherList_rss2.xml', label: '証券取引等監視委員会 その他の広報' },
   { sourceType: 'official', level: 'national', category: '経済', subgroup: '日本', pack: 'finance', terms: 'A', since: SINCE, sourceName: '公認会計士・監査審査会', sourceUrl: 'https://www.fsa.go.jp/cpaaob/', feedUrl: 'https://www.fsa.go.jp/cpaaobNewsList_rss2.xml', label: '公認会計士・監査審査会 新着情報' },
+  // 公的部門の会計検査（政府の支出・事業の検査結果）
+  { sourceType: 'official', level: 'national', category: '政治', subgroup: '米国', pack: 'finance', terms: 'A', since: SINCE, sourceName: '米会計検査院', sourceUrl: 'https://www.gao.gov/', feedUrl: 'https://www.gao.gov/rss/reports.xml', label: 'GAO Reports and Testimonies', summaryPrefix: /^\s*What GAO Found\s*/i },
+  {
+    sourceType: 'official', level: 'national', category: '政治', subgroup: '日本', pack: 'finance', terms: 'A', since: SINCE, sourceName: '会計検査院', sourceUrl: 'https://www.jbaudit.go.jp/',
+    // RSS がないため、「注目の検査結果」の表（公表年月日・件名）を読む。年は元号なしの令和（「8年10月21日」）
+    feedUrl: 'https://www.jbaudit.go.jp/report/about/attention.html',
+    htmlList: { rows: 'table.table3 tr', link: 'a[href]', date: 'td:first-child', era: 'reiwa' },
+    label: '会計検査院 注目の検査結果'
+  },
 
   // 無償の候補: 利用条件が商用を制限する（B1）ため、見出しと原文へのリンクだけ
   { sourceType: 'official', level: 'national', category: '政治', subgroup: 'カナダ', terms: 'B1', titleOnly: true, since: SINCE, sourceName: 'カナダ官報', sourceUrl: 'https://gazette.gc.ca/', feedUrl: 'https://gazette.gc.ca/rss/p1-eng.xml', label: 'Canada Gazette Part I' },

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Parser from 'rss-parser';
 import { fetchArticleContent, isGenericImage } from './articleContent.js';
+import { readHtmlList } from './htmlList.js';
 import { filterNews } from './newsFilters.js';
 import { isAllowedByRobots, USER_AGENT } from './robots.js';
 import { cleanFeedText, decodeEntities } from './text.js';
@@ -396,6 +397,16 @@ export async function fetchFeedsWithin(
   return { results, skipped };
 }
 
+async function parseFeedText(text: string) {
+  // サイト停止のお知らせなどが 200 の HTML で返ることがある。XML の解析エラーではなく、原因が分かる形で記録する
+  if (/^\s*(<!doctype html|<html)/i.test(text)) throw new Error('HTML page returned instead of a feed (site may be down)');
+  const xml = text
+    // Atom の type="xhtml" の要素（カナダ統計局など）は中身が XHTML のため、タグを除いたテキストにしてから解析する
+    .replace(/<(title|summary|content|subtitle)([^>]*\btype=["']xhtml["'][^>]*)>([\s\S]*?)<\/\1>/g,
+      (_match, tag: string, _attrs: string, inner: string) => `<${tag}>${inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}</${tag}>`);
+  return parser.parseString(xml);
+}
+
 export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
   try {
     // 記事ページと同じく、フィードも robots.txt に従う（禁止されている、または robots.txt を確認できないときは取得しない）
@@ -412,13 +423,8 @@ export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
     }
 
     const text = decodeFeed(await response.arrayBuffer(), response.headers.get('content-type'));
-    // サイト停止のお知らせなどが 200 の HTML で返ることがある。XML の解析エラーではなく、原因が分かる形で記録する
-    if (/^\s*(<!doctype html|<html)/i.test(text)) throw new Error('HTML page returned instead of a feed (site may be down)');
-    const xml = text
-      // Atom の type="xhtml" の要素（カナダ統計局など）は中身が XHTML のため、タグを除いたテキストにしてから解析する
-      .replace(/<(title|summary|content|subtitle)([^>]*\btype=["']xhtml["'][^>]*)>([\s\S]*?)<\/\1>/g,
-        (_match, tag: string, _attrs: string, inner: string) => `<${tag}>${inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}</${tag}>`);
-    const parsed = await parser.parseString(xml);
+    // RSS のない一覧ページ（会計検査院など）は、ページから見出し・日付・リンクを読み、フィードの記事と同じ形にする
+    const parsed: Pick<Awaited<ReturnType<typeof parseFeedText>>, 'items'> = source.htmlList ? { items: readHtmlList(text, source) } : await parseFeedText(text);
     const items: NewsItem[] = [];
 
     // フィードによっては新しい順に並んでいないため、日付順に並べ替えてから取り込む
@@ -545,7 +551,8 @@ export function dedupeSameDocument(items: NewsItem[]): NewsItem[] {
 // 利用条件が商用での利用・再配布を制限している発信元（SOURCE_TERMS.md の B1）は、見出しと原文へのリンクだけを表示する。
 // フィードの説明文と画像は持たない（蓄積済みの記事からも取り除く）。要約の作成・埋め込みにも説明文は使わない
 export function applyTitleOnly(items: NewsItem[]): NewsItem[] {
-  const feeds = new Set(officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.feedUrl));
+  // 一覧ページから読む情報源（htmlList）も、見出しと原文へのリンクだけ（記事ページを取得しないため、画像も確認済み扱い）
+  const feeds = new Set(officialFeeds.filter(feed => feed.titleOnly || feed.htmlList).map(feed => feed.feedUrl));
   return items.map(item => feeds.has(item.feedUrl)
     ? { ...item, summary: '', imageUrl: undefined, imageChecked: true, titleOnly: true }
     : item);
