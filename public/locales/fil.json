@@ -279,7 +279,6 @@
   "保存できる上限（{n}件）に達しました。不要な記事の保存を解除してください。": "Naabot mo na ang limitasyong {n} na-save na artikulo. Mag-alis ng ilan para makapag-save pa.",
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Ang pamagat ay ang orihinal mula sa naglathala, at ang petsa ay ayon sa rehiyon nila. Suriin ang orihinal na artikulo bago ito banggitin.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (inilathala noong {date}), {url} (binisita noong {accessed})",
-  "候補": "Mga opsyonal na source",
   "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Naka-off ang mga source na ito bilang default. Ang mga i-on mo lang ang lalabas sa iyong mga balita.",
   "法務・知財・立法": "Batas, intelektwal na ari-arian at lehislasyon",
   "税務・会計・金融規制": "Buwis, accounting at regulasyong pampinansiyal",
@@ -294,7 +293,10 @@
   "州・都道府県の機関": "Mga ahensya ng estado o lalawigan",
   "自治体": "Mga munisipalidad",
   "国際機関": "Mga internasyonal na organisasyon",
-  "自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。": "Saklaw lamang ng mga pagpipiliang munisipal ang mga lugar na nasa aming katalogo. Hindi sila awtomatikong pinipili batay sa iyong lokasyon.",
   "情報源を検索": "Maghanap ng mga source",
-  "該当する情報源がありません": "Walang katugmang source"
+  "該当する情報源がありません": "Walang katugmang source",
+  "追加情報源": "Mga karagdagang source",
+  "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Ang mga source ng munisipalidad ay para lamang sa mga lugar na nasa katalogo; hindi sila awtomatikong pinipili batay sa iyong lokasyon.",
+  "専門パック": "Mga espesyalistang pakete",
+  "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Mga karagdagang source ayon sa larangan. Buksan ang bansa o rehiyon sa bawat pakete para pumili ng mga source."
 }

@@ -1155,17 +1155,50 @@ main {
 
 /* 候補の中の専門パック（パックごとの見出し・有償の表示・説明） */
 .source-pack {
-  border-top: 1px solid var(--line);
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
 }
 
-.candidate-region { border-top: 1px solid var(--line); }
+.additional-source-countries { padding: 0 12px 12px; }
+.candidate-region {
+  margin: 8px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
 .candidate-region > summary {
-  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 14px;
+  box-sizing: border-box;
   cursor: pointer;
   font-weight: 700;
   font-size: 0.92rem;
+  list-style: none;
+  background: var(--surface);
 }
-.candidate-kind h4 { margin: 0; padding: 12px 16px; background: var(--surface-2); font-size: 0.85rem; }
+.candidate-region > summary::-webkit-details-marker { display: none; }
+.candidate-region > summary .source-count { margin-left: auto; }
+.candidate-region > summary::after { content: ''; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: -4px 2px 0 4px; }
+.candidate-region[open] > summary::after { transform: rotate(225deg); margin-top: 4px; }
+.candidate-region > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.candidate-region-body { margin: 0 12px 12px; padding-left: 8px; border-left: 2px solid var(--line); background: var(--surface); }
+.candidate-kind { background: var(--surface); }
+.candidate-kind + .candidate-kind { margin-top: 12px; }
+.candidate-kind h4 { margin: 0; padding: 12px 10px 8px; background: var(--surface); color: var(--text-2); font-size: 0.8rem; font-weight: 600; }
+.candidate-kind .source-row { padding: 12px 10px; background: var(--surface); }
+.source-country-heading { margin: 0; padding: 12px 16px 8px; font-size: 0.85rem; color: var(--text-2); border-top: 1px solid var(--line); }
+.specialist-packs { border-top: 1px solid var(--line); padding: 18px 12px 4px; background: var(--surface-2); }
+.specialist-packs-title { margin: 0 4px 12px; font-size: 1rem; }
+.source-candidates .specialist-packs > .settings-note { padding: 0 4px; }
+.source-pack .candidate-region { margin: 8px 10px 12px; }
+.source-pack .source-pack-head { padding: 16px 14px 10px; }
 .candidate-search { display: block; padding: 4px 16px 16px; }
 .candidate-search input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
 
@@ -1177,7 +1210,7 @@ main {
   padding: 14px 16px 8px;
 }
 
-.source-pack-head h3 {
+.source-pack-head h4 {
   margin: 0;
   font-size: 0.92rem;
   font-weight: 800;

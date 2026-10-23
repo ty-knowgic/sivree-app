@@ -270,7 +270,6 @@
   "保存できる上限（{n}件）に達しました。不要な記事の保存を解除してください。": "Đã đạt giới hạn {n} bài viết đã lưu. Hãy bỏ lưu bớt để lưu thêm.",
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Tiêu đề là bản gốc của nơi phát hành, ngày tháng tính theo khu vực của họ. Hãy kiểm tra bài gốc trước khi trích dẫn.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (đăng ngày {date}), {url} (truy cập ngày {accessed})",
-  "候補": "Nguồn tùy chọn",
   "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Các nguồn này tắt theo mặc định. Chỉ những nguồn bạn bật mới xuất hiện trong tin tức của bạn.",
   "法務・知財・立法": "Pháp luật, sở hữu trí tuệ và lập pháp",
   "税務・会計・金融規制": "Thuế, kế toán và quản lý tài chính",
@@ -285,7 +284,10 @@
   "州・都道府県の機関": "Cơ quan bang hoặc tỉnh",
   "自治体": "Chính quyền địa phương",
   "国際機関": "Tổ chức quốc tế",
-  "自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。": "Các nguồn địa phương chỉ bao gồm những khu vực hiện có trong danh mục. Chúng không được tự động chọn theo vị trí của bạn.",
   "情報源を検索": "Tìm nguồn tin",
-  "該当する情報源がありません": "Không có nguồn phù hợp"
+  "該当する情報源がありません": "Không có nguồn phù hợp",
+  "追加情報源": "Nguồn tin bổ sung",
+  "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Nguồn chính quyền địa phương chỉ bao gồm các khu vực trong danh mục, không được tự động chọn theo vị trí của bạn.",
+  "専門パック": "Gói chuyên ngành",
+  "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Nguồn bổ sung theo lĩnh vực chuyên môn. Mở quốc gia hoặc khu vực trong từng gói để chọn nguồn tin."
 }

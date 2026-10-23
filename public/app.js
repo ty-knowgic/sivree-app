@@ -1774,9 +1774,15 @@ function renderSourceRow(source) {
   `;
 }
 
+// Display placement is independent of default-on state. A newly registered
+// ministry belongs beside other ministries, while its opt-in remains intact.
+function inPrimarySourceCatalog(source) {
+  return !source.candidate || (!source.pack && source.sourceType === 'official' && ['national', 'international'].includes(source.level));
+}
+
 function renderSourceGroup(type) {
   const sources = sourcesDraft
-    .filter(source => source.sourceType === type && !source.candidate)
+    .filter(source => source.sourceType === type && inPrimarySourceCatalog(source))
     // 選んだ地域の情報源を先に、対象外の地域の情報源は後ろにまとめる
     .sort((a, b) => Number(isOutOfRegion(a)) - Number(isOutOfRegion(b)) || REGION_ORDER.indexOf(a.subgroup) - REGION_ORDER.indexOf(b.subgroup));
   if (!sources.length) return '';
@@ -1788,7 +1794,7 @@ function renderSourceGroup(type) {
         <h2>${escapeHtml(typeLabel(type))} <span class="source-count">${enabledCount}/${available}</span></h2>
         ${available ? `<button class="text-button" type="button" data-action="toggle-group" data-type="${type}">${escapeHtml(enabledCount ? t('すべてオフ') : t('すべてオン'))}</button>` : ''}
       </div>
-      <ul class="source-list">${sources.map(renderSourceRow).join('')}</ul>
+      ${type === 'official' ? [...new Set(sources.map(source => source.subgroup))].map(region => `<div class="source-country"><h3 class="source-country-heading">${escapeHtml(t(region))}</h3><ul class="source-list">${sources.filter(source => source.subgroup === region).map(renderSourceRow).join('')}</ul></div>`).join('') : `<ul class="source-list">${sources.map(renderSourceRow).join('')}</ul>`}
     </section>
   `;
 }
@@ -1812,7 +1818,7 @@ function renderCandidateRegions(sources) {
     const regional = sources.filter(source => source.subgroup === region);
     return `<details class="candidate-region" data-candidate-region="${escapeHtml(region)}" ${regional.some(isSourceEnabled) ? 'open' : ''}>
       <summary>${escapeHtml(t(region))} <span class="source-count">${candidateCount(regional)}</span></summary>
-      ${CANDIDATE_KIND_ORDER.map(kind => {
+      <div class="candidate-region-body">${CANDIDATE_KIND_ORDER.map(kind => {
         const typed = regional.filter(source => candidateKind(source) === kind);
         const areas = [...new Set(typed.map(source => ['local', 'regional'].includes(kind) ? (source.area || '') : ''))];
         return areas.map(area => {
@@ -1823,14 +1829,14 @@ function renderCandidateRegions(sources) {
             <ul class="source-list">${group.map(renderSourceRow).join('')}</ul>
           </section>`;
         }).join('');
-      }).join('')}
+      }).join('')}</div>
     </details>`;
   }).join('');
 }
 
 function renderCandidateGroup() {
   const sources = sourcesDraft
-    .filter(source => source.candidate)
+    .filter(source => !inPrimarySourceCatalog(source))
     .sort((a, b) => Number(isOutOfRegion(a)) - Number(isOutOfRegion(b)) || REGION_ORDER.indexOf(a.subgroup) - REGION_ORDER.indexOf(b.subgroup));
   if (!sources.length) return '';
   const enabledCount = sources.filter(isSourceEnabled).length;
@@ -1840,30 +1846,33 @@ function renderCandidateGroup() {
   return `
     <section class="source-group source-candidates" data-candidates>
       <div class="source-group-head">
-        <h2>${escapeHtml(t('候補'))} <span class="source-count">${enabledCount}/${available}</span></h2>
+        <h2>${escapeHtml(t('追加情報源'))} <span class="source-count">${enabledCount}/${available}</span></h2>
       </div>
       <p class="settings-note">${escapeHtml(t('既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。'))}</p>
-      <p class="settings-note">${escapeHtml(t('自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。'))}</p>
+      <p class="settings-note">${escapeHtml(t('自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。'))}</p>
       <label class="candidate-search"><span class="visually-hidden">${escapeHtml(t('情報源を検索'))}</span><input type="search" data-candidate-search placeholder="${escapeHtml(t('情報源を検索'))}" /></label>
       <p class="settings-note" data-candidate-empty hidden>${escapeHtml(t('該当する情報源がありません'))}</p>
-      ${renderCandidateRegions(sources.filter(source => !source.pack))}
+      <div class="additional-source-countries">${renderCandidateRegions(sources.filter(source => !source.pack))}</div>
+      ${packs.length ? `<section class="specialist-packs">
+        <h3 class="specialist-packs-title">${escapeHtml(t('専門パック'))}</h3>
+        <p class="settings-note">${escapeHtml(t('専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。'))}</p>
       ${packs.map(pack => `
-        <div class="source-pack" data-pack="${escapeHtml(pack.id)}">
+        <section class="source-pack" data-pack="${escapeHtml(pack.id)}">
           <div class="source-pack-head">
-            <h3>${escapeHtml(t(pack.name))}</h3>
+            <h4>${escapeHtml(t(pack.name))}</h4>
             <span class="source-badge">${escapeHtml(t('正式版では有償（ベータ中は無料）'))}</span>
           </div>
           <p class="settings-note">${escapeHtml(t(pack.blurb))}</p>
           ${renderCandidateRegions(sources.filter(source => source.pack?.id === pack.id))}
-        </div>
-      `).join('')}
+        </section>
+      `).join('')}</section>` : ''}
     </section>
   `;
 }
 
 function sourceSummary() {
   // 件数は、既定の情報源と、オンにした候補を数える（オフの候補は「候補」の一覧で数える）
-  const selectable = sourcesDraft.filter(source => !isOutOfRegion(source) && (!source.candidate || isSourceEnabled(source)));
+  const selectable = sourcesDraft.filter(source => !isOutOfRegion(source) && (inPrimarySourceCatalog(source) || isSourceEnabled(source)));
   const available = selectable.length;
   const enabled = selectable.filter(isSourceEnabled).length;
   return t('選んだ地域の{available}件中 <strong>{enabled}件</strong>を使用中', { available, enabled, n: enabled });
@@ -2144,7 +2153,7 @@ settingsView.addEventListener('input', event => {
     const searchable = [row.textContent, source.sourceName, source.label, source.subgroup, source.pack?.name, ...source.categories].join(' ').toLocaleLowerCase(locale());
     row.hidden = Boolean(query) && !searchable.includes(query);
   });
-  candidates.querySelectorAll('.candidate-kind, .candidate-region, .source-pack').forEach(group => {
+  candidates.querySelectorAll('.candidate-kind, .candidate-region, .source-pack, .specialist-packs').forEach(group => {
     group.hidden = ![...group.querySelectorAll('.source-row')].some(row => !row.hidden);
     if (query && !group.hidden && group.matches('details')) group.open = true;
   });
@@ -2206,7 +2215,7 @@ settingsView.addEventListener('click', async (event) => {
   }
 
   if (action === 'toggle-group') {
-    const sources = sourcesDraft.filter(source => source.sourceType === event.target.closest('[data-type]').dataset.type && !source.candidate && !isOutOfRegion(source));
+    const sources = sourcesDraft.filter(source => source.sourceType === event.target.closest('[data-type]').dataset.type && inPrimarySourceCatalog(source) && !isOutOfRegion(source));
     const turnOn = !sources.some(isSourceEnabled);
     sources.forEach(source => setSourceEnabled(source.id, turnOn));
     renderSettings();

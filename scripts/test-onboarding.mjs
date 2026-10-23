@@ -105,10 +105,10 @@ check('選ばなかったトピックは無効のまま', saved?.topics.find(t =
 check('地域・分野が保存され、初回の質問は完了になる', saved?.onboarded === true && saved.regions.join() === '日本' && saved.categories.join() === '経済');
 
 await until(() => view().hidden);
-const source = (id, categories, region = '日本', pack) => ({ id, categories, subgroup: region, pack, candidate: true, sourceType: 'official', level: 'national', sourceName: id, label: id, sourceUrl: 'https://example.test/', count: 1 });
+const source = (id, categories, region = '日本', pack) => ({ id, categories, subgroup: region, pack, candidate: true, sourceType: 'research', sourceName: id, label: id, sourceUrl: 'https://example.test/', count: 1 });
 const sources = [source('economy', ['経済', 'テクノロジー']), source('technology', ['テクノロジー']), source('outside', ['経済'], '米国'), source('specialist', ['経済'], '日本', { id: 'test', name: 'Test pack', blurb: 'Test' }),
-  { ...source('waterloo', ['社会'], 'カナダ'), sourceName: 'ウォータールー市', level: 'local', area: 'CA-ON', city: 'waterloo' },
-  { ...source('mlit', ['社会']), sourceName: '国土交通省' },
+  { ...source('waterloo', ['社会'], 'カナダ'), sourceType: 'official', sourceName: 'ウォータールー市', level: 'local', area: 'CA-ON', city: 'waterloo' },
+  { ...source('mlit', ['社会']), sourceType: 'official', level: 'national', sourceName: '国土交通省' },
   { ...source('shiho', ['社会']), sourceName: '日本司法書士会連合会', sourceType: 'npo', level: undefined }];
 saved = { ...saved, regions: ['日本', 'カナダ'], extraSources: ['economy'], candidatesSeenAt: '', savedItems: [] };
 w.settingsFixture(saved, sources);
@@ -116,12 +116,16 @@ const settings = w.document.getElementById('settingsView');
 check('候補は国・地域でまとまり、情報源が重複しない', settings.querySelectorAll('.candidate-region').length === 4 && settings.querySelectorAll('[data-source="economy"]').length === 1);
 check('有効な候補の国は開き、対象外の国の候補は選べない', settings.querySelector('[data-candidate-region="日本"]').open && settings.querySelector('[data-source="outside"]').disabled);
 check('ウォータールー市はカナダの自治体・オンタリオ州にある', settings.querySelector('[data-source="waterloo"]').closest('[data-candidate-region]').dataset.candidateRegion === 'カナダ' && settings.querySelector('[data-source="waterloo"]').closest('[data-candidate-kind]').dataset.candidateKind === 'local' && settings.querySelector('[data-source="waterloo"]').closest('section').textContent.includes('オンタリオ州'));
-check('同じ社会分野でも国交省と司法書士会を自治体と混ぜない', settings.querySelector('[data-source="mlit"]').closest('[data-candidate-kind]').dataset.candidateKind === 'national' && settings.querySelector('[data-source="shiho"]').closest('[data-candidate-kind]').dataset.candidateKind === 'npo');
+check('国交省は他の省庁と同じ政府一覧・日本に置き、初期オフを維持する', settings.querySelector('[data-source="mlit"]').closest('[data-type]').dataset.type === 'official' && settings.querySelector('[data-source="mlit"]').closest('.source-country').textContent.includes('日本') && !settings.querySelector('[data-source="mlit"]').checked);
+check('追加情報源と専門パックの階層を明示する', settings.querySelector('[data-candidates] h2').textContent.includes('追加情報源') && settings.querySelector('.specialist-packs > h3').textContent === '専門パック' && settings.querySelector('[data-pack] .source-pack-head h4'));
 check('専門パックの説明・区分を維持する', settings.querySelector('[data-pack="test"] .candidate-region [data-source="specialist"]') !== null);
 const technology = settings.querySelector('[data-source="technology"]');
 technology.checked = true;
 technology.dispatchEvent(new w.Event('change', { bubbles: true }));
-check('国と発信主体の選択数が切り替え直後に更新される', technology.closest('section').querySelector('.source-count').textContent === '2/3' && technology.closest('details').querySelector('.source-count').textContent === '2/4');
+check('国と発信主体の選択数が切り替え直後に更新される', technology.closest('section').querySelector('.source-count').textContent === '2/2' && technology.closest('details').querySelector('.source-count').textContent === '2/3');
+const mlit = settings.querySelector('[data-source="mlit"]');
+mlit.checked = true;
+mlit.dispatchEvent(new w.Event('change', { bubbles: true }));
 const search = settings.querySelector('[data-candidate-search]');
 search.value = 'ウォータールー';
 search.dispatchEvent(new w.Event('input', { bubbles: true }));
@@ -144,6 +148,7 @@ waitForFilters = null;
 releaseFilters();
 check('閲覧画面に戻った後で保存完了を通知する', await until(() => settings.hidden && w.document.querySelector('.toast')?.textContent === '保存しました'));
 check('候補の変更が保存される', saved.extraSources.includes('technology'));
+check('政府一覧へ移した機関も従来の追加設定として保存される', saved.extraSources.includes('mlit'));
 
 // A returning user can restore without submitting any onboarding answers.
 await until(() => view().hidden);

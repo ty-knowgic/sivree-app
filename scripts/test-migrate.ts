@@ -31,6 +31,8 @@ const idOf = (name: string) => LEGACY_DEFAULT_CANDIDATES.find(source => source.s
 const frozenUrls = new Set((JSON.parse(await readFile(path.join(repo, 'scripts/frozen-default-feeds.json'), 'utf8')) as { feedUrl: string }[]).map(row => row.feedUrl));
 const addedLater = [...new Set(officialFeeds.filter(feed => !frozenUrls.has(feed.feedUrl)).map(feed => sourceId(feed.feedUrl)))];
 const candidateCount = ids.length + addedLater.length;
+const promotedCount = listSources().filter(source => source.candidate && !source.pack && source.sourceType === 'official' && ['national', 'international'].includes(source.level ?? '')).length;
+const additionalCount = candidateCount - promotedCount;
 const today = new Date().toISOString().slice(0, 10);
 
 /** 候補の仕組みの前の形（新しい項目がない）の設定 */
@@ -256,13 +258,13 @@ const openSources = async (w: any) => {
   const w = await browser({ 'sivry.profile.v1': JSON.stringify(legacy()) }, { app: true });
   check('設定の「情報源」に「候補」の節が出る', await openSources(w));
   const rows = $$(w, '[data-candidates] [data-source]') as HTMLInputElement[];
-  check('候補の節にすべての候補が並び、移行した5件だけがオン', rows.length === candidateCount && rows.every(row => row.checked === ids.includes(row.getAttribute('data-source')!)), rows.map(row => row.checked));
-  check('候補は、種類ごとの一覧には出ない（同じ情報源が2か所に出ない）', $$(w, '.source-group[data-type] [data-source]').every(row => ![...ids, ...addedLater].includes(row.getAttribute('data-source')!)));
-  check('「候補」の見出しに件数（オンの数/選べる数）が出る', $(w, '[data-candidates] .source-count')?.textContent === `5/${candidateCount}`);
+  check('追加情報源に移行した5件を残し、国の機関は政府一覧へ集約する', rows.length === additionalCount && rows.every(row => row.checked === ids.includes(row.getAttribute('data-source')!)), rows.map(row => row.checked));
+  check('表示場所を移した国の機関を追加欄に重複させず、全件を維持する', $$(w, '[data-source]').length === sources.length && sources.filter(source => source.candidate && !source.pack && source.sourceType === 'official' && ['national', 'international'].includes(source.level ?? '')).every(source => $(w, `.source-group[data-type="official"] [data-source="${source.id}"]`) && !$(w, `[data-candidates] [data-source="${source.id}"]`)));
+  check('追加情報源の見出しに選択数が出る', $(w, '[data-candidates] .source-count')?.textContent === `5/${additionalCount}`);
   const packs = $$(w, '[data-candidates] .source-pack');
   check('専門パックは、名前・「正式版では有償」の表示・説明つきで、候補の中にパックごとにまとまる',
     packs.map(pack => pack.getAttribute('data-pack')).join() === 'legal,finance'
-    && packs.every(pack => pack.querySelector('h3')?.textContent && pack.querySelector('.source-badge')?.textContent === '正式版では有償（ベータ中は無料）' && pack.querySelector('.settings-note')?.textContent)
+    && packs.every(pack => pack.querySelector('h4')?.textContent && pack.querySelector('.source-badge')?.textContent === '正式版では有償（ベータ中は無料）' && pack.querySelector('.settings-note')?.textContent)
     && $$(w, '[data-candidates] .source-pack [data-source]').length === listSources().filter(source => source.pack).length,
     packs.map(pack => pack.textContent?.replace(/\s+/g, ' ').slice(0, 80)));
   check('移行した5件は、パックの外（無償の候補）に並ぶ', ids.every(id => !$(w, `[data-candidates] .source-pack [data-source="${id}"]`) && $(w, `[data-candidates] [data-source="${id}"]`)));
@@ -272,7 +274,7 @@ const openSources = async (w: any) => {
   const target = rows.find(row => row.getAttribute('data-source') === idOf('キッチナー市'))!;
   target.checked = false;
   target.dispatchEvent(new w.Event('change', { bubbles: true }));
-  check('オフにすると、候補の件数が更新される', $(w, '[data-candidates] .source-count')?.textContent === `4/${candidateCount}`);
+  check('オフにすると、候補の件数が更新される', $(w, '[data-candidates] .source-count')?.textContent === `4/${additionalCount}`);
   click(w, $(w, '[data-action="save-profile"]'));
   check('保存すると、候補のオンから外れ、除外にも入る（古い画面が保存しても戻らないため）',
     await until(() => stored(w)?.extraSources?.length === 4), stored(w));
@@ -304,7 +306,7 @@ const openSources = async (w: any) => {
   const profile = defaultProfile();
   profile.onboarded = true;
   const fresh = await browser({ 'sivry.profile.v1': JSON.stringify(profile) }, { app: true });
-  check('新規の利用者: 候補の節は出るが、すべてオフ', await openSources(fresh) && ($$(fresh, '[data-candidates] [data-source]') as HTMLInputElement[]).every(row => !row.checked) && $(fresh, '[data-candidates] .source-count')?.textContent === `0/${candidateCount}`);
+  check('新規の利用者: 追加情報源はすべてオフ', await openSources(fresh) && ($$(fresh, '[data-candidates] [data-source]') as HTMLInputElement[]).every(row => !row.checked) && $(fresh, '[data-candidates] .source-count')?.textContent === `0/${additionalCount}`);
   const group = $(fresh, '.source-group[data-type="official"] [data-action="toggle-group"]');
   click(fresh, group);
   click(fresh, $(fresh, '.source-group[data-type="official"] [data-action="toggle-group"]'));
@@ -313,7 +315,7 @@ const openSources = async (w: any) => {
   toggle.checked = true;
   toggle.dispatchEvent(new fresh.Event('change', { bubbles: true }));
   click(fresh, $(fresh, '[data-action="save-profile"]'));
-  check('新規の利用者が候補を1つオンにして保存できる', await until(() => stored(fresh)?.extraSources?.length === 1), stored(fresh));
+  check('政府一覧の一括選択と追加情報源の個別選択が保存できる', await until(() => stored(fresh)?.extraSources?.length === promotedCount + 1) && stored(fresh).extraSources.includes(toggle.getAttribute('data-source')), stored(fresh));
 }
 {
   // 記事の画面の「この情報源をオフにする」は、候補なら候補のオンから外す

@@ -305,7 +305,6 @@
   "保存できる上限（{n}件）に達しました。不要な記事の保存を解除してください。": "You have reached the limit of {n} saved articles. Remove some to save more.",
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "The headline is the publisher’s original, and the date is in the publisher’s region. Check the original article before you cite it.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (published {date}), {url} (accessed {accessed})",
-  "候補": "Optional sources",
   "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "These sources are off by default. Only the ones you turn on appear in your news.",
   "法務・知財・立法": "Law, IP and legislation",
   "税務・会計・金融規制": "Tax, accounting and financial regulation",
@@ -320,7 +319,10 @@
   "州・都道府県の機関": "State / provincial agencies",
   "自治体": "Municipalities",
   "国際機関": "International organizations",
-  "自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。": "Municipal candidates cover only the areas currently in our catalog. They are not selected automatically based on your location.",
   "情報源を検索": "Search sources",
-  "該当する情報源がありません": "No matching sources"
+  "該当する情報源がありません": "No matching sources",
+  "追加情報源": "Additional sources",
+  "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Municipal sources cover only areas in our catalog; they are not automatically selected based on your location.",
+  "専門パック": "Specialist packs",
+  "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Additional sources grouped by professional field. Expand a country or region within each pack to select sources."
 }

@@ -303,7 +303,6 @@
   "保存できる上限（{n}件）に達しました。不要な記事の保存を解除してください。": "Vous avez atteint la limite de {n} articles enregistrés. Retirez-en pour en ajouter d’autres.",
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Le titre est celui d’origine de l’émetteur et la date est celle de sa région. Vérifiez l’article d’origine avant de le citer.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, « {title} » (publié le {date}), {url} (consulté le {accessed})",
-  "候補": "Sources facultatives",
   "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Ces sources sont désactivées par défaut. Seules celles que vous activez apparaissent dans vos actualités.",
   "法務・知財・立法": "Droit, propriété intellectuelle et législation",
   "税務・会計・金融規制": "Fiscalité, comptabilité et réglementation financière",
@@ -318,7 +317,10 @@
   "州・都道府県の機関": "Organismes provinciaux ou régionaux",
   "自治体": "Municipalités",
   "国際機関": "Organisations internationales",
-  "自治体の候補は、現在登録している地域のみです。所在地からの自動選定ではありません。": "Les sources municipales couvrent uniquement les zones actuellement répertoriées. Elles ne sont pas sélectionnées automatiquement selon votre position.",
   "情報源を検索": "Rechercher des sources",
-  "該当する情報源がありません": "Aucune source correspondante"
+  "該当する情報源がありません": "Aucune source correspondante",
+  "追加情報源": "Sources supplémentaires",
+  "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Les sources municipales couvrent uniquement les zones répertoriées, sans sélection automatique selon votre position.",
+  "専門パック": "Packs spécialisés",
+  "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Sources supplémentaires regroupées par domaine professionnel. Ouvrez un pays ou une région dans chaque pack pour choisir les sources."
 }
