@@ -279,5 +279,10 @@
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Ang pamagat ay ang orihinal mula sa naglathala, at ang petsa ay ayon sa rehiyon nila. Suriin ang orihinal na artikulo bago ito banggitin.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (inilathala noong {date}), {url} (binisita noong {accessed})",
   "候補": "Mga opsyonal na source",
-  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Naka-off ang mga source na ito bilang default. Ang mga i-on mo lang ang lalabas sa iyong mga balita."
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Naka-off ang mga source na ito bilang default. Ang mga i-on mo lang ang lalabas sa iyong mga balita.",
+  "法務・知財・立法": "Batas, intelektwal na ari-arian at lehislasyon",
+  "税務・会計・金融規制": "Buwis, accounting at regulasyong pampinansiyal",
+  "新しい法律と重要な規則、裁判所・特許の当局の発表、意見募集、競争・消費者・個人情報の当局の発表（米国・EU・日本）": "Mga bagong batas at mahahalagang patakaran, mga anunsiyo ng mga korte at tanggapan ng patent, mga pampublikong konsultasyon, at mga awtoridad sa kompetisyon, proteksiyon ng mamimili at privacy (US, EU, Japan)",
+  "税の規則、証券・デリバティブ・銀行・保険の監督当局、制裁とマネロン対策、監査の監督（米国・EU・日本）": "Mga patakaran sa buwis, mga regulator ng securities, derivatives, bangko at insurance, mga parusa at laban sa money laundering, at pangangasiwa sa audit (US, EU, Japan)",
+  "正式版では有償（ベータ中は無料）": "May bayad sa buong bersyon (libre habang beta)"
 }

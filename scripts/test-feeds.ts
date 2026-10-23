@@ -5,7 +5,9 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { withStoredSummaries } from '../src/api.js';
+import { PACKS } from '../src/feeds/packs.js';
 import { applyTitleOnly, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate } from '../src/newsPipeline.js';
+import { defaultOn } from '../src/sourceTier.js';
 import { SOURCE_LEVELS } from '../src/types.js';
 import type { FeedSource, NewsItem } from '../src/types.js';
 
@@ -168,9 +170,11 @@ const ordered = dedupeSameDocument([
 check('並び順は変わらない', titles(ordered) === 'new / dup / old', titles(ordered));
 
 // ---------- 見出しと原文へのリンクだけを表示する情報源（利用条件が商用を制限するもの） ----------
-const TITLE_ONLY = ['カナダ政府', 'オンタリオ州政府', 'ウォータールー・リージョン', 'ケンブリッジ市', 'JPX', 'JETRO', 'ジェトロ', 'JAXA', 'KEK', 'WHO', 'Fraunhofer', 'Microsoft Research', 'カーネギーメロン大学', 'Simons Foundation', 'CIFAR'];
-const flagged = officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.sourceName).sort();
-check('SOURCE_TERMS.md の B1 の15件だけが titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
+// 2026-10-20 の15件と、2026-10-23 に足した専門職向けの B1 の情報源（同じ名前の複数のフィードは1つに数える）
+const TITLE_ONLY = ['カナダ政府', 'オンタリオ州政府', 'ウォータールー・リージョン', 'ケンブリッジ市', 'JPX', 'JETRO', 'ジェトロ', 'JAXA', 'KEK', 'WHO', 'Fraunhofer', 'Microsoft Research', 'カーネギーメロン大学', 'Simons Foundation', 'CIFAR',
+  'カナダ官報', 'カナダ議会', 'カナダ歳入庁', 'カナダ知的財産庁', 'カナダ・プライバシー・コミッショナー', 'オンタリオ州証券委員会', '日本公認会計士協会', '金融安定理事会', '国際決済銀行'];
+const flagged = [...new Set(officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.sourceName))].sort();
+check('SOURCE_TERMS.md の B1 の情報源だけが titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
 
 const restrictedFeed = officialFeeds.find(feed => feed.sourceName === 'JPX')!.feedUrl;
 const normalFeed = officialFeeds.find(feed => feed.sourceName === '総務省')!.feedUrl;
@@ -245,6 +249,7 @@ for (const feed of officialFeeds) {
   if (feed.level === 'local' && !/^[a-z0-9-]+$/.test(feed.city ?? '')) attributeProblems.push(`${name}: city がない・不正`);
   if (feed.level !== 'local' && feed.city) attributeProblems.push(`${name}: local でないのに city がある`);
   if (feed.pack && feed.terms !== 'A') attributeProblems.push(`${name}: pack を持つのに利用条件が A でない`);
+  if (feed.pack && !(feed.pack in PACKS)) attributeProblems.push(`${name}: pack「${feed.pack}」が src/feeds/packs.ts にない`);
   if (feed.terms === 'B1' && !feed.titleOnly) attributeProblems.push(`${name}: 利用条件が B1 なのに titleOnly でない`);
   if (feed.since && !(/^\d{4}-\d{2}-\d{2}$/.test(feed.since) && feed.since > '2026-10-20')) attributeProblems.push(`${name}: since が不正（凍結の2026-10-20より後の日付）`);
 }
@@ -254,8 +259,15 @@ check('市の識別子（area と city の組）は、管轄ごとに1つ', new 
 
 // 階層の割り当て（PR の説明の一覧表と同じ。変えるときはユーザーの確認が要る）
 const namesAt = (level: string) => [...new Set(officialFeeds.filter(feed => feed.level === level).map(feed => feed.sourceName))].sort().join(',');
-check('国際機関・EU の機関の割り当て', namesAt('international') === ['ECB', 'ECDC', 'ESA', 'WHO', 'WTO', '欧州医薬品庁', '欧州委員会', '欧州委員会（デジタル）', '欧州理事会'].sort().join(','), namesAt('international'));
-check('州・県の政府の割り当て', namesAt('regional') === 'オンタリオ州政府', namesAt('regional'));
+check('国際機関・EU の機関の割り当て', namesAt('international') === ['ECB', 'ECDC', 'ESA', 'WHO', 'WTO', '欧州医薬品庁', '欧州委員会', '欧州委員会（デジタル）', '欧州理事会',
+  // 2026-10-23 に足した専門職向けの情報源
+  'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', '欧州銀行監督機構', '欧州保険・年金監督機構', '金融安定理事会', '国際決済銀行', 'EUR-Lex', '欧州特許庁', '証券監督者国際機構'].sort().join(','), namesAt('international'));
+check('州・県の政府の割り当て', namesAt('regional') === ['オンタリオ州政府', 'オンタリオ州証券委員会'].sort().join(','), namesAt('regional'));
+// 専門パックの中身（PR の説明の一覧表と同じ。変えるときはユーザーの確認が要る）
+const packNames = (pack: string) => [...new Set(officialFeeds.filter(feed => feed.pack === pack).map(feed => feed.sourceName))].sort().join(',');
+check('専門パック「法務・知財・立法」の情報源', packNames('legal') === ['米政府出版局', '米連邦官報', '米連邦取引委員会', 'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', 'e-Gov パブリック・コメント', '消費者庁'].sort().join(','), packNames('legal'));
+check('専門パック「税務・会計・金融規制」の情報源', packNames('finance') === ['米連邦官報', '米商品先物取引委員会', '米消費者金融保護局', '欧州銀行監督機構', '欧州保険・年金監督機構', '証券取引等監視委員会', '公認会計士・監査審査会'].sort().join(','), packNames('finance'));
+check('専門パックはすべて既定でオフ（候補）', officialFeeds.filter(feed => feed.pack).every(feed => !defaultOn(feed)));
 check('市区町村の割り当て', namesAt('local') === ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'].sort().join(','), namesAt('local'));
 
 // ---------- 既定の情報源の凍結 ----------

@@ -1740,13 +1740,25 @@ function renderCandidateGroup() {
   if (!sources.length) return '';
   const enabledCount = sources.filter(isSourceEnabled).length;
   const available = sources.filter(source => !isOutOfRegion(source)).length;
+  // 専門パックの情報源は、パックごとに名前・説明・「正式版では有償」の表示をつけて、無償の候補の後ろにまとめる
+  const packs = [...new Map(sources.filter(source => source.pack).map(source => [source.pack.id, source.pack])).values()];
   return `
     <section class="source-group source-candidates" data-candidates>
       <div class="source-group-head">
         <h2>${escapeHtml(t('候補'))} <span class="source-count">${enabledCount}/${available}</span></h2>
       </div>
       <p class="settings-note">${escapeHtml(t('既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。'))}</p>
-      <ul class="source-list">${sources.map(renderSourceRow).join('')}</ul>
+      <ul class="source-list">${sources.filter(source => !source.pack).map(renderSourceRow).join('')}</ul>
+      ${packs.map(pack => `
+        <div class="source-pack" data-pack="${escapeHtml(pack.id)}">
+          <div class="source-pack-head">
+            <h3>${escapeHtml(t(pack.name))}</h3>
+            <span class="source-badge">${escapeHtml(t('正式版では有償（ベータ中は無料）'))}</span>
+          </div>
+          <p class="settings-note">${escapeHtml(t(pack.blurb))}</p>
+          <ul class="source-list">${sources.filter(source => source.pack?.id === pack.id).map(renderSourceRow).join('')}</ul>
+        </div>
+      `).join('')}
     </section>
   `;
 }
