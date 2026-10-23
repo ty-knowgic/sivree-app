@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Parser from 'rss-parser';
 import { fetchArticleContent, isGenericImage } from './articleContent.js';
+import { readHtmlList } from './htmlList.js';
 import { filterNews } from './newsFilters.js';
 import { isAllowedByRobots, USER_AGENT } from './robots.js';
 import { cleanFeedText, decodeEntities } from './text.js';
@@ -42,7 +43,10 @@ const FEED_DEADLINE_MS = Number(process.env.FEED_DEADLINE_MS) > 0 ? Number(proce
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const ITEMS_PER_FEED = 20;
 const ARCHIVE_DAYS = 30;
-const ARCHIVE_LIMIT = 3000;
+// 保存する記事の上限。既定の情報源と候補（既定ではオフ）で別々に数え、候補の記事が既定の情報源の記事を押し出さないようにする。
+// 候補の上限は、専門職向けの情報源の30日分が収まる程度（記事が増えると、利用者が読み込むベクトルも増えるため）
+export const ARCHIVE_LIMIT = 3000;
+export const CANDIDATE_ARCHIVE_LIMIT = 1000;
 // フィードに画像がない記事のうち、新しい順にこの件数まで記事ページの画像を確認する
 const IMAGE_ENRICH_LIMIT = 80;
 const IMAGE_ENRICH_CONCURRENCY = 4;
@@ -285,10 +289,12 @@ function finalizeItem(entry: Omit<NewsItem, 'id' | 'category' | 'categories' | '
 
 // 総務省のように Shift_JIS で配信されるフィードがあるため、XML 宣言の encoding を見てデコードする
 function decodeFeed(buffer: ArrayBuffer, contentType: string | null): string {
-  const head = new TextDecoder('ascii').decode(buffer.slice(0, 200));
+  const head = new TextDecoder('ascii').decode(buffer.slice(0, 2048));
   const charset =
-    head.match(/encoding=["']([\w-]+)["']/i)?.[1] ??
+    head.slice(0, 200).match(/encoding=["']([\w-]+)["']/i)?.[1] ??
     contentType?.match(/charset=([\w-]+)/i)?.[1] ??
+    // 一覧ページ（htmlList）の HTML は、文字コードを meta で示すことが多い（国税庁: Shift_JIS）
+    head.match(/<meta[^>]+charset=["']?([\w-]+)/i)?.[1] ??
     'utf-8';
 
   try {
@@ -393,6 +399,16 @@ export async function fetchFeedsWithin(
   return { results, skipped };
 }
 
+async function parseFeedText(text: string) {
+  // サイト停止のお知らせなどが 200 の HTML で返ることがある。XML の解析エラーではなく、原因が分かる形で記録する
+  if (/^\s*(<!doctype html|<html)/i.test(text)) throw new Error('HTML page returned instead of a feed (site may be down)');
+  const xml = text
+    // Atom の type="xhtml" の要素（カナダ統計局など）は中身が XHTML のため、タグを除いたテキストにしてから解析する
+    .replace(/<(title|summary|content|subtitle)([^>]*\btype=["']xhtml["'][^>]*)>([\s\S]*?)<\/\1>/g,
+      (_match, tag: string, _attrs: string, inner: string) => `<${tag}>${inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}</${tag}>`);
+  return parser.parseString(xml);
+}
+
 export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
   try {
     // 記事ページと同じく、フィードも robots.txt に従う（禁止されている、または robots.txt を確認できないときは取得しない）
@@ -409,13 +425,8 @@ export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
     }
 
     const text = decodeFeed(await response.arrayBuffer(), response.headers.get('content-type'));
-    // サイト停止のお知らせなどが 200 の HTML で返ることがある。XML の解析エラーではなく、原因が分かる形で記録する
-    if (/^\s*(<!doctype html|<html)/i.test(text)) throw new Error('HTML page returned instead of a feed (site may be down)');
-    const xml = text
-      // Atom の type="xhtml" の要素（カナダ統計局など）は中身が XHTML のため、タグを除いたテキストにしてから解析する
-      .replace(/<(title|summary|content|subtitle)([^>]*\btype=["']xhtml["'][^>]*)>([\s\S]*?)<\/\1>/g,
-        (_match, tag: string, _attrs: string, inner: string) => `<${tag}>${inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}</${tag}>`);
-    const parsed = await parser.parseString(xml);
+    // RSS のない一覧ページ（会計検査院など）は、ページから見出し・日付・リンクを読み、フィードの記事と同じ形にする
+    const parsed: Pick<Awaited<ReturnType<typeof parseFeedText>>, 'items'> = source.htmlList ? { items: readHtmlList(text, source, response.url || source.feedUrl) } : await parseFeedText(text);
     const items: NewsItem[] = [];
 
     // フィードによっては新しい順に並んでいないため、日付順に並べ替えてから取り込む
@@ -542,7 +553,8 @@ export function dedupeSameDocument(items: NewsItem[]): NewsItem[] {
 // 利用条件が商用での利用・再配布を制限している発信元（SOURCE_TERMS.md の B1）は、見出しと原文へのリンクだけを表示する。
 // フィードの説明文と画像は持たない（蓄積済みの記事からも取り除く）。要約の作成・埋め込みにも説明文は使わない
 export function applyTitleOnly(items: NewsItem[]): NewsItem[] {
-  const feeds = new Set(officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.feedUrl));
+  // 一覧ページから読む情報源（htmlList）も、見出しと原文へのリンクだけ（記事ページを取得しないため、画像も確認済み扱い）
+  const feeds = new Set(officialFeeds.filter(feed => feed.titleOnly || feed.htmlList).map(feed => feed.feedUrl));
   return items.map(item => feeds.has(item.feedUrl)
     ? { ...item, summary: '', imageUrl: undefined, imageChecked: true, titleOnly: true }
     : item);
@@ -627,14 +639,7 @@ async function collectNews(): Promise<NewsItem[]> {
       : item);
   }
 
-  const cutoff = Date.now() - ARCHIVE_DAYS * 24 * 60 * 60 * 1000;
-  // いまのフィード一覧にない情報源（取得をやめたもの、URL を替えたもの）の記事は、保存分からも外す
-  const currentFeedUrls = new Set(officialFeeds.map(feed => feed.feedUrl));
-  const kept = applyTitleOnly(
-    limitPerFeedPerDay(dedupeSameDocument(sortByDate([...store.values()])))
-      .filter(item => currentFeedUrls.has(item.feedUrl) && new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
-      .slice(0, ARCHIVE_LIMIT)
-  );
+  const kept = applyTitleOnly(trimArchive([...store.values()]));
 
   store.clear();
   kept.forEach(item => store.set(item.id, item));
@@ -647,6 +652,22 @@ async function collectNews(): Promise<NewsItem[]> {
   await saveArchive(kept);
   imageEnrichment = enrichImages(kept);
   return kept;
+}
+
+/**
+ * 保存する記事を決める: 新しい順に並べ、同じ記事をまとめ、30日より古いもの・いまのフィード一覧にない情報源
+ * （取得をやめたもの、URL を替えたもの）・利用者が全員オフにした情報源の記事を外す。
+ * 件数の上限は、既定の情報源（ARCHIVE_LIMIT）と候補（CANDIDATE_ARCHIVE_LIMIT）で別々に数える
+ */
+export function trimArchive(items: NewsItem[], now = Date.now()): NewsItem[] {
+  const cutoff = now - ARCHIVE_DAYS * 24 * 60 * 60 * 1000;
+  const currentFeedUrls = new Set(officialFeeds.map(feed => feed.feedUrl));
+  const defaultFeedUrls = new Set(officialFeeds.filter(defaultOn).map(feed => feed.feedUrl));
+  let defaults = 0;
+  let candidates = 0;
+  return limitPerFeedPerDay(dedupeSameDocument(sortByDate([...items])))
+    .filter(item => currentFeedUrls.has(item.feedUrl) && new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
+    .filter(item => (defaultFeedUrls.has(item.feedUrl) ? defaults++ < ARCHIVE_LIMIT : candidates++ < CANDIDATE_ARCHIVE_LIMIT));
 }
 
 async function saveArchive(items: NewsItem[]): Promise<void> {
