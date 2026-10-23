@@ -1854,7 +1854,8 @@ function renderSettingsExtras() {
         <a class="secondary-button" href="${escapeHtml(feedback('feedback.yml'))}" target="_blank" rel="noopener noreferrer">${escapeHtml(t('ご意見を送る'))}</a>
         <a class="secondary-button" href="${escapeHtml(feedback('source-request.yml'))}" target="_blank" rel="noopener noreferrer">${escapeHtml(t('情報源をリクエスト'))}</a>
       </div>
-      <p class="settings-note"><a href="legal.html" target="_blank" rel="noopener">${escapeHtml(t('プライバシー・利用条件'))}</a></p>
+      <p class="settings-note"><a href="about.html" target="_blank" rel="noopener">${escapeHtml(t('Sivree について'))}</a> · <a href="legal.html" target="_blank" rel="noopener">${escapeHtml(t('プライバシー・利用条件'))}</a></p>
+      <p class="settings-note">© 2026 Knowgic Technology</p>
     </section>
   `;
 }
