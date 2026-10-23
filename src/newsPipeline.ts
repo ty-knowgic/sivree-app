@@ -9,6 +9,7 @@ import { isAllowedByRobots, USER_AGENT } from './robots.js';
 import { cleanFeedText, decodeEntities } from './text.js';
 import { CATEGORIES, SOURCE_TYPES, SUBGROUPS } from './types.js';
 import { officialFeeds } from './feeds/index.js';
+import { PACKS } from './feeds/packs.js';
 import { defaultOn } from './sourceTier.js';
 import type { CategoryKey, FeedSource, NewsFilters, NewsItem } from './types.js';
 
@@ -589,6 +590,8 @@ export function listSources() {
     feedUrl: feed.feedUrl,
     // 既定ではオフの候補（利用者が設定でオンにしたものだけ表示する）
     candidate: !defaultOn(feed),
+    // 専門パック（正式版では有償）。設定の「候補」で、パックごとに名前と説明をつけてまとめる
+    pack: feed.pack && PACKS[feed.pack] ? { id: feed.pack, ...PACKS[feed.pack] } : undefined,
     health: feedHealth.get(feed.feedUrl) ?? null
   }));
 }

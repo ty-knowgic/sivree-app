@@ -270,5 +270,10 @@
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Tajuk ialah tajuk asal daripada penerbit, dan tarikh mengikut wilayah penerbit. Semak artikel asal sebelum memetik.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (diterbitkan {date}), {url} (dicapai {accessed})",
   "候補": "Sumber pilihan",
-  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Sumber ini dimatikan secara lalai. Hanya sumber yang anda hidupkan akan dipaparkan dalam berita anda."
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Sumber ini dimatikan secara lalai. Hanya sumber yang anda hidupkan akan dipaparkan dalam berita anda.",
+  "法務・知財・立法": "Undang-undang, harta intelek dan perundangan",
+  "税務・会計・金融規制": "Cukai, perakaunan dan peraturan kewangan",
+  "新しい法律と重要な規則、裁判所・特許の当局の発表、意見募集、競争・消費者・個人情報の当局の発表（米国・EU・日本）": "Undang-undang baharu dan peraturan utama, pengumuman mahkamah dan pejabat paten, rundingan awam, serta pihak berkuasa persaingan, perlindungan pengguna dan privasi (AS, EU, Jepun)",
+  "税の規則、証券・デリバティブ・銀行・保険の監督当局、制裁とマネロン対策、監査の監督（米国・EU・日本）": "Peraturan cukai, pengawal selia sekuriti, derivatif, perbankan dan insurans, sekatan dan pencegahan pengubahan wang haram, serta pengawasan audit (AS, EU, Jepun)",
+  "正式版では有償（ベータ中は無料）": "Berbayar dalam versi penuh (percuma semasa beta)"
 }

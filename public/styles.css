@@ -1145,6 +1145,25 @@ main {
   padding: 0 16px;
 }
 
+/* 候補の中の専門パック（パックごとの見出し・有償の表示・説明） */
+.source-pack {
+  border-top: 1px solid var(--line);
+}
+
+.source-pack-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 14px 16px 8px;
+}
+
+.source-pack-head h3 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
 .settings-lead {
   margin: 8px 0 18px;
   color: var(--text-2);

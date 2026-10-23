@@ -305,5 +305,10 @@
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "The headline is the publisher’s original, and the date is in the publisher’s region. Check the original article before you cite it.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}, “{title}” (published {date}), {url} (accessed {accessed})",
   "候補": "Optional sources",
-  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "These sources are off by default. Only the ones you turn on appear in your news."
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "These sources are off by default. Only the ones you turn on appear in your news.",
+  "法務・知財・立法": "Law, IP and legislation",
+  "税務・会計・金融規制": "Tax, accounting and financial regulation",
+  "新しい法律と重要な規則、裁判所・特許の当局の発表、意見募集、競争・消費者・個人情報の当局の発表（米国・EU・日本）": "New laws and major rules, announcements from courts and patent offices, public consultations, and competition, consumer-protection and privacy authorities (US, EU, Japan)",
+  "税の規則、証券・デリバティブ・銀行・保険の監督当局、制裁とマネロン対策、監査の監督（米国・EU・日本）": "Tax rules, securities, derivatives, banking and insurance regulators, sanctions and anti-money-laundering, and audit oversight (US, EU, Japan)",
+  "正式版では有償（ベータ中は無料）": "Paid in the full version (free during beta)"
 }

@@ -83,10 +83,54 @@ PDL1.0 と CC BY は、出典の記載と、加工した場合にその旨を示
 ## D: 取得できなかった
 防衛省、米国防総省、SEC、欧州理事会、OpenAI、NTT。サイトが 403 を返しました。回避せず、確認していません（防衛省は、検索結果の抜粋に政府標準利用規約〔第2.0版。CC BY 互換〕とありましたが、公式ページは見ていません）。
 
+## 専門職向けの情報源（2026-10-23 に追加）
+弁護士・司法書士・弁理士、公認会計士・税理士、アクチュアリー、金融のコンプライアンス担当、ロビイストなど向けに、米国・カナダ・EU・日本の当局と専門職団体のフィードを足しました（`src/feeds/professional.ts`）。すべて既定ではオフの候補です。**利用条件が A のものだけを専門パック**（正式版では有償、ベータ中は無料）に入れ、B1 は見出しと原文へのリンクだけを表示します。C は、上の C の情報源と同じに表示します。確かめ方は上と同じで、`SivreeBot` と名乗り、robots.txt に従い、403 は回避していません。
+
+### A: 再利用が明示されている
+| 情報源 | 条件 | 確認したページ | パック |
+|---|---|---|---|
+| 米連邦官報（Federal Register の API） | 「連邦官報に掲載された資料の再掲載に制限はない」（官報の Reader Aids）。federalregister.gov の HTML は SivreeBot をボット確認のページに転送するため、GovInfo 上の官報で確認 | [Reader Aids](https://www.govinfo.gov/content/pkg/FR-2026-01-30/html/FR-2026-01-30-ReaderAids.htm) | 法務・税務 |
+| 米政府出版局（GovInfo） | 米国政府の著作物はパブリックドメイン（17 U.S.C. §105）。第三者の素材は除く | [policies](https://www.govinfo.gov/about/policies) | 法務 |
+| 米連邦取引委員会 | 大半はパブリックドメイン。可能な範囲で出典の記載 | [website policy](https://www.ftc.gov/policy-notices/website-policy) | 法務 |
+| 米商品先物取引委員会 | パブリックドメインで自由に配布・複製できる。出典の記載を依頼 | [web policy](https://www.cftc.gov/WebPolicy/index.htm) | 税務 |
+| 米消費者金融保護局 | パブリックドメイン。許可なく複製・公表・利用できる | [privacy policy](https://www.consumerfinance.gov/privacy/website-privacy-policy/) | 税務 |
+| EU 司法裁判所 | 編集記事と判例は、出典を示せば複製できる | [copyright](https://curia.europa.eu/site/jcms/d2_5167/en/copyright) | 法務 |
+| 欧州データ保護会議 | 商用・非商用とも再利用を認める。出典の記載が必要 | [copyright](https://www.edpb.europa.eu/copyright_en) | 法務 |
+| 欧州銀行監督機構 | 出典を示せば複製を認める | [legal notice](https://www.eba.europa.eu/find-out-about-us/legal-notice) | 税務 |
+| 欧州保険・年金監督機構 | 事前の許可なく複製できる。**要約・翻訳など加工して公表する場合は、定められた2点の免責の記載が必要** | [legal notice](https://www.eiopa.europa.eu/legal-notice_en) | 税務 |
+| 世界知的所有権機関 | CC BY 4.0（出典の記載と、変更した場合はその旨） | [terms of use](https://www.wipo.int/en/web/terms-of-use) | 法務 |
+| e-Gov パブリック・コメント（デジタル庁） | PDL1.0 | [利用規約](https://www.e-gov.go.jp/terms) | 法務 |
+| 消費者庁 | PDL1.0 | [利用規約](https://www.caa.go.jp/terms_of_use/) | 法務 |
+| 証券取引等監視委員会・公認会計士・監査審査会 | 金融庁のサイト（PDL1.0。上の A の金融庁と同じ） | [rules](https://www.fsa.go.jp/rules/index.html) | 税務 |
+| 国土交通省 | PDL1.0 | [リンク・著作権](https://www.mlit.go.jp/link.html) | なし（技術職のパックはこの1件だけになるため） |
+
+### B1: 商用での利用・再配布を制限している（見出しとリンクだけ）
+| 情報源 | 記載の要点 | 確認したページ |
+|---|---|---|
+| カナダ官報・カナダ歳入庁・カナダ知的財産庁 | カナダ政府の利用条件（上の B1 のカナダ政府と同じ） | [terms](https://www.canada.ca/en/transparency/terms.html) |
+| カナダ・プライバシー・コミッショナー | 非商用の複製は可。商用の再配布は事前の書面の許諾が必要 | [terms](https://www.priv.gc.ca/en/privacy-and-transparency-at-the-opc/terms-and-conditions-of-use/) |
+| カナダ議会（LEGISinfo） | 複製・利用には許可を求める。下院の許可は商用を含まない | [important notices](https://www.parl.ca/ImportantNotices-e.html) |
+| オンタリオ州証券委員会 | 非商用・教育・情報の目的に限る許諾。許可なく掲載・表示・頒布できない | [legal](https://www.osc.ca/en/legal) |
+| 金融安定理事会 | 商用目的を除き、正確に出典を示せば複製・配布できる | [terms](https://www.fsb.org/terms_conditions/) |
+| 国際決済銀行 | 非商用の利用と、限られた抜粋に限る | [terms](https://www.bis.org/about/terms-conditions) |
+| 日本公認会計士協会 | 事前の文書による許諾なく、複製・転載・頒布を禁じる（転載料あり） | [ご利用条件](https://jicpa.or.jp/webuse/) |
+
+### C: 規約から条件を読み取れない
+- **EUR-Lex**: 法的告知のページが SivreeBot に空の応答（202。ボット確認）を返し、読めていません。運営する EU 出版局のサイト自体は CC BY 4.0 ですが、EUR-Lex の条件は EUR-Lex の告知を見るよう案内しています。
+- **欧州特許庁**: 法的告知のページは本文がスクリプトで表示され、読み取れません（報道向けの写真等の著作権の記載だけを確認）。
+- **米通貨監督庁**: サイトのポリシーに著作権の記載が見つかりません（米国連邦政府の著作物ではあります）。
+- **証券監督者国際機構**、**米アクチュアリー基準審議会**、**日本税理士会連合会**、**日本弁理士会**（リンクは自由とするリンクポリシーだけ）: 再利用の条件の記載が見つかりません。
+
+### 使わなかったもの
+- **利用条件**: NCEES（米国の技術者の試験機関）は商用・公的な利用に加え、許可のないリンクも禁じているため使いません。FINRA は個人の非商用・業務の利用に限り、フィードも PDF のファイル名などが混ざるため使いません。
+- **フィードの中身**: ESMA（記事の日付がない）、カナダ最高裁判所の判決（独自の形式の日付だけで、更新した古い判決も流れる）、IFAC（2023年で更新が止まっている）、EUR-Lex の欧州委員会の提案（日付がない）、日本技術士会（他団体の公募の告知が中心）、米司法省の RSS（報告の締切の一覧）。
+- **取得できない（403・robots.txt。回避しない）**: PCAOB、FASB、NAIC、congress.gov、米上院のロビイング開示（lda.senate.gov）、USPTO の RSS、米最高裁判所（robots.txt が /rss/ を禁止）、カナダのロビイング・コミッショナー、オンタリオ州技術者協会（PEO）、オンタリオ州法曹協会、CIRO、欧州議会、EUIPO、OECD、英国知的財産庁、特許庁、経済産業省。
+- **フィードが見つからない**: IRS（メールの配信だけ。規則は連邦官報で取る）、米司法省の FARA、米連邦裁判所、AICPA、CPA Canada、Engineers Canada、OSFI、FINTRAC、FRAS Canada、IFRS 財団、EFRAG、EU 透明性登録簿、CEN-CENELEC、国税庁、法務省、裁判所、官報、企業会計基準委員会、日本弁護士連合会、日本司法書士会連合会、公正取引委員会、個人情報保護委員会、衆議院・参議院、日本アクチュアリー会。
+
 ## これから決めること
 1. **B1（記事の約19%）**: 決定済み。見出しと原文へのリンクだけを表示する（2026-10-20）。許諾の依頼（カナダ政府・JPX・WHO・オンタリオ州政府など）は、利用状況とフィードバックを見て判断する。
 2. **配信サービス（記事の約24%）**: PR Newswire・PR TIMES・@Press に、商用の集約サービスでの再掲載の可否を問い合わせる。
-3. **A の条件の確認**: 出典の記載（実施済み）と、加工の表示（「抜粋」と分かる表示）が足りているか。
+3. **A の条件の確認**: 出典の記載（実施済み）と、加工の表示（「抜粋」と分かる表示）が足りているか。欧州保険・年金監督機構は、要約など加工した場合に免責の記載を求めるため、説明文の短縮がこれに当たるかも合わせて判断する。
 4. **JPX の「生成AI等による解析」の条項**: Sivree は埋め込みで解析します。条項は学習・解析で JPX が不利益を被る利用を禁じていて、該当するかの判断が要ります。
 5. **C と D の確認の続き**: 記事数の多い順に、規約のページを個別に確認する。
 

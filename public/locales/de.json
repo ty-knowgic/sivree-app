@@ -300,5 +300,10 @@
   "見出しは発信元の原題、発表日は発信元の地域の日付です。引用する前に元記事でご確認ください。": "Die Überschrift ist der Originaltitel des Herausgebers, das Datum gilt in der Region des Herausgebers. Prüfen Sie vor dem Zitieren den Originalartikel.",
   "{source}「{title}」（{date}発表）{url}（{accessed}閲覧）": "{source}: „{title}“ (veröffentlicht am {date}), {url} (abgerufen am {accessed})",
   "候補": "Optionale Quellen",
-  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Diese Quellen sind standardmäßig aus. Nur die, die Sie einschalten, erscheinen in Ihren Nachrichten."
+  "既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。": "Diese Quellen sind standardmäßig aus. Nur die, die Sie einschalten, erscheinen in Ihren Nachrichten.",
+  "法務・知財・立法": "Recht, geistiges Eigentum und Gesetzgebung",
+  "税務・会計・金融規制": "Steuern, Rechnungslegung und Finanzregulierung",
+  "新しい法律と重要な規則、裁判所・特許の当局の発表、意見募集、競争・消費者・個人情報の当局の発表（米国・EU・日本）": "Neue Gesetze und wichtige Vorschriften, Mitteilungen von Gerichten und Patentämtern, öffentliche Konsultationen sowie Wettbewerbs-, Verbraucherschutz- und Datenschutzbehörden (USA, EU, Japan)",
+  "税の規則、証券・デリバティブ・銀行・保険の監督当局、制裁とマネロン対策、監査の監督（米国・EU・日本）": "Steuervorschriften, Aufsichtsbehörden für Wertpapiere, Derivate, Banken und Versicherungen, Sanktionen und Geldwäschebekämpfung sowie Abschlussprüferaufsicht (USA, EU, Japan)",
+  "正式版では有償（ベータ中は無料）": "In der Vollversion kostenpflichtig (während der Beta kostenlos)"
 }
