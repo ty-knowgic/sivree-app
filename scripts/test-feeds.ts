@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { withStoredSummaries } from '../src/api.js';
 import { PACKS } from '../src/feeds/packs.js';
-import { applyTitleOnly, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate } from '../src/newsPipeline.js';
+import { applyTitleOnly, ARCHIVE_LIMIT, CANDIDATE_ARCHIVE_LIMIT, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate, trimArchive } from '../src/newsPipeline.js';
 import { defaultOn } from '../src/sourceTier.js';
 import { SOURCE_LEVELS } from '../src/types.js';
 import type { FeedSource, NewsItem } from '../src/types.js';
@@ -168,6 +168,30 @@ const ordered = dedupeSameDocument([
   item({ title: 'old', sourceUrl: 'https://e.test/p/1', publishedAt: '2026-10-17T00:00:00.000Z' })
 ]);
 check('並び順は変わらない', titles(ordered) === 'new / dup / old', titles(ordered));
+
+// ---------- 保存する記事の上限 ----------
+// 候補（既定ではオフ）の記事が、既定の情報源の記事を押し出さないこと。上限は既定の情報源と候補で別々に数える
+{
+  const now = Date.now();
+  const defaultFeed = officialFeeds.find(feed => defaultOn(feed) && !feed.maxItems)!;
+  const candidateFeed = officialFeeds.find(feed => !defaultOn(feed) && !feed.maxItems)!;
+  // 候補の記事のほうが新しい（新しい順に数えると、候補が先に来る）
+  const archiveItems = (feed: FeedSource, count: number, olderByMs: number) => Array.from({ length: count }, (_, index) => item({
+    feedUrl: feed.feedUrl, sourceName: feed.sourceName, title: `${feed.sourceName} ${index}`,
+    sourceUrl: `https://e.test/${sourceId(feed.feedUrl)}/${index}`, publishedAt: new Date(now - olderByMs - index * 1000).toISOString()
+  }));
+  const candidates = archiveItems(candidateFeed, CANDIDATE_ARCHIVE_LIMIT + 200, 0);
+  const defaults = archiveItems(defaultFeed, ARCHIVE_LIMIT + 100, 2 * 60 * 60 * 1000);
+  const expired = item({ feedUrl: defaultFeed.feedUrl, sourceName: defaultFeed.sourceName, title: 'expired', sourceUrl: 'https://e.test/expired', publishedAt: new Date(now - 31 * 24 * 60 * 60 * 1000).toISOString() });
+  const trimmed = trimArchive([...candidates, ...defaults, expired], now);
+  const keptDefaults = trimmed.filter(entry => entry.feedUrl === defaultFeed.feedUrl);
+  const keptCandidates = trimmed.filter(entry => entry.feedUrl === candidateFeed.feedUrl);
+  check('新しい候補の記事が多くても、既定の情報源の記事は上限まで残る', keptDefaults.length === ARCHIVE_LIMIT, `${keptDefaults.length}`);
+  check('候補の記事は、候補の上限まで（新しい順）', keptCandidates.length === CANDIDATE_ARCHIVE_LIMIT && keptCandidates[0].title === `${candidateFeed.sourceName} 0`, `${keptCandidates.length}`);
+  check('既定の情報源の記事は、新しいものから残る', keptDefaults.at(-1)?.title === `${defaultFeed.sourceName} ${ARCHIVE_LIMIT - 1}`, keptDefaults.at(-1)?.title);
+  check('30日より古い記事は残さない', !trimmed.some(entry => entry.title === 'expired'));
+  check('残した記事は新しい順', trimmed.every((entry, index) => index === 0 || trimmed[index - 1].publishedAt >= entry.publishedAt));
+}
 
 // ---------- 見出しと原文へのリンクだけを表示する情報源（利用条件が商用を制限するもの） ----------
 // 2026-10-20 の15件と、2026-10-23 に足した専門職向けの B1 の情報源（同じ名前の複数のフィードは1つに数える）

@@ -42,7 +42,10 @@ const FEED_DEADLINE_MS = Number(process.env.FEED_DEADLINE_MS) > 0 ? Number(proce
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const ITEMS_PER_FEED = 20;
 const ARCHIVE_DAYS = 30;
-const ARCHIVE_LIMIT = 3000;
+// 保存する記事の上限。既定の情報源と候補（既定ではオフ）で別々に数え、候補の記事が既定の情報源の記事を押し出さないようにする。
+// 候補の上限は、専門職向けの情報源の30日分が収まる程度（記事が増えると、利用者が読み込むベクトルも増えるため）
+export const ARCHIVE_LIMIT = 3000;
+export const CANDIDATE_ARCHIVE_LIMIT = 1000;
 // フィードに画像がない記事のうち、新しい順にこの件数まで記事ページの画像を確認する
 const IMAGE_ENRICH_LIMIT = 80;
 const IMAGE_ENRICH_CONCURRENCY = 4;
@@ -627,14 +630,7 @@ async function collectNews(): Promise<NewsItem[]> {
       : item);
   }
 
-  const cutoff = Date.now() - ARCHIVE_DAYS * 24 * 60 * 60 * 1000;
-  // いまのフィード一覧にない情報源（取得をやめたもの、URL を替えたもの）の記事は、保存分からも外す
-  const currentFeedUrls = new Set(officialFeeds.map(feed => feed.feedUrl));
-  const kept = applyTitleOnly(
-    limitPerFeedPerDay(dedupeSameDocument(sortByDate([...store.values()])))
-      .filter(item => currentFeedUrls.has(item.feedUrl) && new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
-      .slice(0, ARCHIVE_LIMIT)
-  );
+  const kept = applyTitleOnly(trimArchive([...store.values()]));
 
   store.clear();
   kept.forEach(item => store.set(item.id, item));
@@ -647,6 +643,22 @@ async function collectNews(): Promise<NewsItem[]> {
   await saveArchive(kept);
   imageEnrichment = enrichImages(kept);
   return kept;
+}
+
+/**
+ * 保存する記事を決める: 新しい順に並べ、同じ記事をまとめ、30日より古いもの・いまのフィード一覧にない情報源
+ * （取得をやめたもの、URL を替えたもの）・利用者が全員オフにした情報源の記事を外す。
+ * 件数の上限は、既定の情報源（ARCHIVE_LIMIT）と候補（CANDIDATE_ARCHIVE_LIMIT）で別々に数える
+ */
+export function trimArchive(items: NewsItem[], now = Date.now()): NewsItem[] {
+  const cutoff = now - ARCHIVE_DAYS * 24 * 60 * 60 * 1000;
+  const currentFeedUrls = new Set(officialFeeds.map(feed => feed.feedUrl));
+  const defaultFeedUrls = new Set(officialFeeds.filter(defaultOn).map(feed => feed.feedUrl));
+  let defaults = 0;
+  let candidates = 0;
+  return limitPerFeedPerDay(dedupeSameDocument(sortByDate([...items])))
+    .filter(item => currentFeedUrls.has(item.feedUrl) && new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
+    .filter(item => (defaultFeedUrls.has(item.feedUrl) ? defaults++ < ARCHIVE_LIMIT : candidates++ < CANDIDATE_ARCHIVE_LIMIT));
 }
 
 async function saveArchive(items: NewsItem[]): Promise<void> {
