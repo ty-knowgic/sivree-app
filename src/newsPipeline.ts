@@ -289,10 +289,12 @@ function finalizeItem(entry: Omit<NewsItem, 'id' | 'category' | 'categories' | '
 
 // 総務省のように Shift_JIS で配信されるフィードがあるため、XML 宣言の encoding を見てデコードする
 function decodeFeed(buffer: ArrayBuffer, contentType: string | null): string {
-  const head = new TextDecoder('ascii').decode(buffer.slice(0, 200));
+  const head = new TextDecoder('ascii').decode(buffer.slice(0, 2048));
   const charset =
-    head.match(/encoding=["']([\w-]+)["']/i)?.[1] ??
+    head.slice(0, 200).match(/encoding=["']([\w-]+)["']/i)?.[1] ??
     contentType?.match(/charset=([\w-]+)/i)?.[1] ??
+    // 一覧ページ（htmlList）の HTML は、文字コードを meta で示すことが多い（国税庁: Shift_JIS）
+    head.match(/<meta[^>]+charset=["']?([\w-]+)/i)?.[1] ??
     'utf-8';
 
   try {
@@ -424,7 +426,7 @@ export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
 
     const text = decodeFeed(await response.arrayBuffer(), response.headers.get('content-type'));
     // RSS のない一覧ページ（会計検査院など）は、ページから見出し・日付・リンクを読み、フィードの記事と同じ形にする
-    const parsed: Pick<Awaited<ReturnType<typeof parseFeedText>>, 'items'> = source.htmlList ? { items: readHtmlList(text, source) } : await parseFeedText(text);
+    const parsed: Pick<Awaited<ReturnType<typeof parseFeedText>>, 'items'> = source.htmlList ? { items: readHtmlList(text, source, response.url || source.feedUrl) } : await parseFeedText(text);
     const items: NewsItem[] = [];
 
     // フィードによっては新しい順に並んでいないため、日付順に並べ替えてから取り込む

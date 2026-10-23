@@ -40,8 +40,8 @@ const count = (feeds: typeof officialFeeds, tier: string) => feeds.filter(feed =
 const breakdown = (feeds: typeof officialFeeds) => `${count(feeds, 'free')}/${count(feeds, 'limited')}/${count(feeds, 'paid')} of ${feeds.length}`;
 check('凍結した情報源98件の層は、無償93・上限の対象5（オンタリオ州政府と、ウォータールー周辺の4自治体）・有償0',
   coreFeeds.length === 98 && breakdown(coreFeeds) === '93/5/0 of 98', breakdown(coreFeeds));
-check('専門職向けの44件の層は、無償19・上限の対象2（オンタリオ州証券委員会）・有償23（専門パック）',
-  professionalFeeds.length === 44 && breakdown(professionalFeeds) === '19/2/23 of 44', breakdown(professionalFeeds));
+check('専門職向けの55件の層は、無償24・上限の対象2（オンタリオ州証券委員会）・有償29（専門パック）',
+  professionalFeeds.length === 55 && breakdown(professionalFeeds) === '24/2/29 of 55', breakdown(professionalFeeds));
 check('フィードの一覧は、この2つを合わせたもの', officialFeeds.length === coreFeeds.length + professionalFeeds.length);
 const limitedNames = ['ウォータールー市', 'ウォータールー・リージョン', 'オンタリオ州政府', 'キッチナー市', 'ケンブリッジ市'].sort().join(',');
 check('凍結した情報源で上限の対象の5件は、オンタリオ州政府とウォータールー周辺の4自治体',
@@ -49,7 +49,7 @@ check('凍結した情報源で上限の対象の5件は、オンタリオ州政
 check('凍結した情報源で since が付いているのは、候補へ移したこの5件だけ（候補は既定ではオフ。既存の利用者には移行で引き継ぐ）',
   coreFeeds.filter(feed => feed.since).map(feed => feed.sourceName).sort().join(',') === limitedNames);
 check('専門職向けの情報源は、すべて since が付き、既定ではオフ', professionalFeeds.every(feed => feed.since === '2026-10-23' && !defaultOn(feed)));
-check('既定でオンの対象は93件（候補の5件と専門職向けの44件を除く）', officialFeeds.filter(defaultOn).length === 93 && officialFeeds.filter(feed => !defaultOn(feed)).length === 49);
+check('既定でオンの対象は93件（候補の5件と専門職向けの55件を除く）', officialFeeds.filter(defaultOn).length === 93 && officialFeeds.filter(feed => !defaultOn(feed)).length === 60);
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);

@@ -7,7 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { withStoredSummaries } from '../src/api.js';
 import { PACKS } from '../src/feeds/packs.js';
 import { applyTitleOnly, ARCHIVE_LIMIT, CANDIDATE_ARCHIVE_LIMIT, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate, trimArchive } from '../src/newsPipeline.js';
-import { parseListDate } from '../src/htmlList.js';
+import { parseListDate, readHtmlList } from '../src/htmlList.js';
 import { defaultOn } from '../src/sourceTier.js';
 import { SOURCE_LEVELS } from '../src/types.js';
 import type { FeedSource, NewsItem } from '../src/types.js';
@@ -38,6 +38,12 @@ const listPage = `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><sc
 <tr><td nowrap>8年<br class="sp">10月9日</td><td><a href="r081009.html"> 用途廃止された航空機からの部品取りについて（処置済） </a></td></tr>
 <tr><td>（日付なし）</td><td><a href="/report/x.html">日付のない行</a></td></tr>
 </table></body></html>`;
+// 文字コードを meta だけで示す Shift_JIS のページ（国税庁の形。応答の content-type に charset がない）。「8年10月21日」の 年・月・日 は Shift_JIS のバイト列
+const sjisListPage = Buffer.concat([
+  Buffer.from('<!DOCTYPE html><html><head><meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS"></head><body><table class="table3"><tr><td>8'),
+  Buffer.from([0x94, 0x4e]), Buffer.from('10'), Buffer.from([0x8c, 0x8e]), Buffer.from('21'), Buffer.from([0x93, 0xfa]),
+  Buffer.from('</td><td><a href="/report/sjis-a.html">Notice in Shift_JIS page</a></td></tr></table></body></html>')
+]);
 const hits = new Map<string, number>();
 const server = createServer((request, response) => {
   const route = request.url ?? '';
@@ -52,6 +58,7 @@ const server = createServer((request, response) => {
   else if (route === '/robots.txt') { response.writeHead(200, { 'content-type': 'text/plain' }).end('User-agent: SivreeBot\nDisallow: /blocked\n'); return; }
   else if (route === '/arxiv') { response.writeHead(200, { 'content-type': 'application/rss+xml' }).end(arxivRss); return; }
   else if (route === '/report/list.html') { response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(listPage); return; }
+  else if (route === '/report/sjis.html') { response.writeHead(200, { 'content-type': 'text/html' }).end(sjisListPage); return; }
   else if (route === '/report/changed.html') { response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end('<!DOCTYPE html><html><body><ul><li>新しい構成</li></ul></body></html>'); return; }
   response.writeHead(200, { 'content-type': 'application/rss+xml' }).end(rss);
 });
@@ -107,11 +114,22 @@ check('arXiv: 説明文の先頭の「arXiv:… Announce Type: … Abstract:」�
   arxivItems.length > 0 && arxivItems.every(entry => !entry.summary.includes('Announce Type') && /^(We present|An embodied)/.test(entry.summary)), arxivItems.map(entry => entry.summary).join(' | '));
 
 // RSS のない一覧ページ（htmlList）: 見出し・日付・リンクだけを読む
-check('一覧ページの日付: 元号なしの令和・全角の数字・西暦・ISO の形を、日本の暦のその日として読む',
-  parseListDate('8年10月21日', 'reiwa') === '2026-10-20T15:00:00.000Z' && parseListDate('令和８年１０月２１日') === '2026-10-20T15:00:00.000Z'
-  && parseListDate('2026年10月21日') === '2026-10-20T15:00:00.000Z' && parseListDate('2026/10/21') === '2026-10-20T15:00:00.000Z' && parseListDate('平成31年4月30日') === '2019-04-29T15:00:00.000Z',
-  String(parseListDate('8年10月21日', 'reiwa')));
-check('一覧ページの日付: 元号の指定がない「8年」や、読めない日付は読まない', parseListDate('8年10月21日') === undefined && parseListDate('（日付なし）') === undefined && parseListDate('2026年13月1日') === undefined);
+const jstDay = '2026-10-20T15:00:00.000Z';
+check('一覧ページの日付: 元号なしの令和・全角の数字・康熙部首・西暦・ISO・ドット区切りの形を、日本の暦のその日として読む',
+  parseListDate('8年10月21日', { era: 'reiwa' }) === jstDay && parseListDate('令和８年１０月２１日') === jstDay && parseListDate('(令和8年10⽉21⽇)') === jstDay
+  && parseListDate('2026年10月21日') === jstDay && parseListDate('2026/10/21') === jstDay && parseListDate('2026.10.21') === jstDay && parseListDate('平成31年4月30日') === '2019-04-29T15:00:00.000Z',
+  String(parseListDate('8年10月21日', { era: 'reiwa' })));
+const octoberNow = Date.parse('2026-10-23T03:00:00Z');
+check('一覧ページの日付: 年のない「10月22日（木）」は直近のその日（先の日付なら前の年）',
+  parseListDate('10月22日（木）', { now: octoberNow }) === '2026-10-21T15:00:00.000Z' && parseListDate('12月28日（月）', { now: octoberNow }) === '2025-12-27T15:00:00.000Z',
+  String(parseListDate('12月28日（月）', { now: octoberNow })));
+check('一覧ページの日付: 日本以外は英語の月名・月/日/年・日/月/年を、協定世界時の正午として読む',
+  parseListDate('IR-2026-128, Oct. 23, 2026 — The IRS', { japan: false }) === '2026-10-23T12:00:00.000Z' && parseListDate('October 23, 2026', { japan: false }) === '2026-10-23T12:00:00.000Z'
+  && parseListDate('23 October 2026', { japan: false }) === '2026-10-23T12:00:00.000Z' && parseListDate('9/25/26', { order: 'mdy', japan: false }) === '2026-09-25T12:00:00.000Z'
+  && parseListDate('10/14/2026', { order: 'mdy', japan: false }) === '2026-10-14T12:00:00.000Z' && parseListDate('22/10/2026', { order: 'dmy', japan: false }) === '2026-10-22T12:00:00.000Z',
+  String(parseListDate('9/25/26', { order: 'mdy', japan: false })));
+check('一覧ページの日付: 元号の指定がない「8年」、存在しない日、読めない日付は読まない',
+  parseListDate('8年10月21日') === undefined && parseListDate('（日付なし）') === undefined && parseListDate('2026年13月1日') === undefined && parseListDate('2026年2月30日') === undefined);
 const listSource: FeedSource = { ...source('/report/list.html'), htmlList: { rows: 'table.table3 tr', link: 'a[href]', date: 'td:first-child', era: 'reiwa' } };
 const listItems = await fetchFeed(listSource);
 check('一覧ページ: HTML でもフィードとして扱い、日付とリンクのある行だけを取り込む（見出しの行・日付のない行は除く）',
@@ -120,6 +138,14 @@ check('一覧ページ: リンクはページからの絶対 URL、日付は日�
   listItems[0]?.sourceUrl === `${base}/report/new/r081021.html` && listItems[1]?.sourceUrl === `${base}/report/r081009.html` && listItems[0]?.publishedAt === '2026-10-20T15:00:00.000Z',
   listItems.map(entry => `${entry.sourceUrl} ${entry.publishedAt}`).join(' | '));
 check('一覧ページ: 説明文は取らない', listItems.every(entry => entry.summary === ''));
+const sjisItems = await fetchFeed({ ...listSource, feedUrl: `${base}/report/sjis.html` });
+check('一覧ページ: 文字コードを meta で示す Shift_JIS のページも読める', sjisItems.length === 1 && sjisItems[0].publishedAt === '2026-10-20T15:00:00.000Z', JSON.stringify(sjisItems.map(entry => entry.publishedAt)));
+// 見出しが <a> の中の要素（法務省・ASBJ の形）、見出しの先頭の括弧つきの日付（公正取引委員会）、追跡用の引数（個人情報保護委員会の ?ref=）
+const nested = readHtmlList(`<ul class="list">
+<li><span><a href="/list_info.html">新着・お知らせ</a></span><a href="/a.html?ref=top&amp;id=7"><span class="date">10月22日（木）</span><span class="title">（令和8年10月22日）要請について</span></a></li>
+</ul>`, { ...source('/index.html'), feedUrl: 'https://example.test/index.html', htmlList: { rows: 'ul.list > li', link: 'span.title', date: 'span.date' } }, 'https://example.test/index.html', octoberNow);
+check('一覧ページ: 見出しの要素を囲む <a> の URL を取り、見出しの先頭の日付と追跡用の引数を外す',
+  nested.length === 1 && nested[0].title === '要請について' && nested[0].link === 'https://example.test/a.html?id=7' && nested[0].isoDate === '2026-10-21T15:00:00.000Z', JSON.stringify(nested));
 const changedItems = await fetchFeed({ ...listSource, feedUrl: `${base}/report/changed.html` });
 check('一覧ページの構成が変わって読める行がないときは、空にし、原因が分かる記録を残す',
   changedItems.length === 0 && warnings.some(line => line.includes('layout may have changed')), warnings.slice(-2).join(' | '));
@@ -224,7 +250,8 @@ check('並び順は変わらない', titles(ordered) === 'new / dup / old', titl
 // ---------- 見出しと原文へのリンクだけを表示する情報源（利用条件が商用を制限するもの） ----------
 // 2026-10-20 の15件と、2026-10-23 に足した専門職向けの B1 の情報源（同じ名前の複数のフィードは1つに数える）
 const TITLE_ONLY = ['カナダ政府', 'オンタリオ州政府', 'ウォータールー・リージョン', 'ケンブリッジ市', 'JPX', 'JETRO', 'ジェトロ', 'JAXA', 'KEK', 'WHO', 'Fraunhofer', 'Microsoft Research', 'カーネギーメロン大学', 'Simons Foundation', 'CIFAR',
-  'カナダ官報', 'カナダ議会', 'カナダ歳入庁', 'カナダ知的財産庁', 'カナダ・プライバシー・コミッショナー', 'オンタリオ州証券委員会', '日本公認会計士協会', '金融安定理事会', '国際決済銀行'];
+  'カナダ官報', 'カナダ議会', 'カナダ歳入庁', 'カナダ知的財産庁', 'カナダ・プライバシー・コミッショナー', 'オンタリオ州証券委員会', '日本公認会計士協会', '金融安定理事会', '国際決済銀行',
+  '企業会計基準委員会', 'カナダ金融機関監督庁'];
 const flagged = [...new Set(officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.sourceName))].sort();
 check('SOURCE_TERMS.md の B1 の情報源だけが titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
 
@@ -317,14 +344,16 @@ check('市の識別子（area と city の組）は、管轄ごとに1つ', new 
 const namesAt = (level: string) => [...new Set(officialFeeds.filter(feed => feed.level === level).map(feed => feed.sourceName))].sort().join(',');
 check('国際機関・EU の機関の割り当て', namesAt('international') === ['ECB', 'ECDC', 'ESA', 'WHO', 'WTO', '欧州医薬品庁', '欧州委員会', '欧州委員会（デジタル）', '欧州理事会',
   // 2026-10-23 に足した専門職向けの情報源
-  'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', '欧州銀行監督機構', '欧州保険・年金監督機構', '金融安定理事会', '国際決済銀行', 'EUR-Lex', '欧州特許庁', '証券監督者国際機構'].sort().join(','), namesAt('international'));
+  'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', '欧州銀行監督機構', '欧州保険・年金監督機構', '金融安定理事会', '国際決済銀行', 'EUR-Lex', '欧州特許庁', '証券監督者国際機構', '欧州証券市場監督機構'].sort().join(','), namesAt('international'));
 check('州・県の政府の割り当て', namesAt('regional') === ['オンタリオ州政府', 'オンタリオ州証券委員会'].sort().join(','), namesAt('regional'));
 // 専門パックの中身（PR の説明の一覧表と同じ。変えるときはユーザーの確認が要る）
 const packNames = (pack: string) => [...new Set(officialFeeds.filter(feed => feed.pack === pack).map(feed => feed.sourceName))].sort().join(',');
-check('専門パック「法務・知財・立法」の情報源', packNames('legal') === ['米政府出版局', '米連邦官報', '米連邦取引委員会', 'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', 'e-Gov パブリック・コメント', '消費者庁'].sort().join(','), packNames('legal'));
+check('専門パック「法務・知財・立法」の情報源', packNames('legal') === ['米政府出版局', '米連邦官報', '米連邦取引委員会', 'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', 'e-Gov パブリック・コメント', '消費者庁',
+  // RSS のない一覧ページから読む当局（2026-10-23 に追加）
+  '法務省', '公正取引委員会', '個人情報保護委員会'].sort().join(','), packNames('legal'));
 check('専門パック「税務・会計・金融規制」の情報源', packNames('finance') === ['米連邦官報', '米商品先物取引委員会', '米消費者金融保護局', '欧州銀行監督機構', '欧州保険・年金監督機構', '証券取引等監視委員会', '公認会計士・監査審査会',
-  // 公的部門の会計検査（2026-10-23 に追加）
-  '米会計検査院', '会計検査院'].sort().join(','), packNames('finance'));
+  // 公的部門の会計検査と、RSS のない一覧ページから読む当局（2026-10-23 に追加）
+  '米会計検査院', '会計検査院', '国税庁', '米内国歳入庁', '欧州証券市場監督機構'].sort().join(','), packNames('finance'));
 check('専門パックはすべて既定でオフ（候補）', officialFeeds.filter(feed => feed.pack).every(feed => !defaultOn(feed)));
 check('市区町村の割り当て', namesAt('local') === ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'].sort().join(','), namesAt('local'));
 
