@@ -46,14 +46,20 @@ function device({ storage = {}, profile = { regions: ['JP'], marker: 'initial' }
   }
   const bump = () => w.localStorage.setItem('sivry.profile.updatedAt', String(Math.max(Date.now(), Number(w.localStorage.getItem('sivry.profile.updatedAt')) + 1)));
   w.fetch = async (url, options = {}) => {
-    const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
+    if (drive.hook) await drive.hook(url, options, w);
+    const json = (body, status = 200, headers = {}) => {
+      const snapshot = JSON.stringify(body);
+      return { ok: status < 400, status, headers: new Map(Object.entries(headers)), json: async () => JSON.parse(snapshot) };
+    };
     if (url === '/api/profile') {
       if (options.method === 'PUT') {
+        const expected = options.headers?.['X-Sivree-Profile-Version'];
+        if (expected !== undefined && expected !== (w.localStorage.getItem('sivry.profile.updatedAt') ?? '0')) return json({}, 409);
         profile = JSON.parse(options.body);
         bump();
         w.dispatchEvent(new w.Event('sivree:profile-saved'));
       }
-      return json(profile);
+      return json(profile, 200, { 'X-Sivree-Profile-Version': w.localStorage.getItem('sivry.profile.updatedAt') ?? '0' });
     }
     const path = url.replace('https://www.googleapis.com', '');
     drive.calls.push(`${options.method || 'GET'} ${path.split('?')[0]}`);
@@ -64,12 +70,16 @@ function device({ storage = {}, profile = { regions: ['JP'], marker: 'initial' }
     }
     const id = path.match(/files\/([^?/]+)/)?.[1];
     const file = drive.files.find((f) => f.id === id);
+    if (path.startsWith('/drive/v2/') && file) return json({ etag: `"${file.modifiedTime}"` });
     if (path.includes('alt=media')) return file ? json(file.content) : json({}, 404);
     if (options.method === 'DELETE') { drive.files = drive.files.filter((f) => f.id !== id); return json({}); }
     if (path.startsWith('/upload/')) {
       const raw = options.body;
       const content = JSON.parse(raw.includes('--sivree') ? raw.split('\r\n\r\n')[2].split('\r\n--')[0] : raw);
-      if (file) { file.content = content; file.modifiedTime = ++drive.clock; return json({ id }); }
+      if (file) {
+        if (options.headers['If-Match'] !== `"${file.modifiedTime}"`) { drive.conflicts = (drive.conflicts || 0) + 1; return json({}, 412); }
+        file.content = content; file.modifiedTime = ++drive.clock; return json({ id });
+      }
       const created = { id: `f${drive.files.length + 1}-${drive.clock}`, modifiedTime: ++drive.clock, content };
       drive.files.push(created);
       return json({ id: created.id });
@@ -243,6 +253,135 @@ check('ドライブの保存データを削除できる（重複したファイ�
 await c.sync.disconnect();
 check('同期をやめると状態と許可を消す', c.window.localStorage.getItem('sivry:sync') === null && c.window.localStorage.getItem('sivree:sync-token') === null && c.window.localStorage.getItem('sivree:sync-base') === null);
 check('同期をやめた端末は自動同期しない', (await c.sync.auto()) === null && !c.sync.needsAuth());
+
+// ---------- Concurrent writes and edits during network requests ----------
+async function pair() {
+  drive.files = [];
+  drive.hook = null;
+  const profile = { regions: ['JP'], excludedSources: [], extraSources: [], hiddenItems: [], savedItems: [entry('a')], topics: [] };
+  const left = device({ profile });
+  left.edit({});
+  await tapSync(left);
+  const right = device({ profile });
+  right.edit({});
+  await tapSync(right);
+  await tapSync(left);
+  return [left, right];
+}
+function simultaneousUploads() {
+  let arrived = 0;
+  let release;
+  const barrier = new Promise(resolve => { release = resolve; });
+  drive.hook = async (url, options) => {
+    if (!url.includes('/upload/') || options.method !== 'PUT' || arrived >= 2) return;
+    if (++arrived === 2) release();
+    await barrier;
+  };
+}
+{
+  const [left, right] = await pair();
+  left.edit({ excludedSources: ['aaaaaaaaaa'] });
+  right.edit({ savedItems: [...right.profile.savedItems, entry('b')] });
+  simultaneousUploads();
+  await Promise.all([tapSync(left), tapSync(right)]);
+  drive.hook = null;
+  await tapSync(left); await tapSync(right);
+  check('同時送信: 古い ETag の更新は拒否して再統合する', drive.conflicts > 0);
+  check('同時送信: 両端末とドライブに、保存と除外の両方が残る', [left.profile, right.profile, remote().profile].every(p => ids(p) === 'ab' && p.excludedSources.join() === 'aaaaaaaaaa'));
+
+  left.edit({ savedItems: left.profile.savedItems.filter(e => e.id[0] !== 'a') });
+  right.edit({ savedItems: right.profile.savedItems.map(e => ({ ...e, note: e.id[0] === 'b' ? 'remote-note' : e.note })) });
+  simultaneousUploads();
+  await Promise.all([tapSync(left), tapSync(right)]);
+  drive.hook = null;
+  await tapSync(left); await tapSync(right);
+  check('同時送信: 保存解除を戻さず、別の記事のメモも残す', [left.profile, right.profile, remote().profile].every(p => ids(p) === 'b' && p.savedItems[0].note === 'remote-note'));
+
+  right.edit({ marker: 'remote-before-flight' }); await tapSync(right);
+  left.edit({ excludedSources: ['aaaaaaaaaa', 'bbbbbbbbbb'] });
+  let edited = false;
+  drive.hook = async (url, options, w) => {
+    if (w !== left.window || !url.includes('/upload/') || edited) return;
+    edited = true;
+    left.edit({ savedItems: [...left.profile.savedItems, entry('c')] });
+  };
+  await tapSync(left); drive.hook = null;
+  check('通信中の編集: 取り込みで新しい保存を上書きせず、未同期のまま残す', ids(left.profile) === 'bc' && left.sync.needsSync());
+  await tapSync(left); await tapSync(right);
+  check('通信中の編集: 次の同期で保存・メモ・除外が収束する', [left.profile, right.profile, remote().profile].every(p => ids(p) === 'bc' && p.savedItems.find(e => e.id[0] === 'b').note === 'remote-note' && p.excludedSources.length === 2));
+
+  right.edit({ marker: 'pull-with-local-race' }); await tapSync(right);
+  let raced = false;
+  drive.hook = async (url, options, w) => {
+    if (w !== left.window || url !== '/api/profile' || options.method !== 'PUT' || raced) return;
+    raced = true;
+    left.edit({ hiddenItems: ['dddddddddddddddd'] });
+  };
+  await tapSync(left); drive.hook = null;
+  await tapSync(left); await tapSync(right);
+  check('取り込み直前の編集: 条件付きのローカル保存が競合を検知し、変更を残す', [left.profile, right.profile, remote().profile].every(p => p.hiddenItems.includes('dddddddddddddddd') && p.marker === 'pull-with-local-race'));
+
+  left.edit({ marker: 'retry-after-failure' });
+  const syncedAt = left.sync.state().syncedAt;
+  const eventCount = left.events.length;
+  drive.hook = async (url) => { if (url.includes('/upload/')) throw new Error('network'); };
+  await tapSync(left).catch(() => {});
+  check('送信失敗: 同期済み時刻を進めず、失敗と未同期を知らせる', left.sync.state().syncedAt === syncedAt && left.sync.state().error && left.sync.needsSync() && left.events.slice(eventCount).includes('error') && !left.events.slice(eventCount).includes('push'));
+  drive.hook = null; await tapSync(left);
+  check('送信失敗: 再試行に成功したときだけ失敗・未同期を解除する', !left.sync.state().error && !left.sync.needsSync() && remote().profile.marker === 'retry-after-failure');
+
+  left.edit({ marker: 'conflict-retry-limit' });
+  const beforeConflict = left.sync.state().syncedAt;
+  let rejected = 0;
+  drive.hook = async (url, options) => {
+    if (url.includes('/upload/') && options.method === 'PUT') {
+      const file = drive.files.find(f => url.includes(`/files/${f.id}?`));
+      file.modifiedTime = ++drive.clock;
+      rejected++;
+    }
+  };
+  const conflict = await tapSync(left).catch(error => error.message);
+  check('競合が続く場合: 上限で停止し、未同期の変更を保持する', conflict === 'conflict' && rejected === 5 && left.sync.needsSync() && left.sync.state().syncedAt === beforeConflict && left.profile.marker === 'conflict-retry-limit');
+  drive.hook = null; await tapSync(left);
+
+  left.edit({ marker: 'checkpoint-failure' });
+  const storageProto = Object.getPrototypeOf(left.window.localStorage);
+  const originalSet = storageProto.setItem;
+  storageProto.setItem = function (key, value) {
+    if (key === 'sivree:sync-base') throw new Error('quota');
+    return originalSet.call(this, key, value);
+  };
+  const checkpoint = await tapSync(left).catch(error => error.message);
+  storageProto.setItem = originalSet;
+  check('同期状態の保存失敗: 成功とせず、未同期の変更を保持する', checkpoint === 'local-save' && left.sync.needsSync() && left.sync.state().error);
+  await tapSync(left);
+  check('同期状態の保存失敗: 復旧後の再試行で完了できる', !left.sync.needsSync() && remote().profile.marker === 'checkpoint-failure');
+  left.window.close(); right.window.close();
+}
+
+// Two devices can create the first file simultaneously. Preserve both copies,
+// merge them deterministically, and don't resurrect a later deletion.
+{
+  drive.files = [];
+  const left = device({ profile: { savedItems: [entry('a')] } });
+  const right = device({ profile: { savedItems: [entry('b')] } });
+  left.edit({}); right.edit({});
+  let arrived = 0; let release;
+  const barrier = new Promise(resolve => { release = resolve; });
+  drive.hook = async (url, options) => {
+    if (!url.includes('/upload/') || options.method !== 'POST') return;
+    if (++arrived === 2) release();
+    await barrier;
+  };
+  await Promise.all([tapSync(left), tapSync(right)]);
+  drive.hook = null;
+  await tapSync(left); await tapSync(right);
+  check('初回の同時作成: どちらの保存も両端末へ届く', ids(left.profile) === 'ab' && ids(right.profile) === 'ab');
+  left.edit({ savedItems: left.profile.savedItems.filter(e => e.id[0] !== 'a') });
+  await tapSync(left); await tapSync(right); await tapSync(left);
+  check('初回の重複ファイル: 統合済みのコピーから削除記事が復活しない', ids(left.profile) === 'b' && ids(right.profile) === 'b');
+  left.window.close(); right.window.close();
+}
 check('サーバー（Sivree）への通信はない: 通信先は /api/profile と Google のみ', drive.calls.every((call) => /\/(drive|upload)\//.test(call)));
 
 console.log(failures ? `失敗: ${failures}` : 'すべて成功');

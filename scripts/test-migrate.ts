@@ -105,8 +105,9 @@ const fixtures: Record<string, unknown> = { meta: { generatedAt: new Date().toIS
 
 /** fetch の Request・Response は jsdom にないので、ブラウザ用 API が使う分だけの代わりを渡す */
 class FakeRequest {
+  headers: Map<string, string>;
   url: string; method: string; private body: unknown;
-  constructor(input: unknown, init: any = {}) { this.url = new URL(String(input), 'https://example.test/').href; this.method = (init.method ?? 'GET').toUpperCase(); this.body = init.body; }
+  constructor(input: unknown, init: any = {}) { this.url = new URL(String(input), 'https://example.test/').href; this.method = (init.method ?? 'GET').toUpperCase(); this.body = init.body; this.headers = new Map(Object.entries(init.headers ?? {})); }
   async json() { return JSON.parse(String(this.body)); }
 }
 class FakeResponse {
@@ -334,6 +335,56 @@ const openSources = async (w: any) => {
   check('敵意のある名前の候補でも設定画面が開く', await openSources(w));
   check('敵意のある名前・ラベルは、タグとして解釈されず、スクリプトも動かない',
     $(w, '[data-candidates] img') === null && $(w, '[data-candidates] script') === null && w.__pwned === undefined && $(w, '[data-candidates]')!.textContent!.includes('<img src=x'));
+}
+
+// Settings drafts must not roll back data arriving from sync while editing.
+{
+  const profile = defaultProfile();
+  profile.onboarded = true;
+  profile.regions = ['日本', 'カナダ'];
+  profile.categories = ['経済'];
+  profile.extraSources = [...ids];
+  const w = await browser({ 'sivry.profile.v1': JSON.stringify(profile) }, { app: true });
+  await openSources(w);
+  const toggle = $(w, `[data-source="${idOf('キッチナー市')}"]`) as HTMLInputElement;
+  toggle.checked = false;
+  toggle.dispatchEvent(new w.Event('change', { bubbles: true }));
+  const latest = (await api(w, '/api/profile')).body;
+  const saved = w.SivreeSaved.toSavedItem(items[0]);
+  saved.note = 'arrived-during-settings';
+  const otherSource = sources.find(source => !source.candidate)!.id;
+  await api(w, '/api/profile', { method: 'PUT', body: JSON.stringify({ ...latest, savedItems: [saved], hiddenItems: [items[1].id], excludedSources: [otherSource] }) });
+  click(w, $(w, '[data-action="save-profile"]'));
+  await until(() => stored(w).excludedSources.includes(idOf('キッチナー市')));
+  const result = stored(w);
+  check('設定編集中の同期: 保存記事・メモ・非表示を巻き戻さない', result.savedItems[0]?.note === saved.note && result.hiddenItems.includes(items[1].id));
+  check('設定編集中の同期: 両方の情報源変更を残す', result.excludedSources.includes(otherSource) && result.excludedSources.includes(idOf('キッチナー市')) && !result.extraSources.includes(idOf('キッチナー市')));
+
+  await go(w, '#/settings');
+  await until(() => $(w, 'input[name="settings-pane"][value="topics"]'));
+  const pane = $(w, 'input[name="settings-pane"][value="topics"]') as HTMLInputElement;
+  pane.checked = true; pane.dispatchEvent(new w.Event('change', { bubbles: true }));
+  const label = $(w, '[data-field="label"]') as HTMLInputElement;
+  label.value = 'local-label';
+  const concurrent = (await api(w, '/api/profile')).body;
+  concurrent.topics[0].weight = 4;
+  await api(w, '/api/profile', { method: 'PUT', body: JSON.stringify(concurrent) });
+  click(w, $(w, '[data-action="save-profile"]'));
+  await until(() => stored(w).topics[0].label === 'local-label');
+  check('設定編集中の同期: 同じトピックの別々の項目は両方残す', stored(w).topics[0].label === 'local-label' && stored(w).topics[0].weight === 4);
+  w.close();
+}
+
+// Conditional profile writes reject stale snapshots, leaving the latest intact.
+{
+  const w = await browser();
+  const first = await w.fetch('/api/profile');
+  const version = first.headers.get('X-Sivree-Profile-Version');
+  const profile = await first.json();
+  await api(w, '/api/profile', { method: 'PUT', body: JSON.stringify({ ...profile, name: 'latest' }) });
+  const stale = await w.fetch('/api/profile', { method: 'PUT', headers: { 'X-Sivree-Profile-Version': version }, body: JSON.stringify({ ...profile, name: 'stale' }) });
+  check('古いプロフィールの条件付き保存: 409 を返し、最新の設定を残す', stale.status === 409 && stored(w).name === 'latest');
+  w.close();
 }
 
 if (failures) {

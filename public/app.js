@@ -220,14 +220,21 @@ let profileWrites = Promise.resolve();
 function updateProfile(change) {
   // 「読む → 変更 → 書く」を1件ずつ順に行う。重なると、後の書き込みが先の変更を上書きしてしまう
   const run = profileWrites.then(async () => {
-    const profile = await fetch('/api/profile').then(r => r.json());
-    const response = await fetch('/api/profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(change(profile))
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const snapshot = await fetch('/api/profile');
+      if (!snapshot.ok) throw new Error('profile-read');
+      const profile = await snapshot.json();
+      const version = snapshot.headers?.get('X-Sivree-Profile-Version');
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(version !== null && version !== undefined ? { 'X-Sivree-Profile-Version': version } : {}) },
+        body: JSON.stringify(change(profile))
+      });
+      if (response.status === 409) continue;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    }
+    throw new Error('profile-conflict');
   });
   profileWrites = run.catch(() => {});
   return run;
@@ -1590,7 +1597,35 @@ const WEIGHT_OPTIONS = [
 ];
 
 let profileDraft = null;
+let profileDraftBase = null;
 let sourcesDraft = [];
+
+// Apply only edits made in this settings session to the latest profile.
+// Lists merge additions/removals per entry; topics merge per ID and field.
+function applyDraftChanges(base, draft, current) {
+  if (JSON.stringify(base) === JSON.stringify(draft)) return current;
+  if (Array.isArray(base) && Array.isArray(draft)) {
+    const key = value => value && typeof value === 'object' ? value.id : value;
+    const b = new Map(base.map(value => [key(value), value]));
+    const d = new Map(draft.map(value => [key(value), value]));
+    const c = new Map((current ?? []).map(value => [key(value), value]));
+    for (const id of b.keys()) if (!d.has(id)) c.delete(id);
+    for (const [id, value] of d) {
+      if (!b.has(id)) c.set(id, value);
+      else if (JSON.stringify(b.get(id)) !== JSON.stringify(value)) c.set(id, applyDraftChanges(b.get(id), value, c.get(id)));
+    }
+    return [...c.values()];
+  }
+  if (base && draft && typeof base === 'object' && typeof draft === 'object') {
+    const result = { ...current };
+    for (const key of Object.keys(draft)) {
+      const value = applyDraftChanges(base[key], draft[key], current?.[key]);
+      if (value !== undefined) result[key] = value;
+    }
+    return result;
+  }
+  return draft;
+}
 // 設定画面で表示中の区分（情報源 / 関心トピック）
 let settingsPane = 'scope';
 const SOURCE_TYPE_ORDER = ['official', 'corporate', 'research', 'npo'];
@@ -1644,7 +1679,7 @@ function renderTopicEditor(topic, index) {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/></svg>
         </button>
       </div>
-      <div class="segmented" role="radiogroup" aria-label="${escapeHtml(t('優先度'))}">
+      <div class="segmented" role="radiogroup" data-weight-shown="${weight}" aria-label="${escapeHtml(t('優先度'))}">
         ${WEIGHT_OPTIONS.map(option => `
           <label class="segment">
             <input type="radio" name="weight-${index}" data-field="weight" value="${option.value}" ${option.value === weight ? 'checked' : ''}>
@@ -1880,6 +1915,7 @@ function renderSyncSection() {
       <p class="settings-note">${escapeHtml(t('設定を、あなたの Google ドライブ内のこのアプリ専用の非表示フォルダに保存して、端末間で同期します。Sivree のサーバーには保存されません。Google へのログインは同期のためだけに使い、このフォルダ以外のファイルは読めません。'))}</p>
       <p class="settings-note">${escapeHtml(howTo)}</p>
       ${status}
+      <p id="syncProblem" class="settings-note"${!state.error && !window.SivreeSync.needsSync?.() ? ' hidden' : ''}>${escapeHtml(t(state.error ? '同期できませんでした' : 'この端末に未同期の変更があります。'))}</p>
       <div class="extra-actions">
         ${state.enabled
           ? button('sync-now', '今すぐ同期') + button('sync-disconnect', '同期をやめる') + button('sync-delete', 'ドライブの保存データを削除')
@@ -1889,6 +1925,7 @@ function renderSyncSection() {
 
 /** 同期を始める。押した操作から、間に await を挟まずに呼ぶこと（iPhone では、挟むと Google のログイン画面が開かない） */
 async function runSync(operation) {
+  if (settingsView && !settingsView.hidden) collectSettings();
   try {
     const action = await operation();
     if (action !== 'pull') showToast(t('同期しました'));
@@ -1903,9 +1940,16 @@ async function runSync(operation) {
   }
 }
 
-/** 同期ボタンは、同期が有効で Google の許可がない（期限切れなど、タップが必要な）ときだけ出す */
+/** 許可切れ、未送信の変更、同期失敗があるときは再試行ボタンを残す */
 function updateSyncButton() {
-  syncButton.hidden = !window.SivreeSync?.needsAuth();
+  const sync = window.SivreeSync;
+  syncButton.hidden = !(sync?.needsAuth() || sync?.needsSync?.());
+  syncButton.title = sync?.state().error ? t('同期できませんでした') : t('今すぐ同期');
+  const problem = document.getElementById('syncProblem');
+  if (problem) {
+    problem.hidden = !sync?.state().error && !sync?.needsSync?.();
+    problem.textContent = t(sync?.state().error ? '同期できませんでした' : 'この端末に未同期の変更があります。');
+  }
 }
 
 /** タップの処理の中で呼ぶ（Google の許可はタップの中でしか取れない） */
@@ -1915,10 +1959,11 @@ syncButton.addEventListener('click', syncFromTap);
 if (window.SivreeSync) {
   window.SivreeSync.on((event) => {
     updateSyncButton();
+    if (event.type === 'error') showToast(t('同期できませんでした'));
     if (event.type !== 'pulled') return;
     // ドライブ側の設定を取り込んだら、画面を読み込み直して反映する。
-    // 設定画面を開いている間に自動で取り込んだときは、編集中の内容を消さないよう、読み込み直すかどうかを利用者に任せる
-    if (!event.interactive && !settingsView.hidden) {
+    // 設定画面では、手動同期でも編集中の内容を消さず、保存時に最新データへ変更だけを重ねる
+    if (!settingsView.hidden) {
       showToast(t('ドライブの設定を読み込みました'), { label: t('再読み込み'), run: () => location.reload() });
       return;
     }
@@ -1938,7 +1983,8 @@ function collectSettings() {
     const labelInput = editor.querySelector('[data-field="label"]');
     const label = labelInput.value.trim();
     if (label && label !== labelInput.dataset.shown) topic.label = label;
-    topic.weight = Number(editor.querySelector('[data-field="weight"]:checked')?.value ?? topic.weight);
+    const selectedWeight = Number(editor.querySelector('[data-field="weight"]:checked')?.value ?? topic.weight);
+    if (selectedWeight !== Number(editor.querySelector('[data-weight-shown]').dataset.weightShown)) topic.weight = selectedWeight;
     const keywordsInput = editor.querySelector('[data-field="keywords"]');
     if (keywordsInput.dataset.hidden === '[]' || keywordsInput.value.trim() !== keywordsInput.dataset.shown) {
       const hidden = JSON.parse(keywordsInput.dataset.hidden || '[]');
@@ -1979,6 +2025,7 @@ async function showSettings() {
     await loadChoiceOptions();
     if (!profileDraft.regions?.length) profileDraft.regions = choiceOptions.regions.map(option => option.value);
     if (!profileDraft.categories?.length) profileDraft.categories = choiceOptions.categories.map(option => option.value);
+    profileDraftBase = JSON.parse(JSON.stringify(profileDraft));
     sourcesDraft = sources;
     state.config = config;
     renderSettings();
@@ -2110,10 +2157,7 @@ settingsView.addEventListener('click', async (event) => {
       const parsed = JSON.parse(text);
       window.SivreeSync?.prepare();
       // 貼り付けた設定に保存した記事がなくても（古い設定のコピーなど）、この端末の保存した記事は消さない
-      const current = await fetch('/api/profile').then(r => r.json());
-      parsed.savedItems = SivreeSaved.mergeSavedItems(parsed.savedItems, current.savedItems);
-      const response = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed) });
-      if (!response.ok) throw new Error('invalid');
+      await updateProfile(current => ({ ...parsed, savedItems: SivreeSaved.mergeSavedItems(parsed.savedItems, current.savedItems) }));
       showToast(t('設定を読み込みました'));
       await reloadFilters().catch(() => {});
       state.items = [];
@@ -2145,7 +2189,8 @@ settingsView.addEventListener('click', async (event) => {
     }
   } else if (action === 'reset-profile') {
     if (!confirm(t('地域・分野、情報源、関心トピックを初期設定に戻し、最初の質問からやり直しますか？'))) return;
-    await fetch('/api/profile/reset', { method: 'POST' });
+    const response = await fetch('/api/profile/reset', { method: 'POST' });
+    if (!response.ok) { showToast(t('保存できませんでした')); return; }
     onboarding.step = 1;
     onboarding.regions = [];
     onboarding.categories = [];
@@ -2165,14 +2210,20 @@ settingsView.addEventListener('click', async (event) => {
     profileDraft.topics = profileDraft.topics.filter(topic => topic.keywords.length || topic.description || topic.sources?.length);
     // 同期が有効なら、このタップのうちに Google の許可を取り、保存した設定をドライブにも反映する
     window.SivreeSync?.prepare();
-    const response = await fetch('/api/profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profileDraft)
-    });
-    if (!response.ok) {
-      const { error } = await response.json().catch(() => ({}));
-      showToast(error ? t(error) : t('保存できませんでした'));
+    // Capture the draft before awaiting; sync events must not replace saved data.
+    const draft = JSON.parse(JSON.stringify(profileDraft));
+    const base = profileDraftBase;
+    try {
+      const profile = await updateProfile(current => {
+        const next = { ...current };
+        for (const key of ['regions', 'categories', 'topics', 'excludedSources', 'extraSources', 'candidatesSeenAt']) {
+          next[key] = applyDraftChanges(base[key], draft[key], current[key]);
+        }
+        return next;
+      });
+      setSaved(profile.savedItems);
+    } catch {
+      showToast(t('保存できませんでした'));
       return;
     }
     showToast(t('保存しました'));

@@ -115,7 +115,7 @@ async function openApp(profile: any) {
   w.URL.revokeObjectURL = () => {};
   w.HTMLAnchorElement.prototype.click = function () { if (this.download) downloads[downloads.length - 1].name = this.download; };
   w.localStorage.setItem('sivry:lang', 'en');
-  w.eval(`${src}\nwindow.__t = { renderCard, setSaved, renderSaved, renderCitePanel, get saved() { return savedItems; } };\nwindow.__ready = i18nReady;`);
+  w.eval(`${src}\nwindow.__t = { renderCard, setSaved, renderSaved, renderCitePanel, updateSyncButton, renderSyncSection, get saved() { return savedItems; } };\nwindow.__ready = i18nReady;`);
   await w.__ready;
   return w;
 }
@@ -255,6 +255,25 @@ for (const el of holder.querySelectorAll('*')) {
   }
 }
 check('保存した記事の一覧と引用の表示: 敵意のある内容でも実行できるものが残らない', bad.length === 0 && w.__pwned === 0, [...new Set(bad)].join(', ') || `実行された: ${w.__pwned}`);
+
+// Pending and failed sync remain visible without replacing an editing form.
+{
+  let pending = true;
+  const syncState = { enabled: true, error: false };
+  w.SivreeSync = { available: true, state: () => syncState, needsAuth: () => false, needsSync: () => pending };
+  w.__t.updateSyncButton();
+  check('未同期の変更: ヘッダーの再試行ボタンが残る', !$(w, '#syncButton')!.hidden);
+  const syncHolder = w.document.createElement('div');
+  syncHolder.innerHTML = w.__t.renderSyncSection();
+  w.document.body.append(syncHolder);
+  check('未同期の変更: 設定画面でも未同期と分かる', !syncHolder.querySelector('#syncProblem').hidden && syncHolder.textContent.includes('have not synced'));
+  syncState.error = true;
+  w.__t.updateSyncButton();
+  check('同期失敗: 成功表示で隠さず、設定とヘッダーに失敗を表示', syncHolder.querySelector('#syncProblem').textContent === 'Could not sync' && $(w, '#syncButton')!.title === 'Could not sync' && !$(w, '#syncButton')!.hidden);
+  pending = false; syncState.error = false;
+  w.__t.updateSyncButton();
+  check('同期成功: 未同期・失敗の表示を解除する', syncHolder.querySelector('#syncProblem').hidden && $(w, '#syncButton')!.hidden);
+}
 
 console.log(failures ? `失敗: ${failures}` : 'すべて成功');
 process.exit(failures ? 1 : 0);

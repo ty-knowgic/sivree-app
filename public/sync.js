@@ -23,6 +23,7 @@
   const PUSH_DELAY = 3000;
   /** アプリに戻ったとき、前回の同期からこれだけ経っていればドライブを確かめる */
   const RECHECK_AFTER = 60 * 1000;
+  const MAX_ATTEMPTS = 5;
   /** 一覧の上限（src/profile.ts の ProfileSchema と同じ値） */
   const LIMITS = { excludedSources: 500, extraSources: 200, hiddenItems: 300, savedItems: 1000 };
 
@@ -34,6 +35,7 @@
   let applying = false;
   let pushTimer = 0;
   let expiryTimer = 0;
+  let generation = 0;
   const listeners = [];
 
   function read(key) {
@@ -47,8 +49,10 @@
     try {
       if (value) localStorage.setItem(key, JSON.stringify(value));
       else localStorage.removeItem(key);
+      return true;
     } catch {
       // 保存できない場合、同期の状態は今回の表示だけになる
+      return false;
     }
   }
   const readState = () => read(STATE_KEY) || {};
@@ -154,38 +158,73 @@
   async function drive(path, options = {}) {
     const token = currentToken();
     if (!token) throw authError();
-    const response = await fetch(DRIVE + path, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
+    const response = await fetch(DRIVE + path, { ...options, signal: AbortSignal.timeout(30000), headers: { ...options.headers, Authorization: `Bearer ${token}` } });
     if (response.status === 401) throw authError();
     if (!response.ok) throw new Error(`drive-${response.status}`);
     return response;
   }
 
-  /** 設定のファイル。複数ある場合（2 台が同時に作ったときなど）は、どの端末でも同じものを選ぶよう、最後に更新されたものから並べる */
+  /** 設定のファイルを全ページ読む。初回の同時作成で複数ある場合も統合対象にする */
   async function listFiles() {
-    const q = encodeURIComponent(`name='${FILE_NAME}'`);
-    const list = await drive(`/drive/v3/files?spaces=appDataFolder&q=${q}&orderBy=modifiedTime%20desc&fields=files(id)`).then((r) => r.json());
-    return (list.files ?? []).map((file) => file.id);
+    const q = encodeURIComponent(`name='${FILE_NAME}' and trashed=false`);
+    const ids = [];
+    let page = '';
+    do {
+      const list = await drive(`/drive/v3/files?spaces=appDataFolder&q=${q}&orderBy=modifiedTime%20desc&pageSize=1000&fields=nextPageToken,files(id)${page ? `&pageToken=${encodeURIComponent(page)}` : ''}`).then((r) => r.json());
+      ids.push(...(list.files ?? []).map((file) => file.id));
+      page = list.nextPageToken || '';
+    } while (page);
+    return ids;
+  }
+
+  // v2 exposes the file ETag in JSON (not a CORS-dependent response header).
+  // Read it on both sides of the media GET so it always describes that body.
+  async function readFile(id) {
+    const tag = () => drive(`/drive/v2/files/${id}?fields=etag`).then(r => r.json());
+    const before = await tag();
+    const data = await drive(`/drive/v3/files/${id}?alt=media`).then(r => r.json());
+    const after = await tag();
+    if (!before.etag || before.etag !== after.etag) throw new Error('drive-412');
+    if (!data || typeof data.profile !== 'object' || !data.profile || Array.isArray(data.profile)) throw new Error('invalid-remote');
+    return { id, data, etag: after.etag };
   }
 
   async function readRemote() {
-    const [id] = await listFiles();
-    if (!id) return { id: null, data: null };
-    const data = await drive(`/drive/v3/files/${id}?alt=media`).then((r) => r.json());
-    return { id, data: data && typeof data === 'object' && data.profile ? data : null };
+    const ids = await listFiles();
+    if (!ids.length) return { id: null, data: null, absorbed: {} };
+    // A stable canonical ID prevents two first-time devices choosing different files.
+    const id = [...ids].sort()[0];
+    const canonical = await readFile(id);
+    const absorbed = { ...canonical.data.absorbed };
+    let profile = canonical.data.profile;
+    let consolidated = false;
+    for (const otherId of ids.filter(value => value !== id)) {
+      const other = await readFile(otherId);
+      if (absorbed[otherId] === other.etag) continue;
+      profile = (canonical.data.savedAt || '') >= (other.data.savedAt || '')
+        ? mergeProfiles(null, other.data.profile, profile, false)
+        : mergeProfiles(null, profile, other.data.profile, false);
+      absorbed[otherId] = other.etag;
+      consolidated = true;
+    }
+    // Keep duplicates as recovery copies; their ETags prevent deleted items resurfacing.
+    return { ...canonical, data: { ...canonical.data, profile }, absorbed, consolidated };
   }
 
   /** 書き込んで、ファイルの ID を返す */
-  async function writeRemote(id, content) {
+  async function writeRemote(id, content, etag) {
     const body = JSON.stringify(content);
     if (id) {
-      await drive(`/upload/drive/v3/files/${id}?uploadType=media`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body });
+      if (!etag) throw new Error('invalid-remote');
+      await drive(`/upload/drive/v2/files/${id}?uploadType=media`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag }, body });
       return id;
     }
     const boundary = `sivree${Date.now()}`;
     const metadata = JSON.stringify({ name: FILE_NAME, parents: ['appDataFolder'] });
     const multipart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
     const created = await drive('/upload/drive/v3/files?uploadType=multipart', { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body: multipart }).then((r) => r.json());
-    return created.id ?? null;
+    if (!created.id) throw new Error('invalid-remote');
+    return created.id;
   }
 
   // ---------- 2 台の変更を合わせる ----------
@@ -204,6 +243,10 @@
   function pickValue(hasBase, base, local, remote, laterLocal) {
     if (remote === undefined || same(local, remote) || (hasBase && same(remote, base))) return local;
     if (!hasBase || same(local, base)) return remote;
+    if ([base, local, remote].every(value => value && typeof value === 'object' && !Array.isArray(value))) {
+      return Object.fromEntries([...new Set([...Object.keys(local), ...Object.keys(remote)])]
+        .map(key => [key, pickValue(true, base[key], local[key], remote[key], laterLocal)]));
+    }
     return laterLocal ? local : remote;
   }
 
@@ -230,6 +273,7 @@
     if (hasBase) {
       merged.excludedSources = list('excludedSources').slice(0, LIMITS.excludedSources);
       merged.extraSources = list('extraSources').slice(0, LIMITS.extraSources);
+      merged.topics = list('topics', item => item.id);
     }
     // 非表示にした記事は新しいものが後ろ。上限を超えたら古いものから外す
     merged.hiddenItems = list('hiddenItems').slice(-LIMITS.hiddenItems);
@@ -249,14 +293,21 @@
     return next;
   }
 
-  const localProfile = () => fetch('/api/profile').then((r) => r.json());
+  async function localSnapshot() {
+    const response = await fetch('/api/profile');
+    if (!response.ok) throw new Error('local-read');
+    const version = response.headers?.get('X-Sivree-Profile-Version') ?? String(localUpdatedAt());
+    return { profile: await response.json(), version, updatedAt: Number(version) };
+  }
   /** この端末の設定を書き換え、保存された設定（形式の補正後）を返す */
-  async function applyLocal(profile) {
+  async function applyLocal(profile, version) {
     applying = true;
     try {
-      const response = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) });
+      const response = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Sivree-Profile-Version': version }, body: JSON.stringify(profile) });
+      if (response.status === 409) throw new Error('local-conflict');
       if (!response.ok) throw new Error('invalid-remote');
-      return await response.json();
+      const savedVersion = response.headers?.get('X-Sivree-Profile-Version') ?? String(localUpdatedAt());
+      return { profile: await response.json(), updatedAt: Number(savedVersion) };
     } finally {
       applying = false;
     }
@@ -268,62 +319,97 @@
    * 結果: 'pull'（この端末の設定が変わった。ドライブも更新した場合を含む）・'push'（ドライブだけを更新）・'none'
    */
   function sync(interactive) {
+    const epoch = generation;
     return run(async () => {
-      const state = readState();
-      const remote = await readRemote();
-      const startedAt = localUpdatedAt();
-      const dirty = startedAt > (state.syncedAt || 0);
-      const remoteRev = remote.data?.rev || 0;
-      const remoteChanged = Boolean(remote.data) && (remoteRev !== state.baseRev || (Boolean(state.fileId) && remote.id !== state.fileId));
-      const savedBase = read(BASE_KEY);
-      const base = savedBase && savedBase.fileId === remote.id && savedBase.rev === state.baseRev ? savedBase.profile : null;
-
-      let local = null;
-      let changedLocal = false;
-      if (remote.data && remoteChanged && !dirty) {
-        local = await applyLocal(remote.data.profile);
-        changedLocal = true;
-      } else {
-        local = await localProfile();
-        if (remote.data && remoteChanged) {
-          const laterLocal = startedAt > (Date.parse(remote.data.savedAt) || 0);
-          const merged = mergeProfiles(base, local, remote.data.profile, laterLocal);
-          if (!same(merged, local)) {
-            local = await applyLocal(merged);
-            changedLocal = true;
+      try {
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+          if (epoch !== generation) throw new Error('superseded');
+          const state = readState();
+          let remote;
+          try { remote = await readRemote(); } catch (error) {
+            if (['drive-412', 'drive-404'].includes(error.message)) continue;
+            throw error;
           }
-        }
-      }
+          const snapshot = await localSnapshot();
+          const startedAt = snapshot.updatedAt;
+          const dirty = startedAt > (state.syncedAt || 0);
+          const remoteRev = remote.data?.rev || 0;
+          const savedBase = read(BASE_KEY);
+          const base = savedBase && savedBase.fileId === remote.id && savedBase.rev === state.baseRev ? savedBase.profile : null;
+          // Compare the content as well: an old client can reuse a revision number.
+          const remoteChanged = Boolean(remote.data) && (remoteRev !== state.baseRev || (Boolean(state.fileId) && remote.id !== state.fileId) || (Boolean(base) && !same(remote.data.profile, base)));
 
-      const needsPush = !remote.data || (dirty && !same(local, remote.data.profile));
-      let fileId = remote.id;
-      let rev = remoteRev;
-      let remoteSavedAt = remote.data?.savedAt ?? null;
-      if (needsPush) {
-        rev = Math.max(remoteRev, state.baseRev || 0) + 1;
-        remoteSavedAt = new Date().toISOString();
-        fileId = await writeRemote(remote.id, { rev, savedAt: remoteSavedAt, profile: local });
+          let local = snapshot.profile;
+          if (remote.data && remoteChanged && !dirty) {
+            local = remote.data.profile;
+          } else if (remote.data && remoteChanged) {
+            const laterLocal = startedAt > (Date.parse(remote.data.savedAt) || 0);
+            local = mergeProfiles(base, local, remote.data.profile, laterLocal);
+          }
+
+          const needsPush = !remote.data || remote.consolidated || (dirty && !same(local, remote.data.profile));
+          let fileId = remote.id;
+          let rev = remoteRev;
+          let remoteSavedAt = remote.data?.savedAt ?? null;
+          if (needsPush) {
+            if (epoch !== generation) throw new Error('superseded');
+            rev = Math.max(remoteRev, state.baseRev || 0) + 1;
+            remoteSavedAt = new Date().toISOString();
+            try {
+              fileId = await writeRemote(remote.id, { rev, savedAt: remoteSavedAt, profile: local, absorbed: remote.absorbed }, remote.etag);
+            } catch (error) {
+              if (['drive-412', 'drive-404'].includes(error.message)) continue;
+              throw error;
+            }
+          }
+          if (epoch !== generation) throw new Error('superseded');
+          // Do not replace edits made during the network request. Rebase only the
+          // incoming delta onto the latest profile, then conditionally save it.
+          let acknowledgedAt = startedAt;
+          let changedLocal = false;
+          if (!same(local, snapshot.profile)) {
+            const latest = await localSnapshot();
+            const rebased = mergeProfiles(snapshot.profile, latest.profile, local, true);
+            const editedDuringSync = !same(latest.profile, snapshot.profile);
+            let applied;
+            try { applied = await applyLocal(rebased, latest.version); } catch (error) {
+              if (error.message === 'local-conflict') continue;
+              throw error;
+            }
+            changedLocal = true;
+            if (!editedDuringSync) acknowledgedAt = applied.updatedAt;
+          }
+          // 次に合わせるときの基準は、いまドライブにある設定そのもの
+          if (!write(BASE_KEY, { fileId, rev, profile: needsPush ? local : remote.data.profile })) throw new Error('local-save');
+          if (!writeState({
+            enabled: true,
+            fileId,
+            baseRev: rev,
+            syncedAt: acknowledgedAt,
+            lastAt: Date.now(),
+            remoteSavedAt,
+            error: null
+          })) throw new Error('local-save');
+          watchExpiry();
+          const action = changedLocal ? 'pull' : needsPush ? 'push' : 'none';
+          if (changedLocal) notify({ type: 'pulled', interactive });
+          notify({ type: action });
+          if (localUpdatedAt() > acknowledgedAt) schedulePush();
+          return action;
+        }
+        throw new Error('conflict');
+      } catch (error) {
+        if (epoch === generation) {
+          writeState({ ...readState(), error: true });
+          notify({ type: 'error' });
+        }
+        throw error;
       }
-      // 次に合わせるときの基準は、いまドライブにある設定そのもの
-      write(BASE_KEY, { fileId, rev, profile: needsPush ? local : remote.data.profile });
-      writeState({
-        enabled: true,
-        fileId,
-        baseRev: rev,
-        syncedAt: changedLocal ? localUpdatedAt() : Math.max(startedAt, state.syncedAt || 0),
-        lastAt: Date.now(),
-        remoteSavedAt
-      });
-      watchExpiry();
-      const action = changedLocal ? 'pull' : needsPush ? 'push' : 'none';
-      if (changedLocal) notify({ type: 'pulled', interactive });
-      notify({ type: action });
-      return action;
     });
   }
 
   function background() {
-    return sync(false).catch(() => { notify({ type: 'error' }); return null; });
+    return sync(false).catch(() => null);
   }
 
   /** 押した操作から呼ぶ。許可がなければログイン画面を開いてから同期する */
@@ -332,6 +418,7 @@
   }
 
   async function disconnect() {
+    generation++;
     const token = currentToken();
     if (token && window.google?.accounts?.oauth2) window.google.accounts.oauth2.revoke(token, () => {});
     dropToken();
@@ -351,12 +438,17 @@
     }));
   }
 
+  function schedulePush() {
+    clearTimeout(pushTimer);
+    notify({ type: 'pending' });
+    pushTimer = setTimeout(() => { pushTimer = 0; background(); }, PUSH_DELAY);
+  }
+
   // 設定を保存したら、少し待ってからドライブに反映する。許可が切れていれば、同期ボタンを出してもらう
   window.addEventListener('sivree:profile-saved', () => {
     if (applying || !readState().enabled) return;
     if (!currentToken()) return notify({ type: 'needs-auth' });
-    clearTimeout(pushTimer);
-    pushTimer = setTimeout(() => { pushTimer = 0; background(); }, PUSH_DELAY);
+    schedulePush();
   });
 
   // アプリに戻ったら、別の端末での変更を取り込む。離れるときは、待っている送信をすぐに行う（iPhone は裏に回ったページを止めるため）
@@ -376,6 +468,7 @@
     state: readState,
     /** 同期は有効だが、Google の許可が切れている（押すまで同期できない） */
     needsAuth: () => Boolean(readState().enabled) && !currentToken(),
+    needsSync: () => Boolean(readState().enabled) && (Boolean(readState().error) || localUpdatedAt() > (readState().syncedAt || 0)),
     connect: syncFromTap,
     syncNow: syncFromTap,
     /**

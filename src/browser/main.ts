@@ -133,15 +133,25 @@ async function handle(url: URL, method: string, request: Request): Promise<Respo
   if (path === '/api/profile') {
     if (method === 'PUT') {
       try {
-        return json(saveProfile(await request.json()));
+        const input = await request.json();
+        const save = () => {
+          const expected = request.headers.get('X-Sivree-Profile-Version');
+          if (expected != null && expected !== (localStorage.getItem(PROFILE_UPDATED_KEY) ?? '0')) return json({ error: 'Profile changed' }, 409);
+          const profile = saveProfile(input);
+          return json(profile, 200, { 'X-Sivree-Profile-Version': localStorage.getItem(PROFILE_UPDATED_KEY) ?? '0' });
+        };
+        return navigator.locks ? await navigator.locks.request('sivree-profile', save) : save();
       } catch (error) {
         return json({ error: `プロフィールの形式が正しくありません: ${(error as Error).message.slice(0, 300)}` }, 400);
       }
     }
-    return json(loadProfile());
+    return json(loadProfile(), 200, { 'X-Sivree-Profile-Version': localStorage.getItem(PROFILE_UPDATED_KEY) ?? '0' });
   }
   // 保存した記事は設定ではなく利用者のデータなので、設定を初期化しても残す
-  if (path === '/api/profile/reset' && method === 'POST') return json(saveProfile({ ...defaultProfile(), savedItems: loadProfile().savedItems }));
+  if (path === '/api/profile/reset' && method === 'POST') {
+    const reset = () => json(saveProfile({ ...defaultProfile(), savedItems: loadProfile().savedItems }));
+    return navigator.locks ? navigator.locks.request('sivree-profile', reset) : reset();
+  }
 
   if (path === '/api/categories') return json(listCategoryGroups());
   if (path === '/api/filters') return json(filterChoices(loadProfile()));
