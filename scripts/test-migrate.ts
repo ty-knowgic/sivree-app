@@ -394,3 +394,6 @@ if (failures) {
   process.exit(1);
 }
 console.log('\nすべて成功しました');
+
+// All assertions are complete; release virtual-browser background timers.
+process.exit(0);
