@@ -299,5 +299,21 @@
   "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Ang mga source ng munisipalidad ay para lamang sa mga lugar na nasa katalogo; hindi sila awtomatikong pinipili batay sa iyong lokasyon.",
   "専門パック": "Mga espesyalistang pakete",
   "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Mga karagdagang source ayon sa larangan. Buksan ang bansa o rehiyon sa bawat pakete para pumili ng mga source.",
-  "新しい記事があります": "May mga bagong artikulo"
+  "新しい記事があります": "May mga bagong artikulo",
+  "業務別に選ぶ": "Pumili ayon sa gawain",
+  "選択中の地域の関連情報源を追加します（無料の情報源を含みます）。既存の選択は維持します。": "Magdagdag ng kaugnay na sanggunian sa mga napiling rehiyon, kasama ang libre. Mananatili ang kasalukuyang mga pinili.",
+  "企業法務・規制対応": "Batas ng negosyo at pagsunod",
+  "知財制度・実務": "Mga pamamaraan at praktika sa IP",
+  "政策・立法": "Patakaran at batas",
+  "税務実務": "Praktika sa buwis",
+  "会計・開示": "Accounting at pagsisiwalat",
+  "金融規制・AML・制裁": "Regulasyong pinansiyal, AML at mga parusa",
+  "規制方針": "Patakarang regulasyon",
+  "執行・処分": "Pagpapatupad",
+  "監督文書": "Gabay sa pangangasiwa",
+  "税務通達集": "Buletin sa buwis",
+  "AML注意喚起": "Babala sa AML",
+  "制裁更新": "Update sa mga parusa",
+  "規則案": "Iminungkahing tuntunin",
+  "消費者保護": "Proteksiyon ng mamimili"
 }

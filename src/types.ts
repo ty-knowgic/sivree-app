@@ -24,6 +24,10 @@ export const TERMS_CLASSES = ['A', 'B1', 'B2', 'C', 'D'] as const;
 export type TermsClass = (typeof TERMS_CLASSES)[number];
 
 export interface FeedSource {
+  /** Fixed publication stream, not a claim about legal effect or effective date. */
+  documentKind?: string;
+  /** IRS index needs official issue masthead dates; no article text is retained. */
+  bulletinIndex?: boolean;
   sourceType: SourceType;
   /** フィードの既定カテゴリ。省略した場合はキーワード規則に一致した記事だけを取り込む */
   category?: CategoryKey;
@@ -72,6 +76,7 @@ export interface FeedSource {
 }
 
 export interface NewsItem {
+  documentKind?: string;
   id: string;
   /** 主カテゴリ（categories の先頭） */
   category: CategoryKey;

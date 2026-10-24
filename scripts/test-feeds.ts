@@ -256,9 +256,9 @@ check('並び順は変わらない', titles(ordered) === 'new / dup / old', titl
 // 2026-10-20 の15件と、2026-10-23 に足した専門職向けの B1 の情報源（同じ名前の複数のフィードは1つに数える）
 const TITLE_ONLY = ['カナダ政府', 'オンタリオ州政府', 'ウォータールー・リージョン', 'ケンブリッジ市', 'JPX', 'JETRO', 'ジェトロ', 'JAXA', 'KEK', 'WHO', 'Fraunhofer', 'Microsoft Research', 'カーネギーメロン大学', 'Simons Foundation', 'CIFAR',
   'カナダ官報', 'カナダ歳入庁', 'カナダ知的財産庁', 'カナダ・プライバシー・コミッショナー', 'オンタリオ州証券委員会', '日本公認会計士協会', '金融安定理事会', '国際決済銀行',
-  '企業会計基準委員会', 'カナダ金融機関監督庁'];
+  '企業会計基準委員会', 'カナダ金融機関監督庁', 'SEC', '米内国歳入庁'];
 const flagged = [...new Set(officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.sourceName))].sort();
-check('SOURCE_TERMS.md の B1 の情報源だけが titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
+check('SOURCE_TERMS.md の制限付き情報源と通達集メタデータは titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
 
 const restrictedFeed = officialFeeds.find(feed => feed.sourceName === 'JPX')!.feedUrl;
 const normalFeed = officialFeeds.find(feed => feed.sourceName === '総務省')!.feedUrl;
@@ -358,7 +358,7 @@ check('専門パック「法務・知財・立法」の情報源', packNames('le
   '法務省', '公正取引委員会', '個人情報保護委員会'].sort().join(','), packNames('legal'));
 check('専門パック「税務・会計・金融規制」の情報源', packNames('finance') === ['米連邦官報', '米商品先物取引委員会', '米消費者金融保護局', '欧州銀行監督機構', '欧州保険・年金監督機構', '証券取引等監視委員会', '公認会計士・監査審査会',
   // 公的部門の会計検査と、RSS のない一覧ページから読む当局（2026-10-23 に追加）
-  '米会計検査院', '会計検査院', '国税庁', '米内国歳入庁'].sort().join(','), packNames('finance'));
+  '米会計検査院', '会計検査院', '国税庁', '米内国歳入庁', 'FRB'].sort().join(','), packNames('finance'));
 check('専門パックはすべて既定でオフ（候補）', officialFeeds.filter(feed => feed.pack).every(feed => !defaultOn(feed)));
 check('市区町村の割り当て', namesAt('local') === ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'].sort().join(','), namesAt('local'));
 

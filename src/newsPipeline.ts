@@ -1,9 +1,12 @@
+import { balancedArchive, collectionOrder, resultsInRegistryOrder } from './collectionBalance.js';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Parser from 'rss-parser';
 import { fetchArticleContent, isGenericImage } from './articleContent.js';
+import { bulletinLinks, readBulletin } from './irsBulletins.js';
+import { workflowsOf } from './feeds/workflows.js';
 import { readHtmlList } from './htmlList.js';
 import { filterNews } from './newsFilters.js';
 import { isAllowedByRobots, USER_AGENT } from './robots.js';
@@ -426,7 +429,16 @@ export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
 
     const text = decodeFeed(await response.arrayBuffer(), response.headers.get('content-type'));
     // RSS のない一覧ページ（会計検査院など）は、ページから見出し・日付・リンクを読み、フィードの記事と同じ形にする
-    const parsed: Pick<Awaited<ReturnType<typeof parseFeedText>>, 'items'> = source.htmlList ? { items: readHtmlList(text, source, response.url || source.feedUrl) } : await parseFeedText(text);
+    const bulletinItems = source.bulletinIndex ? await mapWithConcurrency(bulletinLinks(text, source.feedUrl), 2, async url => {
+      if (!(await isAllowedByRobots(url))) throw new Error('Bulletin robots.txt: disallowed or unavailable');
+      const result = await fetchWithRetry(url);
+      if (!result.ok) throw new Error(`Bulletin HTTP ${result.status}`);
+      const issue = readBulletin(decodeFeed(await result.arrayBuffer(), result.headers.get('content-type')), url, Infinity);
+      if (!issue) throw new Error('Official bulletin masthead missing or invalid');
+      return Date.parse(issue.isoDate) <= Date.now() ? issue : undefined;
+    }) : null;
+    if (bulletinItems && !bulletinItems.some(Boolean)) throw new Error('No dated official bulletin mastheads found');
+    const parsed: Pick<Awaited<ReturnType<typeof parseFeedText>>, 'items'> = bulletinItems ? { items: bulletinItems.filter((item): item is NonNullable<typeof item> => Boolean(item)) } : source.htmlList ? { items: readHtmlList(text, source, response.url || source.feedUrl) } : await parseFeedText(text);
     const items: NewsItem[] = [];
 
     // フィードによっては新しい順に並んでいないため、日付順に並べ替えてから取り込む
@@ -459,6 +471,7 @@ export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
       if (categories.length === 0) continue;
 
       items.push(finalizeItem({
+        documentKind: source.documentKind,
         subgroup: source.subgroup,
         sourceType: source.sourceType,
         title,
@@ -577,7 +590,7 @@ function limitPerFeedPerDay(items: NewsItem[]): NewsItem[] {
 function mergeCategories(first: NewsItem, second: NewsItem): NewsItem {
   const categories = [...new Set([...first.categories, ...second.categories])];
   const merged = categories.includes('投資') ? categories.filter(category => category !== '経済') : categories;
-  return finalizeItem({ ...first, imageUrl: first.imageUrl ?? second.imageUrl }, merged);
+  return finalizeItem({ ...first, documentKind: first.documentKind ?? second.documentKind, imageUrl: first.imageUrl ?? second.imageUrl }, merged);
 }
 
 function sortByDate(items: NewsItem[]): NewsItem[] {
@@ -596,6 +609,7 @@ export function listSources() {
     sourceType: feed.sourceType,
     sourceName: feed.sourceName,
     label: feed.label,
+    workflows: workflowsOf(feed),
     subgroup: feed.subgroup,
     level: feed.level,
     area: feed.area,
@@ -625,7 +639,10 @@ export function invalidateNewsCache(): void {
 
 async function collectNews(): Promise<NewsItem[]> {
   const store = await loadArchive();
-  const { results: feedResults } = await fetchFeedsWithin(officialFeeds.filter(feed => shouldCollect(sourceId(feed.feedUrl))));
+  const registered = officialFeeds.filter(feed => shouldCollect(sourceId(feed.feedUrl)));
+  const scheduled = collectionOrder(registered);
+  const { results } = await fetchFeedsWithin(scheduled);
+  const feedResults = resultsInRegistryOrder(registered, scheduled, results);
 
   // 同じ記事が複数のフィード（PR Newswire の決算・M&A など）に載る場合は、カテゴリを統合する
   const fetched = new Map<string, NewsItem>();
@@ -666,11 +683,12 @@ export function trimArchive(items: NewsItem[], now = Date.now()): NewsItem[] {
   const cutoff = now - ARCHIVE_DAYS * 24 * 60 * 60 * 1000;
   const currentFeedUrls = new Set(officialFeeds.map(feed => feed.feedUrl));
   const defaultFeedUrls = new Set(officialFeeds.filter(defaultOn).map(feed => feed.feedUrl));
-  let defaults = 0;
-  let candidates = 0;
-  return limitPerFeedPerDay(dedupeSameDocument(sortByDate([...items])))
-    .filter(item => currentFeedUrls.has(item.feedUrl) && new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)))
-    .filter(item => (defaultFeedUrls.has(item.feedUrl) ? defaults++ < ARCHIVE_LIMIT : candidates++ < CANDIDATE_ARCHIVE_LIMIT));
+  const eligible = limitPerFeedPerDay(dedupeSameDocument(sortByDate([...items])))
+    .filter(item => currentFeedUrls.has(item.feedUrl) && new Date(item.publishedAt).getTime() >= cutoff && shouldCollect(sourceId(item.feedUrl)));
+  const defaults = eligible.filter(item => defaultFeedUrls.has(item.feedUrl)).slice(0, ARCHIVE_LIMIT);
+  const candidates = balancedArchive(eligible.filter(item => !defaultFeedUrls.has(item.feedUrl)), CANDIDATE_ARCHIVE_LIMIT);
+  const selected = new Set([...defaults, ...candidates]);
+  return eligible.filter(item => selected.has(item));
 }
 
 async function saveArchive(items: NewsItem[]): Promise<void> {

@@ -25,7 +25,9 @@
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
     "check:source-names": "tsx scripts/check-source-names.ts",
     "check:brand": "node scripts/check-brand.mjs",
-    "test:performance": "node --import tsx scripts/test-performance.ts"
+    "test:performance": "node --import tsx scripts/test-performance.ts",
+    "test:professional": "node --import tsx scripts/test-professional.ts",
+    "probe:professional": "node --import tsx scripts/probe-professional.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",

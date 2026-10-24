@@ -1,3 +1,4 @@
+import { expansionFeeds } from './expansion.js';
 import type { FeedSource } from '../types.js';
 
 // 専門職（士業・会計・金融のコンプライアンス・知財・ロビイストなど）向けの情報源。2026-10-23 に取得・robots.txt・利用条件を確認（SOURCE_TERMS.md）
@@ -10,6 +11,7 @@ const federalRegister = (conditions: string) => `https://www.federalregister.gov
 const rulesOf = (agency: string) => federalRegister(`conditions%5Bagencies%5D%5B%5D=${agency}&conditions%5Btype%5D%5B%5D=RULE&conditions%5Btype%5D%5B%5D=PRORULE`);
 
 export const professionalFeeds: FeedSource[] = [
+  ...expansionFeeds,
   // 専門パック「法務・知財・立法」
   // 説明文はファイルの一覧（PDF・TEXT・メタデータのリンク）だけなので、すべて取り除く。日付は GovInfo に掲載された日で、成立の日ではない
   { sourceType: 'official', level: 'national', category: '政治', subgroup: '米国', pack: 'legal', terms: 'A', since: SINCE, sourceName: '米政府出版局', sourceUrl: 'https://www.govinfo.gov/app/collection/plaw', feedUrl: 'https://www.govinfo.gov/rss/plaw.xml', label: 'GovInfo: Public Laws', maxItems: 10, summaryPrefix: /^\s*Content Files\b[\s\S]*/i },

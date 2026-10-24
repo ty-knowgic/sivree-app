@@ -1,3 +1,4 @@
+import { workflowsOf } from './feeds/workflows.js';
 import { filterNews, listCategoryGroups, listFilterOptions, withPrimaryCategory } from './newsFilters.js';
 import { DEFAULT_PROFILE, matchTopics, rankForYou, STARTER_TOPIC_IDS } from './profile.js';
 import type { Profile } from './profile.js';
@@ -14,6 +15,7 @@ import type { SemanticScorer } from './vectors.js';
  */
 
 export interface SourceInfo {
+  workflows?: ReturnType<typeof workflowsOf>;
   id: string;
   sourceType: string;
   sourceName: string;

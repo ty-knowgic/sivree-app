@@ -610,6 +610,17 @@ function isNewSinceVisit(item) {
   return lastVisit > 0 && Date.parse(item.publishedAt) > lastVisit;
 }
 
+const DOCUMENT_KIND_LABELS = {
+  'proposed-rule': '規則案', 'consumer-protection': '消費者保護',
+  'regulatory-policy': '規制方針', 'enforcement': '執行・処分',
+  'supervisory-guidance': '監督文書', 'tax-bulletin': '税務通達集',
+  'aml-guidance': 'AML注意喚起', 'sanctions-update': '制裁更新'
+};
+function documentBadge(item) {
+  const label = DOCUMENT_KIND_LABELS[item.documentKind];
+  return label ? `<span class="source-badge">${escapeHtml(t(label))}</span>` : '';
+}
+
 function renderCard(item) {
   const category = primaryCategory(item);
   const image = articleImage(item);
@@ -629,6 +640,7 @@ function renderCard(item) {
         <h3 class="card-title">${escapeHtml(displayTitle(item))}</h3>
         ${cardSummary(item)}
         <div class="card-foot">
+          ${documentBadge(item)}
           ${isNewSinceVisit(item) ? `<span class="new-badge">${escapeHtml(t('新着'))}</span>` : ''}
           <time datetime="${escapeHtml(item.publishedAt)}">${escapeHtml(formatRelative(item.publishedAt))}</time>
           ${isSaved(item.id) ? `<span class="saved-mark" role="img" aria-label="${escapeHtml(t('保存済み'))}">${bookmarkIcon(true)}</span>` : ''}
@@ -1006,6 +1018,7 @@ function renderDetail() {
     <div class="detail-kicker">
       ${item.categories.map(c => `<span class="chip" data-cat="${escapeHtml(c)}">${escapeHtml(t(c))}</span>`).join('')}
       <span class="chip is-neutral">${escapeHtml(t(item.subgroup))}</span>
+      ${documentBadge(item)}
       ${item.isSample ? `<span class="chip is-sample">${escapeHtml(t('サンプル（取得失敗時の表示）'))}</span>` : ''}
     </div>
     <h1 class="detail-title">${escapeHtml(headline)}</h1>
@@ -1859,6 +1872,18 @@ function renderCandidateRegions(sources) {
   }).join('');
 }
 
+function renderWorkflowChoices(packId) {
+  const choices = [...new Map(sourcesDraft.flatMap(source => source.workflows ?? []).filter(workflow => workflow.pack === packId).map(workflow => [workflow.id, workflow])).values()];
+  if (!choices.length) return '';
+  return `<div class="workflow-choices"><h5>${escapeHtml(t('業務別に選ぶ'))}</h5>
+    <p class="settings-note">${escapeHtml(t('選択中の地域の関連情報源を追加します（無料の情報源を含みます）。既存の選択は維持します。'))}</p>
+    <div class="workflow-buttons">${choices.map(workflow => {
+      const eligible = sourcesDraft.filter(source => !isOutOfRegion(source) && source.workflows?.some(value => value.id === workflow.id));
+      const missing = eligible.filter(source => !isSourceEnabled(source));
+      return `<button type="button" class="secondary-button" data-action="apply-workflow" data-workflow="${escapeHtml(workflow.id)}" ${missing.length ? '' : 'disabled'}>${escapeHtml(t(workflow.name))} <span class="source-count">${eligible.filter(isSourceEnabled).length}/${eligible.length}</span></button>`;
+    }).join('')}</div></div>`;
+}
+
 function renderCandidateGroup() {
   const sources = sourcesDraft
     .filter(source => !inPrimarySourceCatalog(source))
@@ -1888,6 +1913,7 @@ function renderCandidateGroup() {
             <span class="source-badge">${escapeHtml(t('正式版では有償（ベータ中は無料）'))}</span>
           </div>
           <p class="settings-note">${escapeHtml(t(pack.blurb))}</p>
+          ${renderWorkflowChoices(pack.id)}
           ${renderCandidateRegions(sources.filter(source => source.pack?.id === pack.id))}
         </section>
       `).join('')}</section>` : ''}
@@ -2165,6 +2191,10 @@ function refreshSourceCounts() {
       group.querySelector('.source-count').textContent = `${rows.filter(input => input.checked && !input.disabled).length}/${rows.filter(input => !input.disabled).length}`;
     });
   }
+  settingsView.querySelectorAll('[data-pack]').forEach(pack => {
+    const choices = pack.querySelector('.workflow-choices');
+    if (choices) choices.outerHTML = renderWorkflowChoices(pack.dataset.pack);
+  });
   const summary = settingsView.querySelector('.source-summary');
   if (summary) summary.innerHTML = sourceSummary();
 }
@@ -2236,6 +2266,14 @@ settingsView.addEventListener('click', async (event) => {
   if (choice) {
     const key = choice.closest('.choice-grid').dataset.kind;
     profileDraft[key] = toggleChoice(choice, profileDraft[key]);
+    return;
+  }
+
+  const workflowId = event.target.closest('[data-workflow]')?.dataset.workflow;
+  if (workflowId) {
+    sourcesDraft.filter(source => !isOutOfRegion(source) && source.workflows?.some(workflow => workflow.id === workflowId))
+      .forEach(source => setSourceEnabled(source.id, true));
+    renderSettings();
     return;
   }
 

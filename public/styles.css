@@ -2231,3 +2231,8 @@ svg.is-filled path { fill: currentColor; }
   max-width: calc(100vw - 32px);
 }
 .news-update-button[hidden] { display: none; }
+
+.workflow-choices { margin: 16px 0; }
+.workflow-choices h5 { margin: 0 0 8px; font-size: 0.95rem; }
+.workflow-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.workflow-buttons button { white-space: normal; text-align: start; }

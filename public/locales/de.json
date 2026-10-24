@@ -320,5 +320,21 @@
   "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Kommunale Quellen decken nur erfasste Gebiete ab und werden nicht automatisch anhand Ihres Standorts ausgewählt.",
   "専門パック": "Fachpakete",
   "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Zusätzliche Quellen nach Fachgebiet. Öffnen Sie ein Land oder eine Region im jeweiligen Paket, um Quellen auszuwählen.",
-  "新しい記事があります": "Neue Artikel verfügbar"
+  "新しい記事があります": "Neue Artikel verfügbar",
+  "業務別に選ぶ": "Nach Tätigkeit auswählen",
+  "選択中の地域の関連情報源を追加します（無料の情報源を含みます）。既存の選択は維持します。": "Fügen Sie passende Quellen aus Ihren gewählten Regionen hinzu, auch kostenlose. Bestehende Auswahlen bleiben erhalten.",
+  "企業法務・規制対応": "Unternehmensrecht und Compliance",
+  "知財制度・実務": "Verfahren und Praxis im IP-Recht",
+  "政策・立法": "Politik und Gesetzgebung",
+  "税務実務": "Steuerpraxis",
+  "会計・開示": "Rechnungslegung und Offenlegung",
+  "金融規制・AML・制裁": "Finanzregulierung, Geldwäscheprävention und Sanktionen",
+  "規制方針": "Regulierungspolitik",
+  "執行・処分": "Durchsetzungsmaßnahmen",
+  "監督文書": "Aufsichtsleitlinien",
+  "税務通達集": "Steuerbulletin",
+  "AML注意喚起": "Geldwäschewarnung",
+  "制裁更新": "Sanktionsaktualisierung",
+  "規則案": "Regelungsentwurf",
+  "消費者保護": "Verbraucherschutz"
 }

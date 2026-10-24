@@ -1,5 +1,23 @@
 # 情報源の利用条件の確認（2026-10-20）
 
+## 専門パック拡充の差分（2026-10-24、公開前）
+
+新規8経路は既定オフ。利用者の既存の選択を変更しない。6つの業務プリセットは情報源を追加選択する補助であり、無料情報源を有料へ移さない。
+
+| 追加経路 | 表示・区分 | 確認根拠 |
+|---|---|---|
+| Federal Register Significant Proposed Rules | legal / A、規則案と明示 | 既存の官報APIと同じReader Aidsの再利用条件。最終規則フィードとは別経路 |
+| FTC Consumer Protection RSS | legal / A | 既存のFTC Competitionと同じ公式機関のプレスリリース。第三者資料・画像は対象外 |
+| FRB Regulatory Policy / Enforcement Actions / Supervision Letters（3経路） | finance / A | https://www.federalreserve.gov/disclaimer.htm のCopyright Informationで、別記がなければ情報はpublic domain、複製・配布可能、出典表示を依頼。第三者素材・ロゴは除外。既存のFRB一般フィードの区分はこの追加で変更しない |
+| IRS Internal Revenue Bulletin | finance / A、見出し・号の日付・原典リンクのみ | https://www.irs.gov/about-irs/use-of-content-from-irsgov 。職員が職務で作成した内容の利用条件。号一覧には日付がないため、直近6号のHTMLにある公式mastheadだけを確認し、号ごとに掲載する。本文の抜粋・画像・個別事案への解釈は配信しない。日付のない号・未来の号は推定で補わない |
+| SEC Litigation Releases / Administrative Proceedings（2経路） | **無料の追加情報源 / C、見出し・日付・リンクのみ** | https://www.sec.gov/about/rss-feeds で公式の配信URLを確認。サイト固有の再配布許諾は未確定のためAや有料パックへ変更しない。企業提出文書の全件配信や本文転載は行わない |
+
+実測：SivreeBot・robots確認・本番と同じ `fetchFeed` を使い、8経路を連続3回取得して全回成功した。記録は `review/professional-expansion-probe.jsonl`。これはローカル実行の結果であり、GitHub Actionsからの定期取得成功を保証しない。公開前に同環境で確認する。
+
+**保留したもの**：FinCEN Alerts/AdvisoriesとOFAC Recent Actionsはページを読めたが、既存の取得処理がrobots.txtの確認を完了できなかった（disallowed or unavailable）。登録一覧から外し、`deferredExpansionFeeds` に保留仕様だけを保存する。直接取得・別User-Agent・プロキシ変更等で確認処理を迂回しない。利用条件もCのまま。旧OFAC RSSは廃止済みで使わない。
+
+**未実装**：e-Gov法令API・意見募集結果、PPC/FSA/NTAの専用変更追跡、WIPO制度別通知、会計基準の許諾付き取得、施行日や締切の抽出。これらが収録済み・網羅済みであるとは表示しない。現在の業務別ボタンは、登録済み情報源から担当業務と地域に関係するものを追加する機能に限る。
+
 有料化の前に、100 件の情報源（88 のサイト）について、発信元の利用条件が Sivree の表示を妨げないかを確かめた記録です。**法的な助言ではありません**。弁護士の確認は受けていません。結果は「確認できた範囲」で、変更されることがあります。
 
 ## Sivree が表示するもの

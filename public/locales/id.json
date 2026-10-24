@@ -290,5 +290,21 @@
   "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Sumber pemerintah kota hanya mencakup wilayah dalam katalog, bukan dipilih otomatis berdasarkan lokasi Anda.",
   "専門パック": "Paket spesialis",
   "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Sumber tambahan menurut bidang profesi. Buka negara atau wilayah dalam setiap paket untuk memilih sumber.",
-  "新しい記事があります": "Artikel baru tersedia"
+  "新しい記事があります": "Artikel baru tersedia",
+  "業務別に選ぶ": "Pilih menurut pekerjaan",
+  "選択中の地域の関連情報源を追加します（無料の情報源を含みます）。既存の選択は維持します。": "Tambahkan sumber terkait dalam wilayah pilihan, termasuk sumber gratis. Pilihan yang ada tetap disimpan.",
+  "企業法務・規制対応": "Hukum perusahaan dan kepatuhan",
+  "知財制度・実務": "Prosedur dan praktik KI",
+  "政策・立法": "Kebijakan dan legislasi",
+  "税務実務": "Praktik perpajakan",
+  "会計・開示": "Akuntansi dan pengungkapan",
+  "金融規制・AML・制裁": "Regulasi keuangan, APU, dan sanksi",
+  "規制方針": "Kebijakan regulasi",
+  "執行・処分": "Penegakan",
+  "監督文書": "Pedoman pengawasan",
+  "税務通達集": "Buletin pajak",
+  "AML注意喚起": "Peringatan APU",
+  "制裁更新": "Pembaruan sanksi",
+  "規則案": "Usulan peraturan",
+  "消費者保護": "Perlindungan konsumen"
 }

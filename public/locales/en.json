@@ -325,5 +325,21 @@
   "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Municipal sources cover only areas in our catalog; they are not automatically selected based on your location.",
   "専門パック": "Specialist packs",
   "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Additional sources grouped by professional field. Expand a country or region within each pack to select sources.",
-  "新しい記事があります": "New articles available"
+  "新しい記事があります": "New articles available",
+  "業務別に選ぶ": "Choose by work",
+  "選択中の地域の関連情報源を追加します（無料の情報源を含みます）。既存の選択は維持します。": "Add related sources within your selected regions, including free sources. Your existing selections are kept.",
+  "企業法務・規制対応": "Corporate legal and compliance",
+  "知財制度・実務": "IP procedures and practice",
+  "政策・立法": "Policy and legislation",
+  "税務実務": "Tax practice",
+  "会計・開示": "Accounting and disclosure",
+  "金融規制・AML・制裁": "Financial regulation, AML and sanctions",
+  "規制方針": "Regulatory policy",
+  "執行・処分": "Enforcement",
+  "監督文書": "Supervisory guidance",
+  "税務通達集": "Tax bulletin",
+  "AML注意喚起": "AML advisory",
+  "制裁更新": "Sanctions update",
+  "規則案": "Proposed rule",
+  "消費者保護": "Consumer protection"
 }

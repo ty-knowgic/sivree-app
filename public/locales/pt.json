@@ -320,5 +320,21 @@
   "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "As fontes municipais abrangem apenas áreas do catálogo; não são selecionadas automaticamente pela sua localização.",
   "専門パック": "Pacotes especializados",
   "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Fontes adicionais agrupadas por área profissional. Abra um país ou região em cada pacote para selecionar fontes.",
-  "新しい記事があります": "Novos artigos disponíveis"
+  "新しい記事があります": "Novos artigos disponíveis",
+  "業務別に選ぶ": "Escolher por atividade",
+  "選択中の地域の関連情報源を追加します（無料の情報源を含みます）。既存の選択は維持します。": "Adicione fontes relevantes das regiões selecionadas, incluindo gratuitas. Suas seleções atuais são mantidas.",
+  "企業法務・規制対応": "Jurídico empresarial e conformidade",
+  "知財制度・実務": "Procedimentos e prática de PI",
+  "政策・立法": "Política e legislação",
+  "税務実務": "Prática tributária",
+  "会計・開示": "Contabilidade e divulgação",
+  "金融規制・AML・制裁": "Regulação financeira, prevenção à lavagem e sanções",
+  "規制方針": "Política regulatória",
+  "執行・処分": "Medidas de fiscalização",
+  "監督文書": "Orientações de supervisão",
+  "税務通達集": "Boletim tributário",
+  "AML注意喚起": "Alerta de lavagem de dinheiro",
+  "制裁更新": "Atualização de sanções",
+  "規則案": "Proposta de norma",
+  "消費者保護": "Defesa do consumidor"
 }

@@ -290,5 +290,21 @@
   "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Nguồn chính quyền địa phương chỉ bao gồm các khu vực trong danh mục, không được tự động chọn theo vị trí của bạn.",
   "専門パック": "Gói chuyên ngành",
   "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Nguồn bổ sung theo lĩnh vực chuyên môn. Mở quốc gia hoặc khu vực trong từng gói để chọn nguồn tin.",
-  "新しい記事があります": "Có bài viết mới"
+  "新しい記事があります": "Có bài viết mới",
+  "業務別に選ぶ": "Chọn theo công việc",
+  "選択中の地域の関連情報源を追加します（無料の情報源を含みます）。既存の選択は維持します。": "Thêm nguồn liên quan trong các khu vực đã chọn, kể cả nguồn miễn phí. Các lựa chọn hiện tại được giữ nguyên.",
+  "企業法務・規制対応": "Pháp chế doanh nghiệp và tuân thủ",
+  "知財制度・実務": "Thủ tục và thực tiễn sở hữu trí tuệ",
+  "政策・立法": "Chính sách và lập pháp",
+  "税務実務": "Nghiệp vụ thuế",
+  "会計・開示": "Kế toán và công bố thông tin",
+  "金融規制・AML・制裁": "Quy định tài chính, phòng chống rửa tiền và trừng phạt",
+  "規制方針": "Chính sách quản lý",
+  "執行・処分": "Thực thi và xử lý",
+  "監督文書": "Hướng dẫn giám sát",
+  "税務通達集": "Bản tin thuế",
+  "AML注意喚起": "Cảnh báo rửa tiền",
+  "制裁更新": "Cập nhật trừng phạt",
+  "規則案": "Dự thảo quy định",
+  "消費者保護": "Bảo vệ người tiêu dùng"
 }
