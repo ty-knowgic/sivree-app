@@ -74,6 +74,7 @@ assert(expansionFeeds.filter(source => source.pack).every(source => source.terms
 assert(expansionFeeds.filter(source => source.terms === 'C').every(source => source.titleOnly && tierOf(source) === 'free'));
 assert(deferredExpansionFeeds.every(source => !expansionFeeds.includes(source)));
 assert.deepEqual(workflowsOf({ sourceName: '米会計検査院', label: 'GAO Reports and Testimonies' }), []);
+assert.deepEqual(workflowsOf({ sourceName: '米連邦官報', label: 'Federal Register: Significant Proposed Rules' }).map(workflow => workflow.id), ['policy']);
 console.log('✓ Opt-in, rights boundaries and optional public-sector audits stay intact');
 
 const html = await readFile('public/index.html', 'utf8');
