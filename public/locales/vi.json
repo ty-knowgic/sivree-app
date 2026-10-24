@@ -306,5 +306,13 @@
   "AML注意喚起": "Cảnh báo rửa tiền",
   "制裁更新": "Cập nhật trừng phạt",
   "規則案": "Dự thảo quy định",
-  "消費者保護": "Bảo vệ người tiêu dùng"
+  "消費者保護": "Bảo vệ người tiêu dùng",
+  "選択済み {selected}/{total}件": "Đã chọn {selected}/{total}",
+  "対象の情報源": "Các nguồn được bao gồm",
+  "未選択の{n}件を追加": "Thêm {n} nguồn chưa chọn",
+  "すべて選択済み": "Đã chọn tất cả",
+  "選択中の地域には対象の情報源がありません。": "Không có nguồn phù hợp trong các khu vực đã chọn.",
+  "地域・分野を変更": "Thay đổi khu vực và danh mục",
+  "選択中の地域: {regions}": "Khu vực đã chọn: {regions}",
+  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Chạm tên nguồn hoặc công tắc để thay đổi lựa chọn, sau đó chạm “Lưu”."
 }

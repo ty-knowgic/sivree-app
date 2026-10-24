@@ -56,7 +56,7 @@ check('離れていた時間が短いときは読み直さない', count('/api/n
 
 // Returning checks for updates without replacing cards.
 const realNow = w.Date.now;
-w.Date.now = () => realNow() + 11 * 60 * 1000;
+w.Date.now = () => realNow() + 16 * 60 * 1000;
 w.document.dispatchEvent(new w.Event('visibilitychange'));
 check('復帰時は更新確認だけを行う', await until(() => count('/api/updates') >= 2));
 check('復帰時に一覧を更新しない', reloadEvents === 1 && count('/api/news') === news1);

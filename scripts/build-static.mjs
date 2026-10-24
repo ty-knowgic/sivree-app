@@ -1,7 +1,7 @@
 // 静的サイト版（GitHub Pages など）を site/ に作る。画面（public/）と、ブラウザで API を代わりに答えるスクリプトをまとめる。
 // 記事のデータ（site/data/*.json）は scripts/export-data.ts が書き出す。
 import { build } from 'esbuild';
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -32,4 +32,10 @@ const versioned = html
   .replace(/(<script src="(?:i18n|saved|sync|static-api|app)\.js)"/g, `$1?v=${version}"`)
   .replace('href="styles.css"', `href="styles.css?v=${version}"`);
 await writeFile(indexPath, versioned);
+const shellFiles = ['index.html', ...['i18n.js', 'saved.js', 'sync.js', 'static-api.js', 'app.js', 'styles.css'].map(name => `${name}?v=${version}`),
+  ...(await readdir(path.join(root, 'public/locales'))).filter(name => name.endsWith('.json')).map(name => `locales/${name}?v=${version}`)];
+const worker = (await readFile(path.join(root, 'public/sw.js'), 'utf8'))
+  .replace('__SIVREE_SHELL_VERSION__', version)
+  .replace('const SHELL_FILES = [];', `const SHELL_FILES = ${JSON.stringify(shellFiles)};`);
+await writeFile(path.join(site, 'sw.js'), worker);
 console.log('site/ を作成しました');

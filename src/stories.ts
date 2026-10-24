@@ -39,6 +39,25 @@ export interface StoryIndex {
 }
 
 let cachedIndex: { items: NewsItem[]; index: StoryIndex } | null = null;
+let cachedPairs: typeof staticSimilarities;
+let neighbors = new Map<string, Set<string>>();
+
+function storyNeighbors() {
+  if (cachedPairs !== staticSimilarities) {
+    cachedPairs = staticSimilarities;
+    neighbors = new Map();
+    for (const [a, pairs] of Object.entries(staticSimilarities ?? {})) {
+      for (const b of Object.keys(pairs)) {
+        if (!pairs[b]) continue;
+        if (!neighbors.has(a)) neighbors.set(a, new Set());
+        if (!neighbors.has(b)) neighbors.set(b, new Set());
+        neighbors.get(a)!.add(b);
+        neighbors.get(b)!.add(a);
+      }
+    }
+  }
+  return neighbors;
+}
 
 /** 蓄積中の全記事から、語の出現数を数える（記事一覧が更新されるまで再利用する） */
 export function buildStoryIndex(allItems: NewsItem[]): StoryIndex {
@@ -98,10 +117,17 @@ function toRelated(item: NewsItem): RelatedItem {
  */
 export function groupStories<T extends NewsItem>(items: T[], index: StoryIndex): (T & { related: RelatedItem[] })[] {
   const groups: { lead: T; members: T[] }[] = [];
+  const leaders = new Map<string, number>();
+  const nearby = staticSimilarities ? storyNeighbors() : null;
   for (const item of items) {
-    const group = groups.find(candidate => candidate.members.length < 8 && candidate.members.every(member => isSameStory(member, item, index)));
+    // Only a group whose lead is a known neighbor can pass the existing rule.
+    // Preserve the original first-group choice, including asymmetric pair data.
+    const candidates = nearby
+      ? [...(nearby.get(item.id) ?? [])].flatMap(id => leaders.has(id) ? [leaders.get(id)!] : []).sort((a, b) => a - b).map(i => groups[i])
+      : groups;
+    const group = candidates.find(candidate => candidate.members.length < 8 && candidate.members.every(member => isSameStory(member, item, index)));
     if (group) group.members.push(item);
-    else groups.push({ lead: item, members: [item] });
+    else { leaders.set(item.id, groups.length); groups.push({ lead: item, members: [item] }); }
   }
   return groups.map(({ lead, members }) => ({ ...lead, related: members.slice(1).map(toRelated) }));
 }

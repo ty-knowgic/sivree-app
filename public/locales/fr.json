@@ -339,5 +339,13 @@
   "AML注意喚起": "Avis de LBC",
   "制裁更新": "Mise à jour des sanctions",
   "規則案": "Projet de règle",
-  "消費者保護": "Protection des consommateurs"
+  "消費者保護": "Protection des consommateurs",
+  "選択済み {selected}/{total}件": "Sélectionnées : {selected}/{total}",
+  "対象の情報源": "Sources incluses",
+  "未選択の{n}件を追加": "Ajouter {n} sources non sélectionnées",
+  "すべて選択済み": "Toutes sélectionnées",
+  "選択中の地域には対象の情報源がありません。": "Aucune source correspondante dans les régions sélectionnées.",
+  "地域・分野を変更": "Modifier les régions et catégories",
+  "選択中の地域: {regions}": "Régions sélectionnées : {regions}",
+  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Touchez le nom d’une source ou son interrupteur, puis « Enregistrer »."
 }

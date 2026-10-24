@@ -315,5 +315,13 @@
   "AML注意喚起": "Babala sa AML",
   "制裁更新": "Update sa mga parusa",
   "規則案": "Iminungkahing tuntunin",
-  "消費者保護": "Proteksiyon ng mamimili"
+  "消費者保護": "Proteksiyon ng mamimili",
+  "選択済み {selected}/{total}件": "Napili: {selected}/{total}",
+  "対象の情報源": "Mga kasamang source",
+  "未選択の{n}件を追加": "Idagdag ang {n} hindi pa napiling source",
+  "すべて選択済み": "Napili na lahat",
+  "選択中の地域には対象の情報源がありません。": "Walang tumutugmang source sa mga napiling rehiyon.",
+  "地域・分野を変更": "Baguhin ang mga rehiyon at kategorya",
+  "選択中の地域: {regions}": "Mga napiling rehiyon: {regions}",
+  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "I-tap ang pangalan ng source o ang switch para baguhin ang pagpili, pagkatapos ay i-tap ang “I-save”."
 }

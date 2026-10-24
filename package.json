@@ -27,7 +27,9 @@
     "check:brand": "node scripts/check-brand.mjs",
     "test:performance": "node --import tsx scripts/test-performance.ts",
     "test:professional": "node --import tsx scripts/test-professional.ts",
-    "probe:professional": "node --import tsx scripts/probe-professional.ts"
+    "probe:professional": "node --import tsx scripts/probe-professional.ts",
+    "test:shell": "node scripts/test-shell.mjs",
+    "test:sources-ux": "node --import tsx scripts/test-sources-ux.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",

@@ -336,5 +336,13 @@
   "AML注意喚起": "Geldwäschewarnung",
   "制裁更新": "Sanktionsaktualisierung",
   "規則案": "Regelungsentwurf",
-  "消費者保護": "Verbraucherschutz"
+  "消費者保護": "Verbraucherschutz",
+  "選択済み {selected}/{total}件": "Ausgewählt: {selected}/{total}",
+  "対象の情報源": "Enthaltene Quellen",
+  "未選択の{n}件を追加": "{n} nicht ausgewählte Quellen hinzufügen",
+  "すべて選択済み": "Alle ausgewählt",
+  "選択中の地域には対象の情報源がありません。": "Keine passenden Quellen in den ausgewählten Regionen.",
+  "地域・分野を変更": "Regionen und Kategorien ändern",
+  "選択中の地域: {regions}": "Ausgewählte Regionen: {regions}",
+  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Tippen Sie auf den Quellennamen oder Schalter und anschließend auf „Speichern“."
 }

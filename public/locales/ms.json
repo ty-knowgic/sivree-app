@@ -306,5 +306,13 @@
   "AML注意喚起": "Nasihat AML",
   "制裁更新": "Kemas kini sekatan",
   "規則案": "Cadangan peraturan",
-  "消費者保護": "Perlindungan pengguna"
+  "消費者保護": "Perlindungan pengguna",
+  "選択済み {selected}/{total}件": "Dipilih {selected}/{total}",
+  "対象の情報源": "Sumber yang disertakan",
+  "未選択の{n}件を追加": "Tambah {n} sumber yang belum dipilih",
+  "すべて選択済み": "Semua telah dipilih",
+  "選択中の地域には対象の情報源がありません。": "Tiada sumber yang sepadan di wilayah pilihan anda.",
+  "地域・分野を変更": "Ubah wilayah dan kategori",
+  "選択中の地域: {regions}": "Wilayah dipilih: {regions}",
+  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Ketik nama sumber atau suis untuk menukar pilihan, kemudian ketik “Simpan”."
 }

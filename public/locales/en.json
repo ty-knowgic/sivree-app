@@ -341,5 +341,13 @@
   "AML注意喚起": "AML advisory",
   "制裁更新": "Sanctions update",
   "規則案": "Proposed rule",
-  "消費者保護": "Consumer protection"
+  "消費者保護": "Consumer protection",
+  "選択済み {selected}/{total}件": "Selected {selected}/{total}",
+  "対象の情報源": "Sources included",
+  "未選択の{n}件を追加": "Add {n} unselected sources",
+  "すべて選択済み": "All selected",
+  "選択中の地域には対象の情報源がありません。": "No matching sources in your selected regions.",
+  "地域・分野を変更": "Change regions and categories",
+  "選択中の地域: {regions}": "Selected regions: {regions}",
+  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Tap a source name or switch to change its selection, then tap “Save”."
 }

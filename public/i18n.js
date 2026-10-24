@@ -57,10 +57,21 @@ const pluralRules = {};
 
 async function loadDictionary(name) {
   if (dictionaries[name]) return;
+  const cacheKey = `sivree:messages:${name}`;
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey));
+    if (cached?.version === ASSET_VERSION && cached.messages && typeof cached.messages === 'object') {
+      dictionaries[name] = cached.messages;
+      return;
+    }
+  } catch { /* Storage may be unavailable. */ }
   try {
     // 相対パスにしておく（GitHub Pages のようにサイトが下位のパスにあっても読めるように）
     const response = await fetch(`locales/${name}.json${ASSET_VERSION}`);
     dictionaries[name] = response.ok ? await response.json() : {};
+    if (response.ok) {
+      try { localStorage.setItem(cacheKey, JSON.stringify({ version: ASSET_VERSION, messages: dictionaries[name] })); } catch { /* Optional cache. */ }
+    }
   } catch {
     dictionaries[name] = {};
   }

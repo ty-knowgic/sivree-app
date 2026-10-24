@@ -6,6 +6,7 @@ import { itemVectors, decodeVector, setStaticSimilarities, textKey, createScorer
 import { defaultProfile, semanticQueries } from '../src/profile.js';
 import { listNews, buildBriefing, newsDetail } from '../src/api.js';
 import type { NewsItem } from '../src/types.js';
+import { buildStoryIndex, groupStories, isSameStory } from '../src/stories.js';
 
 // A mixed set with duplicates, unrelated stories, missing vectors and >96h gaps.
 const encode = (v: number[]) => Buffer.from(new Float32Array(v).buffer).toString('base64');
@@ -27,6 +28,24 @@ const actual = [listNews(ctx, { limit: 30 }), listNews(ctx, { forYou: true, limi
 assert.deepEqual(actual, expected);
 Date.now = realNow; setStaticSimilarities(null);
 console.log('✓ Precomputed analysis preserves ranking, grouping, briefing and related articles');
+
+// The sparse lookup must retain the first compatible group, the eight-item cap,
+// pair direction, and full-member checks for every input ordering.
+const denseItems = items.map((item, i) => ({ ...item, publishedAt: new Date(fixedNow - i * 3600000).toISOString() }));
+setStaticSimilarities(buildStaticAnalysis(denseItems, vectors, {}).pairs);
+let seed = 17;
+for (let trial = 0; trial < 25; trial++) {
+  const ordered = [...denseItems];
+  for (let i = ordered.length - 1; i > 0; i--) { seed = (seed * 1664525 + 1013904223) >>> 0; const j = seed % (i + 1); [ordered[i], ordered[j]] = [ordered[j], ordered[i]]; }
+  const index = buildStoryIndex(ordered), reference: NewsItem[][] = [];
+  for (const item of ordered) {
+    const group = reference.find(group => group.length < 8 && group.every(other => isSameStory(other, item, index)));
+    if (group) group.push(item); else reference.push([item]);
+  }
+  assert.deepEqual(groupStories(ordered, index).map(item => [item.id, ...item.related.map(other => other.id)]), reference.map(group => group.map(item => item.id)));
+}
+setStaticSimilarities(null);
+console.log('✓ Sparse grouping matches the original algorithm across 25 shuffled input orders');
 
 const bundle = await build({ entryPoints: ['src/browser/main.ts'], bundle: true, format: 'iife', platform: 'browser', write: false });
 let stored: unknown;
