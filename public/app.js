@@ -1,3 +1,4 @@
+performance.mark?.('sivree:start');
 const tabsEl = document.getElementById('tabs');
 const subgroupFilter = document.getElementById('subgroupFilter');
 const sourceTypeFilter = document.getElementById('sourceTypeFilter');
@@ -743,7 +744,7 @@ function updatedLabel() {
   return ago ? `${sep()}${t('更新: {time}', { time: ago })}` : '';
 }
 
-// データ（記事の一覧）を最後に読み込んだ時刻。しばらく離れていた後に戻ったときは、読み直す
+// Last successful list display; update checks use a separate clock.
 let lastDataLoad = Date.now();
 const STALE_AFTER = 10 * 60 * 1000;
 
@@ -751,21 +752,42 @@ const STALE_AFTER = 10 * 60 * 1000;
  * 公開済みの最新のデータを読み直して、一覧を更新する（ロゴを押したとき・しばらくぶりに戻ったとき）。
  * 静的版では、読み込み済みのデータを捨てて取り直させる（static-api の sivree:reload-data）
  */
+const updateNewsButton = document.createElement('button');
+updateNewsButton.type = 'button';
+updateNewsButton.className = 'news-update-button secondary-button';
+updateNewsButton.hidden = true;
+updateNewsButton.addEventListener('click', () => reloadData());
+listView.append(updateNewsButton);
+window.addEventListener('sivree:update-available', () => {
+  updateNewsButton.textContent = t('新しい記事があります');
+  updateNewsButton.hidden = false;
+});
+let lastUpdateCheck = Date.now();
+async function checkForUpdates() {
+  lastUpdateCheck = Date.now();
+  try { await fetch('/api/updates'); } catch { /* Keep the current list when offline. */ }
+}
+let refreshingData = false;
 async function reloadData() {
-  window.dispatchEvent(new Event('sivree:reload-data'));
+  if (refreshingData) return;
+  refreshingData = true;
+  updateNewsButton.disabled = true;
   try {
-    state.config = await fetch('/api/config').then(r => r.json());
-  } catch {
-    // 取得できなくても、一覧の読み直しは続ける
-  }
-  await refreshNews();
+    await checkForUpdates();
+    ++requestSeq;
+    window.dispatchEvent(new Event('sivree:reload-data'));
+    state.config = await fetch('/api/config').then(r => { if (!r.ok) throw new Error('config'); return r.json(); });
+    await refreshNews(true);
+    updateNewsButton.hidden = true;
+  } catch { /* Keep the readable list and allow retry. */ }
+  finally { refreshingData = false; updateNewsButton.disabled = false; }
 }
 
-async function refreshNews() {
+async function refreshNews(preserve = false) {
   // 古いリクエストの応答が後から届いても、最新の結果を上書きしないようにする
   const seq = ++requestSeq;
   status.textContent = t('更新中…');
-  renderSkeleton();
+  if (!preserve || !state.items.length) renderSkeleton();
 
   try {
     const [page, briefing] = await Promise.all([fetchNewsPage(0), showBriefing() ? fetchBriefing() : null]);
@@ -775,9 +797,12 @@ async function refreshNews() {
     state.total = page.total;
     lastDataLoad = Date.now();
     renderNews();
+    performance.mark?.('sivree:list-ready');
     updateStatus();
+    if (preserve) window.scrollTo(0, 0);
   } catch (error) {
     if (seq !== requestSeq) return;
+    if (preserve && state.items.length) { updateStatus(); throw error; }
     state.items = [];
     newsList.innerHTML = `<div class="empty-state"><strong>${escapeHtml(t('ニュースを読み込めませんでした'))}</strong>${escapeHtml(t('通信状況を確認して、ページを再読み込みしてください。'))}</div>`;
     status.textContent = '';
@@ -2414,16 +2439,20 @@ window.addEventListener('hashchange', route);
 document.getElementById('brand').addEventListener('click', () => {
   setTimeout(() => {
     if (state.needsOnboarding || !listView || listView.hidden) return;
-    window.scrollTo(0, 0);
     reloadData();
   }, 0);
 });
 
-// しばらく離れていた後にアプリへ戻ったとき（ホーム画面に追加した場合など）は、一覧を読み直す
+// Check for updates on return; never replace the list without a tap.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || state.needsOnboarding || listView.hidden) return;
-  if (Date.now() - lastDataLoad > STALE_AFTER) reloadData();
+  if (Date.now() - lastUpdateCheck > STALE_AFTER) checkForUpdates();
 });
+
+// An open app can discover new data too, without changing the active list.
+setInterval(() => {
+  if (document.visibilityState === 'visible' && !state.needsOnboarding && Date.now() - lastUpdateCheck > STALE_AFTER) checkForUpdates();
+}, 60_000);
 
 function updateToday() {
   todayEl.textContent = new Date().toLocaleDateString(locale(), { month: 'long', day: 'numeric', weekday: 'long' });

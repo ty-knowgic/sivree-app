@@ -3,7 +3,7 @@ import type { ApiContext, SourceInfo } from '../api.js';
 import { defaultProfile, migrateProfile, ProfileSchema, semanticQueries, withDefaultDescriptions } from '../profile.js';
 import type { Profile } from '../profile.js';
 import type { ArticleSummary, NewsItem } from '../types.js';
-import { createScorer, decodeVector, itemVectors, textKey } from '../vectors.js';
+import { createScorer, decodeVector, itemVectors, setStaticSimilarities, textKey } from '../vectors.js';
 
 /**
  * 静的サイト版: サーバーの代わりに、ブラウザの中で `/api/...` への問い合わせに答える。
@@ -15,6 +15,8 @@ const PROFILE_KEY = 'sivry.profile.v1';
 const PROFILE_UPDATED_KEY = 'sivry.profile.updatedAt';
 
 interface Meta {
+  schema?: number;
+  analysisReady?: boolean;
   generatedAt: string;
   model: string | null;
   threshold: number;
@@ -22,7 +24,14 @@ interface Meta {
   topicVectors: Record<string, string>;
 }
 
+interface Analysis {
+  topicScores: Record<string, Record<string, number>>;
+  pairs: Record<string, Record<string, number>>;
+}
+
 interface StaticData {
+  analysis?: Analysis;
+  legacyVectors?: Record<string, string>;
   meta: Meta;
   items: NewsItem[];
   sources: SourceInfo[];
@@ -40,29 +49,92 @@ async function getJson<T>(name: string): Promise<T> {
 
 const originalFetch = window.fetch.bind(window);
 let loading: Promise<StaticData> | null = null;
-// 画面から「最新のデータを読み直して」と頼まれたら、読み込み済みのデータを捨てて次の問い合わせで取り直す
-window.addEventListener('sivree:reload-data', () => { loading = null; });
+let active: StaticData | null = null;
+let pending: StaticData | null = null;
+let checking: Promise<void> | null = null;
+let lastCheck = 0;
+
+// A snapshot includes data, never rendered HTML or a user's profile.
+function snapshotStore(write?: StaticData): Promise<StaticData | null> {
+  return new Promise(resolve => {
+    let db: IDBDatabase | undefined;
+    let finished = false;
+    const finish = (value: StaticData | null) => { if (finished) return; finished = true; clearTimeout(timer); db?.close(); resolve(value); };
+    const timer = setTimeout(() => finish(null), 800);
+    try {
+      const open = indexedDB.open('sivree-news-cache', 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('snapshots');
+      open.onerror = () => finish(null);
+      open.onblocked = () => finish(null);
+      open.onsuccess = () => {
+        db = open.result;
+        if (finished) { db.close(); return; }
+        const tx = db.transaction('snapshots', write ? 'readwrite' : 'readonly');
+        const req = write ? tx.objectStore('snapshots').put(write, 'v2') : tx.objectStore('snapshots').get('v2');
+        tx.oncomplete = () => finish(write ?? req.result ?? null);
+        tx.onerror = tx.onabort = () => finish(null);
+      };
+    } catch { finish(null); }
+  });
+}
+
+async function download(meta: Meta): Promise<StaticData> {
+  const [items, sources, summaries, analysis, legacyVectors] = await Promise.all([
+    getJson<NewsItem[]>('news'), getJson<SourceInfo[]>('sources'),
+    getJson<Record<string, ArticleSummary>>('summaries'),
+    meta.schema === 2 ? getJson<Analysis>('analysis') : Promise.resolve(undefined),
+    meta.schema === 2 ? Promise.resolve(undefined) : getJson<Record<string, string>>('vectors')
+  ]);
+  // A deployment may finish between requests. Never combine two generations.
+  if ((await getJson<Meta>('meta')).generatedAt !== meta.generatedAt) throw new Error('Data changed during download');
+  return { meta, items, sources, analysis, legacyVectors,
+    summaries: new Map(Object.entries(summaries)),
+    sourceIds: new Map(sources.map(source => [source.feedUrl, source.id])) };
+}
+
+function activate(data: StaticData) {
+  active = data;
+  itemVectors.clear();
+  setStaticSimilarities(data.analysis?.pairs ?? null);
+  for (const [id, vector] of Object.entries(data.legacyVectors ?? {})) itemVectors.set(id, decodeVector(vector));
+  loading = Promise.resolve(data);
+}
+
+async function checkUpdates() {
+  if (checking) return checking;
+  checking = (async () => {
+    const data = await load();
+    const meta = await getJson<Meta>('meta');
+    lastCheck = Date.now();
+    if (meta.generatedAt === data.meta.generatedAt || meta.generatedAt === pending?.meta.generatedAt) return;
+    if (Date.parse(meta.generatedAt) < Date.parse(data.meta.generatedAt)) return;
+    const next = await download(meta);
+    pending = next;
+    // Persist for the next launch without changing the active browsing session.
+    await snapshotStore(next);
+    window.dispatchEvent(new Event('sivree:update-available'));
+  })();
+  try { await checking; } finally { checking = null; }
+}
+
+window.addEventListener('sivree:reload-data', () => {
+  // Only an explicit user refresh can adopt a newly downloaded generation.
+  if (pending) { activate(pending); pending = null; }
+});
 
 function load(): Promise<StaticData> {
   loading ??= (async () => {
-    const [meta, items, sources, summaries, vectors] = await Promise.all([
-      getJson<Meta>('meta'),
-      getJson<NewsItem[]>('news'),
-      getJson<SourceInfo[]>('sources'),
-      getJson<Record<string, ArticleSummary>>('summaries'),
-      getJson<Record<string, string>>('vectors')
-    ]);
-    for (const [id, vector] of Object.entries(vectors)) itemVectors.set(id, decodeVector(vector));
-    return {
-      meta,
-      items,
-      sources,
-      summaries: new Map(Object.entries(summaries)),
-      sourceIds: new Map(sources.map(source => [source.feedUrl, source.id]))
-    };
+    const cached = await snapshotStore();
+    const data = cached && Array.isArray(cached.items) && cached.summaries instanceof Map && cached.sourceIds instanceof Map
+      ? cached : await download(await getJson<Meta>('meta'));
+    activate(data);
+    if (!cached) void snapshotStore(data);
+    setTimeout(() => { void checkUpdates().catch(() => {}); }, 1000);
+    return data;
   })();
-  loading.catch(() => { loading = null; });
-  return loading;
+  const result = loading;
+  result.catch(() => { if (loading === result) loading = null; });
+  return result;
 }
 
 function loadProfile(): Profile {
@@ -86,6 +158,11 @@ function saveProfile(input: unknown): Profile {
 
 /** 事前計算したトピックのベクトルがある関心だけ、意味での一致に使う（自分で追加したトピックはキーワードだけで判定する） */
 function semanticFor(profile: Profile, meta: Meta) {
+  if (active?.analysis) {
+    const scores = active.analysis.topicScores;
+    const keys = new Map(semanticQueries(profile).map(topic => [topic.id, textKey(topic.description)]));
+    return { threshold: meta.threshold, similarity: (itemId: string, topicId: string) => scores[keys.get(topicId) ?? '']?.[itemId] };
+  }
   const vectors = new Map<string, Float32Array>();
   for (const topic of semanticQueries(profile)) {
     const encoded = meta.topicVectors[textKey(topic.description)];
@@ -102,7 +179,7 @@ async function context(withSemantic = false): Promise<ApiContext> {
     summaries: data.summaries,
     profile,
     semantic: withSemantic ? semanticFor(profile, data.meta) : null,
-    hasVectors: itemVectors.size > 0,
+    hasVectors: Boolean(data.meta.analysisReady) || itemVectors.size > 0,
     sources: data.sources,
     sourceIdOf: feedUrl => data.sourceIds.get(feedUrl) ?? ''
   };
@@ -116,6 +193,11 @@ async function handle(url: URL, method: string, request: Request): Promise<Respo
   const path = url.pathname.replace(/^.*?\/api\//, '/api/');
   const query = url.searchParams;
 
+  if (path === '/api/updates') {
+    await checkUpdates();
+    return json({ available: Boolean(pending), checkedAt: lastCheck });
+  }
+
   if (path === '/api/health') return json({ status: 'ok', version: 'static' });
 
   if (path === '/api/config') {
@@ -124,7 +206,7 @@ async function handle(url: URL, method: string, request: Request): Promise<Respo
       summaryEnabled: true,
       provider: 'extractive',
       method: 'extractive',
-      semantic: { enabled: Boolean(meta.model), model: meta.model, available: Boolean(meta.model), embeddedCount: itemVectors.size, threshold: meta.threshold, error: null },
+      semantic: { enabled: Boolean(meta.model), model: meta.model, available: Boolean(meta.model), embeddedCount: meta.analysisReady ? active!.items.length : itemVectors.size, threshold: meta.threshold, error: null },
       static: true,
       generatedAt: meta.generatedAt
     });
@@ -201,3 +283,6 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
     return json({ error: 'データを読み込めませんでした。通信状況を確認してください。' }, 500);
   }
 };
+
+// Start data/cache access alongside language loading, rather than after it.
+void load().catch(() => {});

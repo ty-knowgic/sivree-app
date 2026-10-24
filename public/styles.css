@@ -2219,3 +2219,15 @@ svg.is-filled path { fill: currentColor; }
 }
 
 .saved-item-actions { display: flex; gap: 16px; margin-top: 6px; }
+
+/* Fixed notice leaves cards and scroll position untouched when updates arrive. */
+.news-update-button {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  box-shadow: 0 4px 20px #0003;
+  max-width: calc(100vw - 32px);
+}
+.news-update-button[hidden] { display: none; }

@@ -324,5 +324,6 @@
   "追加情報源": "Additional sources",
   "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Municipal sources cover only areas in our catalog; they are not automatically selected based on your location.",
   "専門パック": "Specialist packs",
-  "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Additional sources grouped by professional field. Expand a country or region within each pack to select sources."
+  "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Additional sources grouped by professional field. Expand a country or region within each pack to select sources.",
+  "新しい記事があります": "New articles available"
 }

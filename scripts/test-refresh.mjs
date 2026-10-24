@@ -1,4 +1,4 @@
-// ロゴを押したとき、およびしばらく離れた後に戻ったときに、最新のデータを読み直すことを確かめる。
+// Updates are adopted only by an explicit tap, never by app resume.
 import { JSDOM } from 'jsdom';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -13,6 +13,8 @@ const check = (name, ok, detail = '') => { console.log(`${ok ? '✓' : '✗'} ${
 const dom = new JSDOM(html, { url: 'https://example.test/', runScripts: 'outside-only', pretendToBeVisual: true });
 const w = dom.window;
 const calls = [];
+let failNews = false;
+const item = { id: 'aaaaaaaaaaaaaaaa', title: 'Keep this article', summary: 'Description', sourceName: 'Source', sourceType: 'official', subgroup: '日本', category: '社会', categories: ['社会'], hashtags: [], keywords: [], matches: [], publishedAt: new Date().toISOString(), url: 'https://example.test/article', feedUrl: 'feed' };
 const profile = { onboarded: true, regions: ['日本'], categories: [], hiddenItems: [], excludedSources: [], topics: [] };
 const respond = (body, extra = {}) => ({ ok: true, status: 200, json: async () => body, headers: new Map(), ...extra });
 w.fetch = async (url) => {
@@ -20,7 +22,7 @@ w.fetch = async (url) => {
   if (url === '/api/profile') return respond(profile);
   if (url === '/api/filters') return respond({ categories: [], subgroups: {}, sourceTypes: [] });
   if (url === '/api/config') return respond({ generatedAt: new Date().toISOString() });
-  if (String(url).startsWith('/api/news')) return respond([], { headers: new Map([['X-Total-Count', '0']]) });
+  if (String(url).startsWith('/api/news')) { if (failNews) throw new Error('offline'); return respond([item], { headers: new Map([['X-Total-Count', '1']]) }); }
   if (url === '/api/briefing') return respond({ stories: [], storyCount: 0 });
   return respond({});
 };
@@ -36,6 +38,7 @@ const count = (prefix) => calls.filter(c => c.startsWith(prefix)).length;
 
 check('起動時に一覧を読み込む', await until(() => count('/api/news') >= 1));
 await new Promise(r => setTimeout(r, 200));
+check('記事を表示する', w.document.getElementById('newsList').textContent.includes(item.title));
 const news0 = count('/api/news');
 const config0 = count('/api/config');
 
@@ -51,12 +54,32 @@ w.document.dispatchEvent(new w.Event('visibilitychange'));
 await new Promise(r => setTimeout(r, 300));
 check('離れていた時間が短いときは読み直さない', count('/api/news') === news1 && reloadEvents === 1);
 
-// 10分以上離れた後に戻ったとき
+// Returning checks for updates without replacing cards.
 const realNow = w.Date.now;
 w.Date.now = () => realNow() + 11 * 60 * 1000;
 w.document.dispatchEvent(new w.Event('visibilitychange'));
-check('10分以上離れた後に戻ると読み直す', await until(() => reloadEvents === 2 && count('/api/news') > news1));
+check('復帰時は更新確認だけを行う', await until(() => count('/api/updates') >= 2));
+check('復帰時に一覧を更新しない', reloadEvents === 1 && count('/api/news') === news1);
+const before = w.document.getElementById('newsList').innerHTML;
+w.dispatchEvent(new w.Event('sivree:update-available'));
+check('新着通知で一覧を変更しない', w.document.getElementById('newsList').innerHTML === before && reloadEvents === 1);
+const button = w.document.querySelector('.news-update-button');
+check('新着ボタンを表示する', !button.hidden);
+button.click();
+check('新着ボタンを押した時だけ更新する', await until(() => reloadEvents === 2 && count('/api/news') > news1));
+await until(() => button.hidden);
+check('更新後に新着ボタンを隠す', button.hidden);
 w.Date.now = realNow;
+
+// Failed explicit refresh must not erase readable cards.
+failNews = true;
+w.dispatchEvent(new w.Event('sivree:update-available'));
+const savedHTML = w.document.getElementById('newsList').innerHTML;
+const newsBeforeFailure = count('/api/news');
+button.click();
+await until(() => count('/api/news') > newsBeforeFailure && !button.disabled);
+check('通信失敗でも記事と更新ボタンを維持する', w.document.getElementById('newsList').innerHTML === savedHTML && !button.hidden);
+failNews = false;
 
 // 非表示のとき（バックグラウンド）は何もしない
 Object.defineProperty(w.document, 'visibilityState', { value: 'hidden', configurable: true });

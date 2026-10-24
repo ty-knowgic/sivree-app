@@ -21,7 +21,11 @@ export function decodeVector(base64: string): Float32Array {
 }
 
 /** 2つの記事の意味の近さ（どちらかが未処理なら undefined） */
+export let staticSimilarities: Record<string, Record<string, number>> | null = null;
+export function setStaticSimilarities(value: typeof staticSimilarities) { staticSimilarities = value; }
+
 export function itemSimilarity(a: string, b: string): number | undefined {
+  if (staticSimilarities) return staticSimilarities[a]?.[b] ?? staticSimilarities[b]?.[a] ?? 0;
   const va = itemVectors.get(a);
   const vb = itemVectors.get(b);
   return va && vb && va.length === vb.length ? dot(va, vb) : undefined;

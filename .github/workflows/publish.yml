@@ -58,6 +58,7 @@ jobs:
 
       # ロゴ・しばらくぶりの復帰でデータを読み直すことを確かめる
       - run: npm run test:refresh
+      - run: npm run test:performance
 
       # フィード取得の取り直し・同時取得数の上限と、同じ記事の重複のまとめを確かめる
       - run: npm run test:feeds

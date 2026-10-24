@@ -319,5 +319,6 @@
   "追加情報源": "Zusätzliche Quellen",
   "自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。": "Kommunale Quellen decken nur erfasste Gebiete ab und werden nicht automatisch anhand Ihres Standorts ausgewählt.",
   "専門パック": "Fachpakete",
-  "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Zusätzliche Quellen nach Fachgebiet. Öffnen Sie ein Land oder eine Region im jeweiligen Paket, um Quellen auszuwählen."
+  "専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。": "Zusätzliche Quellen nach Fachgebiet. Öffnen Sie ein Land oder eine Region im jeweiligen Paket, um Quellen auszuwählen.",
+  "新しい記事があります": "Neue Artikel verfügbar"
 }

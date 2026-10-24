@@ -1,4 +1,4 @@
-import { itemSimilarity } from './vectors.js';
+import { itemSimilarity, staticSimilarities } from './vectors.js';
 import type { NewsItem } from './types.js';
 
 /**
@@ -10,9 +10,9 @@ import type { NewsItem } from './types.js';
 /** これ以上近ければ、珍しい語を共有していなくても同じ話題とみなす（翻訳版や、ほぼ同じ文面の発表） */
 const NEAR_DUPLICATE = 0.86;
 /** 珍しい語を2つ以上共有している場合に、同じ話題とみなす近さ */
-const SAME_STORY = 0.72;
+export const SAME_STORY = 0.72;
 /** まとめる記事の公開日時の差の上限 */
-const WINDOW_HOURS = 96;
+export const WINDOW_HOURS = 96;
 /** この記事数以下にしか出てこない語を「珍しい語」とする */
 const RARE_DOC_FREQUENCY = 8;
 
@@ -69,6 +69,8 @@ function sharesRareTokens(a: string, b: string, index: StoryIndex): boolean {
 
 export function isSameStory(a: NewsItem, b: NewsItem, index: StoryIndex): boolean {
   if (a.id === b.id) return false;
+  // Publication-time analysis already excluded distant or dissimilar pairs.
+  if (staticSimilarities && !(staticSimilarities[a.id]?.[b.id] ?? staticSimilarities[b.id]?.[a.id])) return false;
   const hours = Math.abs(new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()) / 3_600_000;
   if (hours > WINDOW_HOURS) return false;
   const similarity = itemSimilarity(a.id, b.id);

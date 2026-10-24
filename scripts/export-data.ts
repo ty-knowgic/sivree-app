@@ -7,6 +7,7 @@ import { embedItemsInBackground, exportItemVectors, exportQueryVectors, getEmbed
 import { listSources, loadNews, waitForImageEnrichment } from '../src/newsPipeline.js';
 import { defaultProfile } from '../src/profile.js';
 import { getStoredSummaries, summarizeLatestInBackground } from '../src/summarizer.js';
+import { buildStaticAnalysis } from '../src/staticAnalysis.js';
 import { withStoredSummaries } from '../src/api.js';
 
 const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../site/data');
@@ -40,14 +41,20 @@ const semanticReady = Object.keys(vectors).length > 0 && Object.keys(topicVector
 if (!semanticReady && process.env.REQUIRE_SEMANTIC === '1') throw new Error('埋め込みを使えなかったため、公開データは更新しません。');
 if (!semanticReady) console.warn('[export] 埋め込みを使えなかったため、意味による一致なし（キーワードのみ）で書き出します');
 
+const analysis = buildStaticAnalysis(items, semanticReady ? vectors : {}, semanticReady ? topicVectors : {});
+
 const write = (name: string, data: unknown) => writeFile(path.join(outDir, `${name}.json`), JSON.stringify(data));
 await Promise.all([
   write('news', items),
   write('sources', listSources()),
   // 見出しと原文へのリンクだけを表示する記事（利用条件による）の要約は、以前に保存したものがあっても書き出さない
   write('summaries', Object.fromEntries([...summaries].filter(([id]) => ids.has(id) && !titleOnlyIds.has(id)))),
+  write('analysis', analysis),
+  // Keep the legacy file for already-open older clients. New clients never request it.
   write('vectors', semanticReady ? vectors : {}),
   write('meta', {
+    schema: 2,
+    analysisReady: semanticReady,
     generatedAt: new Date().toISOString(),
     model: semanticReady ? status.model : null,
     threshold: status.threshold,

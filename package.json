@@ -24,7 +24,8 @@
     "test:migrate": "tsx scripts/test-migrate.ts",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
     "check:source-names": "tsx scripts/check-source-names.ts",
-    "check:brand": "node scripts/check-brand.mjs"
+    "check:brand": "node scripts/check-brand.mjs",
+    "test:performance": "node --import tsx scripts/test-performance.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
