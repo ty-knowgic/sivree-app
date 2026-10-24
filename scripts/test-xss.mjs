@@ -68,3 +68,7 @@ if (bad.length || window.__pwned) {
   process.exit(1);
 }
 console.log('敵意のあるデータでも、スクリプト・イベント属性・javascript: の URL は出力されません');
+
+// Close the virtual browser, including background update timers.
+await new Promise(resolve => setImmediate(resolve));
+window.close();
