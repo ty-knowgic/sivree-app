@@ -27,7 +27,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== root.origin) return;
   const navigation = event.request.mode === 'navigate' && [root.pathname, `${root.pathname}index.html`].includes(url.pathname);
-  const key = navigation ? new URL('index.html', root).href : url.href;
+  const key = navigation ? new URL(`index.html?v=${SHELL_VERSION}`, root).href : url.href;
   if (!navigation && !shellUrls.some(href => new URL(href).pathname === url.pathname)) return;
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);

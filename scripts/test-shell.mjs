@@ -29,7 +29,7 @@ const shell = version => {
   const handlers = {}, state = { claimed: false, installed: false };
   const self = { registration: { scope: 'https://example.test/app/' }, addEventListener: (name, fn) => handlers[name] = fn,
     skipWaiting: async () => { state.installed = true; }, clients: { claim: async () => { state.claimed = true; } } };
-  const files = ['index.html', `app.js?v=${version}`, `styles.css?v=${version}`];
+  const files = [`index.html?v=${version}`, `app.js?v=${version}`, `styles.css?v=${version}`];
   vm.runInNewContext(source.replace('__SIVREE_SHELL_VERSION__', version).replace('const SHELL_FILES = [];', `const SHELL_FILES = ${JSON.stringify(files)};`), { self, caches, fetch, URL });
   return { state,
     run: async name => { let done; handlers[name]({ waitUntil: p => done = p }); await done; },
@@ -40,7 +40,7 @@ let worker = shell('1');
 await worker.run('install'); await worker.run('activate');
 assert(worker.state.installed && worker.state.claimed);
 const before = networkCalls; offline = true;
-assert.equal(await (await worker.request('/app/', 'navigate')).text(), 'https://example.test/app/index.html');
+assert.equal(await (await worker.request('/app/', 'navigate')).text(), 'https://example.test/app/index.html?v=1');
 assert.equal(await (await worker.request('/app/app.js?v=1')).text(), 'https://example.test/app/app.js?v=1');
 assert.equal(networkCalls, before, 'Warm navigation and scripts must not wait for a network response');
 for (const path of ['/app/data/news.json', '/app/api/profile', '/app/about.html', '/outside/']) assert.equal(await worker.request(path), undefined);
