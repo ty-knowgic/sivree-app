@@ -15,8 +15,14 @@ const TTL_MS = 6 * 60 * 60 * 1000;
 const FAILURE_TTL_MS = 10 * 60 * 1000;
 const TIMEOUT_MS = 5000;
 
-interface Entry { robot: Robot | null; allowAll: boolean; expires: number }
+export interface RobotsDecision {
+  allowed: boolean;
+  reason: 'allowed' | 'disallowed' | 'missing' | 'http-error' | 'network-error' | 'timeout' | 'invalid-url';
+  status?: number;
+}
+interface Entry { robot: Robot | null; allowAll: boolean; expires: number; reason: RobotsDecision['reason']; status?: number }
 const cache = new Map<string, Entry>();
+const pending = new Map<string, Promise<Entry>>();
 
 async function load(origin: string): Promise<Entry> {
   const robotsUrl = `${origin}/robots.txt`;
@@ -24,27 +30,37 @@ async function load(origin: string): Promise<Entry> {
     const response = await fetch(robotsUrl, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (response.ok) {
       const text = (await response.text()).slice(0, 512 * 1024);
-      return { robot: robotsParser(robotsUrl, text), allowAll: false, expires: Date.now() + TTL_MS };
+      return { robot: robotsParser(robotsUrl, text), allowAll: false, expires: Date.now() + TTL_MS, reason: 'allowed', status: response.status };
     }
-    if (response.status >= 400 && response.status < 500) return { robot: null, allowAll: true, expires: Date.now() + TTL_MS };
-  } catch {
-    // 通信エラーは下で控える扱いにする
+    if (response.status >= 400 && response.status < 500) return { robot: null, allowAll: true, expires: Date.now() + TTL_MS, reason: 'missing', status: response.status };
+    return { robot: null, allowAll: false, expires: Date.now() + FAILURE_TTL_MS, reason: 'http-error', status: response.status };
+  } catch (error) {
+    return { robot: null, allowAll: false, expires: Date.now() + FAILURE_TTL_MS, reason: error instanceof Error && error.name === 'TimeoutError' ? 'timeout' : 'network-error' };
   }
-  return { robot: null, allowAll: false, expires: Date.now() + FAILURE_TTL_MS };
 }
 
-export async function isAllowedByRobots(url: string): Promise<boolean> {
+export async function checkRobots(url: string): Promise<RobotsDecision> {
   let origin: string;
   try {
-    origin = new URL(url).origin;
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return { allowed: false, reason: 'invalid-url' };
+    origin = parsed.origin;
   } catch {
-    return false;
+    return { allowed: false, reason: 'invalid-url' };
   }
   let entry = cache.get(origin);
   if (!entry || entry.expires < Date.now()) {
-    entry = await load(origin);
-    cache.set(origin, entry);
+    let request = pending.get(origin);
+    if (!request) {
+      request = load(origin).then(value => { cache.set(origin, value); return value; }).finally(() => pending.delete(origin));
+      pending.set(origin, request);
+    }
+    entry = await request;
   }
-  if (entry.allowAll) return true;
-  return entry.robot ? entry.robot.isAllowed(url, CRAWLER_NAME) !== false : false;
+  const allowed = entry.allowAll || (entry.robot ? entry.robot.isAllowed(url, CRAWLER_NAME) !== false : false);
+  return { allowed, reason: entry.robot ? (allowed ? 'allowed' : 'disallowed') : entry.reason, ...(entry.status === undefined ? {} : { status: entry.status }) };
+}
+
+export async function isAllowedByRobots(url: string): Promise<boolean> {
+  return (await checkRobots(url)).allowed;
 }

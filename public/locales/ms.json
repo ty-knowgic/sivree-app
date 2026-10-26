@@ -1,4 +1,5 @@
 {
+  "このアドレスでは Google 同期を使えません。Tailscale の HTTPS URL を使用するか、「設定のコピー／貼り付け」で移してください。": "Penyegerakan Google tidak tersedia di alamat ini. Gunakan URL HTTPS Tailscale atau pindahkan tetapan dengan salin/tampal.",
   "戻る": "Kembali",
   "共有": "Kongsi",
   "設定": "Tetapan",
@@ -314,5 +315,8 @@
   "選択中の地域には対象の情報源がありません。": "Tiada sumber yang sepadan di wilayah pilihan anda.",
   "地域・分野を変更": "Ubah wilayah dan kategori",
   "選択中の地域: {regions}": "Wilayah dipilih: {regions}",
-  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Ketik nama sumber atau suis untuk menukar pilihan, kemudian ketik “Simpan”."
+  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Ketik nama sumber atau suis untuk menukar pilihan, kemudian ketik “Simpan”.",
+  "無料の情報源": "Sumber percuma",
+  "その他の情報源": "Sumber lain",
+  "分野を開いて情報源を選択します。関連する無料の情報源も一緒に選べます。": "Buka bidang untuk memilih sumber satu per satu. Sumber percuma yang berkaitan turut disertakan."
 }

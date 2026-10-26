@@ -2,7 +2,7 @@
 
 The app was named Sivry until 2026-10-20 (旧名 Sivry). Persisted identifiers keep the old `sivry` prefix on purpose (localStorage keys, the Drive file `sivry-settings.json`); `npm run check:brand` flags any other leftover.
 
-Personal news app that shows only **primary sources** (governments, companies, research bodies, NPOs). Read `PRODUCT.md` (principles) and `BACKLOG.md` (decisions, market view) before proposing features.
+Personal news app that shows only **primary sources** (governments, companies, research bodies, NPOs). Read `PHILOSOPHY.md` (founding purpose and long-term hypotheses), `PRODUCT.md` (principles) and `BACKLOG.md` (decisions, market view) before proposing features. Keep long-term AI/SI hypotheses distinct from current capabilities and approved scope.
 Live: https://sivree.com/ (GitHub Pages with the custom domain since 2026-10-23; www redirects to it, and the old https://ty-knowgic.github.io/sivree-app/ redirects too. "Publish Sivree" workflow runs on push and every ~3 h). DNS is at Porkbun: leave the Workspace mail records (MX, SPF, google-site-verification, google._domainkey, _dmarc) alone.
 
 ## Layout
@@ -11,7 +11,7 @@ Live: https://sivree.com/ (GitHub Pages with the custom domain since 2026-10-23;
 - `scripts/` checks and tests. `.github/workflows/publish.yml` runs them in CI.
 
 ## Before every commit (all must pass)
-`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run check:brand` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run test:feeds` · `npm run test:saved` · `npm run test:tiers` · `npm run test:migrate` · `npm run build:site`
+`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run check:brand` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run test:performance` · `npm run test:feeds` · `npm run test:saved` · `npm run test:tiers` · `npm run test:migrate` · `npm run build:site`
 
 ## Conventions that bite
 - **i18n**: the Japanese text is the key. Every new UI string needs an entry in all 12 other `public/locales/*.json` (`check:locales` fails otherwise). New source names **and labels** go in `locales/sources.json`; `check:i18n-keys` fails if code uses a Japanese string that isn't in the dictionaries, `check:source-names` fails for untranslated feed names/labels. Anything generated into data (hashtags, labels) must be translated at render time.
@@ -22,6 +22,20 @@ Live: https://sivree.com/ (GitHub Pages with the custom domain since 2026-10-23;
 - **Candidates**: a feed that is not `defaultOn` (`src/sourceTier.ts`) is a candidate: hidden unless its id is in `profile.extraSources` (`candidate: true` in `listSources()`). Turning a candidate off removes it from `extraSources` **and** adds it to `excludedSources`, so a migration redone after an old cached page saved the profile can't bring it back. `migrateProfile` (`src/profile.ts`, run by every `loadProfile`/`saveProfile`, so paste and Drive sync are covered) moves the old always-on Waterloo/Ontario sources into `extraSources`; their ids are fixed in `LEGACY_DEFAULT_CANDIDATES`. `test:migrate` checks that nobody's visible articles change.
 - CSP is a meta tag in `public/index.html`: any new external host must be added deliberately and justified in the privacy page.
 
+## Local UI verification
+- For the active improvement queue, execution limits and evidence, read `docs/operations.md`; for professional-user validation, read `docs/beta-pilot.md`. Update observed results rather than treating automated checks as usability or demand evidence.
+- Use `npm run preview` (127.0.0.1:4173) to test unpublished UI changes with a public article snapshot and local source definitions. It watches source changes and bypasses shell/article caches; reload after `[ready]`. `npm run dev` is the Express server, not the published static runtime.
+- Preview now binds to all interfaces by default and prints LAN and Tailscale URLs. For phone access, use these URLs rather than telling the user to operate only on the Mac. `preview:tailscale` / `preview:tailscale:production` configure tailnet-only HTTPS on 8443 / 8444 when Serve has been enabled. Preserve existing Serve routes; do not use Funnel or reset unrelated routes.
+- Use `npm run preview:production` (4174) for the actual Service Worker and snapshot behavior, including `-- --delay-ms 7000` after warming the cache. Keep the two modes on separate ports.
+- `npm test` / `npm run check:all` runs the complete local checks without publishing. See `docs/local-testing.md` for the manual source-picker acceptance steps and iPhone LAN limitations.
+- Exercise actual source-name taps, individual and bulk toggles, shared-source synchronization, save/cancel/reopen, and mobile layout locally before proposing publication. Presence of text/buttons alone is not UX validation.
+
+## Loading and refresh (2026-10-24)
+- Static clients restore the last complete public-data snapshot from IndexedDB and apply current local profile filters. Cache failure falls back to the network.
+- Each browsing session pins one data generation across all tabs, details and pagination. Background checks download and persist a pending generation and show a fixed update button; they never replace cards. Only tapping that button or the logo adopts pending data. Resume after 10 minutes checks for updates only.
+- `scripts/export-data.ts` writes `analysis.json` via `src/staticAnalysis.ts`: exact default-topic similarities and sparse article-pair similarities replace downloading raw vectors on new clients. Rare-token checks and grouping rules still run as before. Legacy vectors and topic metadata remain published for old open clients.
+- `test:performance` verifies analysis equivalence, snapshot restore offline, current hidden-item filters and explicit generation adoption. It requires no listening server. `sivree:start` and `sivree:list-ready` performance marks support device profiling.
+
 ## Decisions already made (don't reopen without being asked)
 - Operator (2026-10-23): **Knowgic Technology** (sole proprietorship, Waterloo, Ontario, Canada; https://knowgictech.com/). Shown on `public/about.html`, the operator line of `legal.html`, the settings footer, `LICENSE` and README. If it incorporates (considered for 2027), update all of these together.
 - User settings live **only on the client**. No server-side user data, no accounts, **no email digest**. Cross-device = copy/paste, or optional Google Drive appDataFolder sync (needs `CLIENT_ID` in `public/sync.js`).
@@ -31,7 +45,7 @@ Live: https://sivree.com/ (GitHub Pages with the custom domain since 2026-10-23;
 - Drive sync (2026-10-21, `public/sync.js`): Google's token model gives a token only through a popup opened **synchronously inside a tap** (iPhone blocks it after any `await`), and offers no silent renewal. So GIS is preloaded when sync is on, the token (~1 h) is kept in localStorage. When it expires, a header sync button and a load toast appear, and Save/paste in settings call `SivreeSync.prepare()` so the popup opens in that tap; no popup without a tap. When both devices changed, there is no dialog: a 3-way merge against the last-synced copy (`sivree:sync-base`) runs per field. List fields merge per element, so deletions propagate. A device without a base takes Drive's settings and keeps both devices' saved and hidden items. `test:sync` models the iPhone popup rule.
 - No human reviewers or experts for QA — do review/QA myself and say what I couldn't verify.
 - Primary sources only: no media feeds, no SNS. Honest crawler identity `SivreeBot`; obey robots.txt; don't work around 403s.
-- Never reset the user's saved profile in tests; don't leave local servers running (the user tests on GitHub).
+- Never reset the user's saved profile in tests. Stop servers started for agent checks after verification unless the user asks to keep them running. Use the local preview for QA before publication.
 - **Ask before `git push`** (and before anything outward-facing: labels, issues, publishing).
 
 ## Working style / token budget

@@ -15,8 +15,8 @@ const drive = { files: [], calls: [], clock: 0, revoked: false, scope: SCOPE };
 const newest = () => [...drive.files].sort((a, b) => b.modifiedTime - a.modifiedTime)[0];
 const remote = () => newest()?.content;
 
-function device({ storage = {}, profile = { regions: ['JP'], marker: 'initial' }, gis = true } = {}) {
-  const dom = new JSDOM('<!doctype html><head></head><body></body>', { url: 'https://example.test/', runScripts: 'outside-only', pretendToBeVisual: true });
+function device({ storage = {}, profile = { regions: ['JP'], marker: 'initial' }, gis = true, url = 'https://example.test/' } = {}) {
+  const dom = new JSDOM('<!doctype html><head></head><body></body>', { url, runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
   for (const [key, value] of Object.entries(storage)) w.localStorage.setItem(key, value);
   const popups = { opened: 0, blocked: 0 };
@@ -381,6 +381,20 @@ function simultaneousUploads() {
   await tapSync(left); await tapSync(right); await tapSync(left);
   check('初回の重複ファイル: 統合済みのコピーから削除記事が復活しない', ids(left.profile) === 'b' && ids(right.profile) === 'b');
   left.window.close(); right.window.close();
+}
+for (const url of ['http://192.168.1.12:4173/', 'http://100.64.0.1:4173/', 'https://192.168.1.12/', 'http://newtonian.tail78a3e5.ts.net:4173/']) {
+  const d = device({ url, storage: { 'sivry:sync': JSON.stringify({ enabled: true }) } });
+  const before = drive.calls.length;
+  let error;
+  try { await d.sync.connect(); } catch (e) { error = e.message; }
+  await d.sync.auto();
+  check(`非対応の生成元では認証もDrive通信もしない: ${url}`, d.sync.blockedOrigin && error === 'oauth-origin' && d.popups.opened === 0 && drive.calls.length === before && !d.sync.needsAuth());
+  d.window.close();
+}
+for (const url of ['http://localhost:4173/', 'http://127.0.0.1:4173/', 'https://newtonian.tail78a3e5.ts.net:8443/', 'https://sivree.com/']) {
+  const d = device({ url });
+  check(`対応形式の生成元では認証を妨げない（Google側登録は別途必要）: ${url}`, !d.sync.blockedOrigin);
+  d.window.close();
 }
 check('サーバー（Sivree）への通信はない: 通信先は /api/profile と Google のみ', drive.calls.every((call) => /\/(drive|upload)\//.test(call)));
 

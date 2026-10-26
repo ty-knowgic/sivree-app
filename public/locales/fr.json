@@ -1,4 +1,5 @@
 {
+  "このアドレスでは Google 同期を使えません。Tailscale の HTTPS URL を使用するか、「設定のコピー／貼り付け」で移してください。": "La synchronisation Google est indisponible à cette adresse. Utilisez l’URL HTTPS de Tailscale ou transférez les paramètres par copier-coller.",
   "戻る": "Retour",
   "共有": "Partager",
   "設定": "Réglages",
@@ -347,5 +348,8 @@
   "選択中の地域には対象の情報源がありません。": "Aucune source correspondante dans les régions sélectionnées.",
   "地域・分野を変更": "Modifier les régions et catégories",
   "選択中の地域: {regions}": "Régions sélectionnées : {regions}",
-  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Touchez le nom d’une source ou son interrupteur, puis « Enregistrer »."
+  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Touchez le nom d’une source ou son interrupteur, puis « Enregistrer ».",
+  "無料の情報源": "Source gratuite",
+  "その他の情報源": "Autres sources",
+  "分野を開いて情報源を選択します。関連する無料の情報源も一緒に選べます。": "Ouvrez un domaine pour sélectionner les sources individuellement. Les sources gratuites associées sont également incluses."
 }

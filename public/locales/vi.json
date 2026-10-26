@@ -1,4 +1,5 @@
 {
+  "このアドレスでは Google 同期を使えません。Tailscale の HTTPS URL を使用するか、「設定のコピー／貼り付け」で移してください。": "Không thể đồng bộ Google tại địa chỉ này. Hãy dùng URL HTTPS của Tailscale hoặc chuyển cài đặt bằng cách sao chép/dán.",
   "戻る": "Quay lại",
   "共有": "Chia sẻ",
   "設定": "Cài đặt",
@@ -314,5 +315,8 @@
   "選択中の地域には対象の情報源がありません。": "Không có nguồn phù hợp trong các khu vực đã chọn.",
   "地域・分野を変更": "Thay đổi khu vực và danh mục",
   "選択中の地域: {regions}": "Khu vực đã chọn: {regions}",
-  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Chạm tên nguồn hoặc công tắc để thay đổi lựa chọn, sau đó chạm “Lưu”."
+  "情報源名またはスイッチで切り替え、最後に「保存」を押してください。": "Chạm tên nguồn hoặc công tắc để thay đổi lựa chọn, sau đó chạm “Lưu”.",
+  "無料の情報源": "Nguồn miễn phí",
+  "その他の情報源": "Các nguồn khác",
+  "分野を開いて情報源を選択します。関連する無料の情報源も一緒に選べます。": "Mở một lĩnh vực để chọn từng nguồn. Các nguồn miễn phí liên quan cũng được bao gồm."
 }

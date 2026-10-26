@@ -24,6 +24,12 @@
   /** アプリに戻ったとき、前回の同期からこれだけ経っていればドライブを確かめる */
   const RECHECK_AFTER = 60 * 1000;
   const MAX_ATTEMPTS = 5;
+  // Google rejects HTTP LAN origins and raw IP hosts (except loopback).
+  // HTTPS hostnames still need registration in the OAuth client's authorized origins.
+  const host = location.hostname;
+  const loopback = host === 'localhost' || host === '[::1]' || /^127\./.test(host);
+  const ipHost = /^\d+\.\d+\.\d+\.\d+$/.test(host) || host.includes(':');
+  const blockedOrigin = !loopback && (location.protocol !== 'https:' || ipHost || !host.includes('.'));
   /** 一覧の上限（src/profile.ts の ProfileSchema と同じ値） */
   const LIMITS = { excludedSources: 500, extraSources: 200, hiddenItems: 300, savedItems: 1000 };
 
@@ -117,6 +123,7 @@
     });
   }
   function loadGis() {
+    if (blockedOrigin) return Promise.reject(new Error('oauth-origin'));
     createClient();
     if (client) return Promise.resolve();
     gisLoading ??= new Promise((resolve, reject) => {
@@ -143,6 +150,7 @@
    * 期限内のトークンがあれば Google には問い合わせない
    */
   function authorize() {
+    if (blockedOrigin) return Promise.reject(new Error('oauth-origin'));
     if (currentToken()) return Promise.resolve();
     createClient();
     if (client) return openPopup();
@@ -156,6 +164,7 @@
   // ---------- ドライブ ----------
 
   async function drive(path, options = {}) {
+    if (blockedOrigin) throw new Error('oauth-origin');
     const token = currentToken();
     if (!token) throw authError();
     const response = await fetch(DRIVE + path, { ...options, signal: AbortSignal.timeout(30000), headers: { ...options.headers, Authorization: `Bearer ${token}` } });
@@ -465,10 +474,11 @@
 
   window.SivreeSync = {
     available: Boolean(CLIENT_ID),
+    blockedOrigin,
     state: readState,
     /** 同期は有効だが、Google の許可が切れている（押すまで同期できない） */
-    needsAuth: () => Boolean(readState().enabled) && !currentToken(),
-    needsSync: () => Boolean(readState().enabled) && (Boolean(readState().error) || localUpdatedAt() > (readState().syncedAt || 0)),
+    needsAuth: () => !blockedOrigin && Boolean(readState().enabled) && !currentToken(),
+    needsSync: () => !blockedOrigin && Boolean(readState().enabled) && (Boolean(readState().error) || localUpdatedAt() > (readState().syncedAt || 0)),
     connect: syncFromTap,
     syncNow: syncFromTap,
     /**
@@ -476,11 +486,13 @@
      * 同期が有効で許可が切れていれば、ここでログイン画面を開き、許可が取れたら保存した変更をドライブに送る
      */
     prepare: () => {
+      if (blockedOrigin) return;
       if (!readState().enabled || currentToken()) return;
       authorize().then(background, () => notify({ type: 'needs-auth' }));
     },
     /** ページを開いたとき。許可が残っていれば画面を出さずに同期する。Google のスクリプトは、押したらすぐ開けるよう先に読み込む */
     auto: () => {
+      if (blockedOrigin) return Promise.resolve(null);
       if (!readState().enabled) return Promise.resolve(null);
       loadGis().catch(() => {});
       watchExpiry();

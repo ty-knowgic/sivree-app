@@ -762,6 +762,7 @@ const STALE_AFTER = 10 * 60 * 1000;
 const appAssetBase = new URL('.', document.currentScript?.src || location.href);
 
 function prepareOfflineShell() {
+  if (state.config?.localPreview) { listView.dataset.shell = 'preview-disabled'; return; }
   if (!state.config?.static || !('serviceWorker' in navigator)) return;
   // Installation and update checks never block the readable list.
   const report = () => { listView.dataset.shell = navigator.serviceWorker.controller ? 'controlled' : 'uncontrolled'; };
@@ -1546,7 +1547,7 @@ function renderOnboarding() {
         <section class="onb-restore" aria-label="${escapeHtml(t('ほかの端末でお使いですか？'))}">
           <h2>${escapeHtml(t('ほかの端末でお使いですか？'))}</h2>
           <p>${escapeHtml(t('Google ドライブに同期した設定を読み込めば、質問への回答は不要です。'))}</p>
-          <button class="secondary-button" type="button" data-action="restore-profile" ${onboardingSyncing ? 'disabled' : ''}>${escapeHtml(t(onboardingSyncing ? '読み込み中…' : 'Google でログインして同期'))}</button>
+          ${window.SivreeSync.blockedOrigin ? `<p>${escapeHtml(t('このアドレスでは Google 同期を使えません。Tailscale の HTTPS URL を使用するか、「設定のコピー／貼り付け」で移してください。'))}</p>` : `<button class="secondary-button" type="button" data-action="restore-profile" ${onboardingSyncing ? 'disabled' : ''}>${escapeHtml(t(onboardingSyncing ? '読み込み中…' : 'Google でログインして同期'))}</button>`}
         </section>` : ''}
       <fieldset class="onb-questions" ${onboardingSyncing ? 'disabled' : ''}>
       <div class="onb-progress" aria-hidden="true">${ONBOARDING_STEPS.map((_, index) => `<span class="${index < onboarding.step ? 'is-active' : ''}"></span>`).join('')}</div>
@@ -1791,28 +1792,40 @@ function isOutOfRegion(source) {
   return profileDraft.regions.length > 0 && !profileDraft.regions.includes(source.subgroup);
 }
 
+function uniqueSources(sources) {
+  const result = new Map();
+  for (const source of sources) {
+    const previous = result.get(source.id);
+    result.set(source.id, previous ? { ...previous, categories: [...new Set([...previous.categories, ...source.categories])] } : source);
+  }
+  return [...result.values()];
+}
+
 function isSourceEnabled(source) {
   if (isOutOfRegion(source)) return false;
   // 候補（既定ではオフの情報源）は、オンにしたもの（extraSources）だけが有効
   return source.candidate ? profileDraft.extraSources.includes(source.id) : !profileDraft.excludedSources.includes(source.id);
 }
 
-function renderSourceRow(source) {
+function renderSourceRow(source, context = '') {
+  const professional = typeof context === 'string' && context.startsWith('professional-');
+  const inputId = `source-${source.id}${professional ? `-${context}` : ''}`;
   const enabled = isSourceEnabled(source);
   const outOfRegion = isOutOfRegion(source);
-  const details = [t(source.label) !== t(source.sourceName) ? t(source.label) : '', t(source.subgroup), formatList(source.categories.map(category => t(category))), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count })].filter(Boolean);
+  const details = [t(source.label) !== t(source.sourceName) ? t(professional ? source.sourceName : source.label) : '', t(source.subgroup), formatList(source.categories.map(category => t(category))), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count })].filter(Boolean);
   // 直近の取得に失敗した情報源（発信元のサイトの変更や、アクセスの制限など）
   const failing = !outOfRegion && source.health && !source.health.ok;
   const url = safeUrl(source.sourceUrl);
   return `
     <li class="source-row${enabled ? '' : ' is-off'}">
       <label class="switch">
-        <input id="source-${escapeHtml(source.id)}" type="checkbox" aria-label="${escapeHtml(t('{name}を使う', { name: t(source.label) }))}" data-source="${escapeHtml(source.id)}" ${enabled ? 'checked' : ''} ${outOfRegion ? 'disabled' : ''}>
+        <input id="${escapeHtml(inputId)}" type="checkbox" aria-label="${escapeHtml(t('{name}を使う', { name: t(source.label) }))}" data-source="${escapeHtml(source.id)}" ${enabled ? 'checked' : ''} ${outOfRegion ? 'disabled' : ''}>
         <span class="switch-track" aria-hidden="true"></span>
         <span class="visually-hidden">${escapeHtml(t('{name}を使う', { name: t(source.label) }))}</span>
       </label>
-      <label class="source-meta" for="source-${escapeHtml(source.id)}">
-        <span class="source-name">${escapeHtml(t(source.sourceName))}</span>
+      <label class="source-meta" for="${escapeHtml(inputId)}">
+        <span class="source-name">${escapeHtml(t(professional ? source.label : source.sourceName))}</span>
+        ${professional && !source.pack ? `<span class="source-free-label">${escapeHtml(t('無料の情報源'))}</span>` : ''}
         <span class="source-desc">${details.map(escapeHtml).join(' · ')}</span>
         ${failing ? `<span class="source-error">${escapeHtml(t('取得できていません（発信元のサイトの変更またはアクセス制限）'))}</span>` : ''}
       </label>
@@ -1830,7 +1843,7 @@ function inPrimarySourceCatalog(source) {
 }
 
 function renderSourceGroup(type) {
-  const sources = sourcesDraft
+  const sources = uniqueSources(sourcesDraft)
     .filter(source => source.sourceType === type && inPrimarySourceCatalog(source))
     // 選んだ地域の情報源を先に、対象外の地域の情報源は後ろにまとめる
     .sort((a, b) => Number(isOutOfRegion(a)) - Number(isOutOfRegion(b)) || REGION_ORDER.indexOf(a.subgroup) - REGION_ORDER.indexOf(b.subgroup));
@@ -1883,31 +1896,57 @@ function renderCandidateRegions(sources) {
   }).join('');
 }
 
-function renderWorkflowChoices(packId) {
-  const choices = [...new Map(sourcesDraft.flatMap(source => source.workflows ?? []).filter(workflow => workflow.pack === packId).map(workflow => [workflow.id, workflow])).values()];
-  if (!choices.length) return '';
-  return `<div class="workflow-choices"><h5>${escapeHtml(t('業務別に選ぶ'))}</h5>
-    <p class="settings-note">${escapeHtml(t('選択中の地域の関連情報源を追加します（無料の情報源を含みます）。既存の選択は維持します。'))}</p>
-    <div class="workflow-buttons">${choices.map(workflow => {
-      const eligible = sourcesDraft.filter(source => !isOutOfRegion(source) && source.workflows?.some(value => value.id === workflow.id));
-      const missing = eligible.filter(source => !isSourceEnabled(source));
-      return `<details class="workflow-choice" data-workflow-choice="${escapeHtml(workflow.id)}">
-        <summary>${escapeHtml(t(workflow.name))} <span class="source-count" data-workflow-count>${escapeHtml(t('選択済み {selected}/{total}件', { selected: eligible.filter(isSourceEnabled).length, total: eligible.length }))}</span></summary>
-        ${eligible.length ? `<p class="settings-note">${escapeHtml(t('対象の情報源'))}</p><ul class="workflow-sources">${eligible.map(source => `<li>${escapeHtml(t(source.label))} · ${escapeHtml(t(source.subgroup))}</li>`).join('')}</ul>
-        <button type="button" class="secondary-button" data-action="apply-workflow" data-workflow="${escapeHtml(workflow.id)}" ${missing.length ? '' : 'disabled'}>${escapeHtml(missing.length ? t('未選択の{n}件を追加', { n: missing.length }) : t('すべて選択済み'))}</button>` : `<p class="settings-note">${escapeHtml(t('選択中の地域には対象の情報源がありません。'))}</p><button type="button" class="text-button" data-action="edit-scope">${escapeHtml(t('地域・分野を変更'))}</button>`}
-      </details>`;
-    }).join('')}</div></div>`;
+function professionalGroups(packId) {
+  const sources = uniqueSources(sourcesDraft);
+  const workflows = [...new Map(sources.flatMap(source => source.workflows ?? []).filter(workflow => workflow.pack === packId).map(workflow => [workflow.id, workflow])).values()];
+  const groups = workflows.map(workflow => ({ ...workflow, sources: sources.filter(source => source.workflows?.some(value => value.id === workflow.id)) }));
+  const other = sources.filter(source => source.pack?.id === packId && !source.workflows?.some(workflow => workflow.pack === packId));
+  if (other.length) groups.push({ id: `${packId}-other`, name: 'その他の情報源', pack: packId, sources: other });
+  return groups;
+}
+
+function selectionCount(sources) {
+  const eligible = sources.filter(source => !isOutOfRegion(source));
+  return t('選択済み {selected}/{total}件', { selected: eligible.filter(isSourceEnabled).length, total: eligible.length });
+}
+
+function renderProfessionalGroup(group) {
+  const eligible = group.sources.filter(source => !isOutOfRegion(source));
+  const selected = eligible.filter(isSourceEnabled).length;
+  return `<details class="professional-group" data-workflow-choice="${escapeHtml(group.id)}">
+    <summary><span class="professional-group-name">${escapeHtml(t(group.name))}</span><span class="source-count" data-workflow-count>${escapeHtml(selectionCount(group.sources))}</span></summary>
+    ${eligible.length ? `<div class="professional-group-actions" role="group" aria-label="${escapeHtml(t(group.name))}">
+      <button type="button" class="text-button" data-action="set-workflow" data-workflow="${escapeHtml(group.id)}" data-enabled="true" ${selected === eligible.length ? 'disabled' : ''}>${escapeHtml(t('すべてオン'))}</button>
+      <button type="button" class="text-button" data-action="set-workflow" data-workflow="${escapeHtml(group.id)}" data-enabled="false" ${selected ? '' : 'disabled'}>${escapeHtml(t('すべてオフ'))}</button>
+    </div><ul class="source-list">${eligible.map(source => renderSourceRow(source, `professional-${group.id}`)).join('')}</ul>` : `<div class="professional-group-empty"><p class="settings-note">${escapeHtml(t('選択中の地域には対象の情報源がありません。'))}</p><button type="button" class="text-button" data-action="edit-scope">${escapeHtml(t('地域・分野を変更'))}</button></div>`}
+  </details>`;
+}
+
+function renderProfessionalPacks() {
+  const packs = [...new Map(sourcesDraft.filter(source => source.pack).map(source => [source.pack.id, source.pack])).values()];
+  if (!packs.length) return '';
+  return `<section class="specialist-packs" aria-labelledby="professional-title">
+    <h2 id="professional-title">${escapeHtml(t('専門パック'))}</h2>
+    <p class="settings-note professional-intro">${escapeHtml(t('分野を開いて情報源を選択します。関連する無料の情報源も一緒に選べます。'))}</p>
+    ${packs.map(pack => {
+      const groups = professionalGroups(pack.id);
+      const sources = [...new Map(groups.flatMap(group => group.sources).map(source => [source.id, source])).values()];
+      return `<section class="source-pack" data-pack="${escapeHtml(pack.id)}" aria-labelledby="pack-${escapeHtml(pack.id)}">
+        <header class="source-pack-head"><h3 id="pack-${escapeHtml(pack.id)}">${escapeHtml(t(pack.name))}</h3><span class="source-badge">${escapeHtml(t('正式版では有償（ベータ中は無料）'))}</span>
+        <p class="source-pack-description">${escapeHtml(t(pack.blurb))}</p><span class="source-count" data-pack-count>${escapeHtml(selectionCount(sources))}</span></header>
+        <div class="professional-groups">${groups.map(renderProfessionalGroup).join('')}</div>
+      </section>`;
+    }).join('')}
+  </section>`;
 }
 
 function renderCandidateGroup() {
   const sources = sourcesDraft
-    .filter(source => !inPrimarySourceCatalog(source))
+    .filter(source => !inPrimarySourceCatalog(source) && !source.pack)
     .sort((a, b) => Number(isOutOfRegion(a)) - Number(isOutOfRegion(b)) || REGION_ORDER.indexOf(a.subgroup) - REGION_ORDER.indexOf(b.subgroup));
   if (!sources.length) return '';
   const enabledCount = sources.filter(isSourceEnabled).length;
   const available = sources.filter(source => !isOutOfRegion(source)).length;
-  // 専門パックの情報源は、パックごとに名前・説明・「正式版では有償」の表示をつけて、無償の候補の後ろにまとめる
-  const packs = [...new Map(sources.filter(source => source.pack).map(source => [source.pack.id, source.pack])).values()];
   return `
     <section class="source-group source-candidates" data-candidates>
       <div class="source-group-head">
@@ -1915,28 +1954,14 @@ function renderCandidateGroup() {
       </div>
       <p class="settings-note">${escapeHtml(t('既定ではオフの情報源です。オンにしたものだけ、ニュースに表示します。'))}</p>
       <p class="settings-note">${escapeHtml(t('自治体の情報源は登録済みの地域のみです。所在地から自動選定するものではありません。'))}</p>
-      <div class="additional-source-countries">${renderCandidateRegions(sources.filter(source => !source.pack))}</div>
-      ${packs.length ? `<section class="specialist-packs">
-        <h3 class="specialist-packs-title">${escapeHtml(t('専門パック'))}</h3>
-        <p class="settings-note">${escapeHtml(t('専門分野ごとにまとめた追加情報源です。各パックの国・地域を開いて選択できます。'))}</p>
-      ${packs.map(pack => `
-        <section class="source-pack" data-pack="${escapeHtml(pack.id)}">
-          <div class="source-pack-head">
-            <h4>${escapeHtml(t(pack.name))}</h4>
-            <span class="source-badge">${escapeHtml(t('正式版では有償（ベータ中は無料）'))}</span>
-          </div>
-          <p class="settings-note">${escapeHtml(t(pack.blurb))}</p>
-          ${renderWorkflowChoices(pack.id)}
-          ${renderCandidateRegions(sources.filter(source => source.pack?.id === pack.id))}
-        </section>
-      `).join('')}</section>` : ''}
+      <div class="additional-source-countries">${renderCandidateRegions(sources)}</div>
     </section>
   `;
 }
 
 function sourceSummary() {
   // The denominator is every selectable source, including additions still off.
-  const selectable = sourcesDraft.filter(source => !isOutOfRegion(source));
+  const selectable = uniqueSources(sourcesDraft).filter(source => !isOutOfRegion(source));
   const available = selectable.length;
   const enabled = selectable.filter(isSourceEnabled).length;
   return t('選んだ地域の{available}件中 <strong>{enabled}件</strong>を使用中', { available, enabled, n: enabled });
@@ -1952,6 +1977,7 @@ function renderSourcesPane() {
     <p class="settings-note" data-candidate-empty hidden>${escapeHtml(t('該当する情報源がありません'))}</p>
     ${SOURCE_TYPE_ORDER.map(renderSourceGroup).join('')}
     ${renderCandidateGroup()}
+    ${renderProfessionalPacks()}
   `;
 }
 
@@ -2038,6 +2064,7 @@ function renderSettingsExtras() {
 /** Google ドライブでの同期の項目。クライアント ID が未設定（SivreeSync.available が偽）なら出さない */
 function renderSyncSection() {
   if (!window.SivreeSync?.available) return '';
+  if (window.SivreeSync.blockedOrigin) return `<h2 class="settings-subtitle">${escapeHtml(t('Google ドライブで同期'))}</h2><p class="settings-note">${escapeHtml(t('このアドレスでは Google 同期を使えません。Tailscale の HTTPS URL を使用するか、「設定のコピー／貼り付け」で移してください。'))}</p>`;
   const state = window.SivreeSync.state();
   const button = (action, label) => `<button class="secondary-button" type="button" data-action="${action}">${escapeHtml(t(label))}</button>`;
   const time = (value) => new Date(value).toLocaleString(locale());
@@ -2073,6 +2100,7 @@ async function runSync(operation) {
     return action;
   } catch (error) {
     const reason = error?.message;
+    if (reason === 'oauth-origin') { showToast(t('このアドレスでは Google 同期を使えません。Tailscale の HTTPS URL を使用するか、「設定のコピー／貼り付け」で移してください。')); return; }
     // 利用者が閉じた・もう一度押した場合は、知らせることがない
     if (reason === 'popup_closed' || reason === 'superseded') return;
     if (reason === 'popup' || reason === 'auth') showToast(t('もう一度押すと、Google のログイン画面を開きます。'));
@@ -2190,10 +2218,18 @@ function setSourceEnabled(id, enabled) {
   profileDraft.excludedSources = [...excluded];
 }
 
+function syncSourceControls() {
+  const sources = new Map(sourcesDraft.map(source => [source.id, source]));
+  settingsView.querySelectorAll('[data-source]').forEach(input => {
+    input.checked = isSourceEnabled(sources.get(input.dataset.source));
+    input.closest('.source-row').classList.toggle('is-off', !input.checked);
+  });
+}
+
 // 情報源の件数の表示を、切り替えに合わせて更新する（入力中の位置を保つため全体は描き直さない）
 function refreshSourceCounts() {
   settingsView.querySelectorAll('.source-group[data-type]').forEach((group) => {
-    const sources = sourcesDraft.filter(source => source.sourceType === group.dataset.type && inPrimarySourceCatalog(source) && !isOutOfRegion(source));
+    const sources = uniqueSources(sourcesDraft).filter(source => source.sourceType === group.dataset.type && inPrimarySourceCatalog(source) && !isOutOfRegion(source));
     const enabled = sources.filter(isSourceEnabled).length;
     group.querySelector('.source-group-head .source-count').textContent = `${enabled}/${sources.length}`;
     const button = group.querySelector('[data-action="toggle-group"]');
@@ -2201,21 +2237,25 @@ function refreshSourceCounts() {
   });
   const candidates = settingsView.querySelector('[data-candidates]');
   if (candidates) {
-    candidates.querySelector('.source-group-head .source-count').textContent = candidateCount(sourcesDraft.filter(source => !inPrimarySourceCatalog(source)));
+    candidates.querySelector('.source-group-head .source-count').textContent = candidateCount(sourcesDraft.filter(source => !inPrimarySourceCatalog(source) && !source.pack));
     candidates.querySelectorAll('.candidate-region, .candidate-kind').forEach(group => {
       const rows = [...group.querySelectorAll('[data-source]')];
       group.querySelector('.source-count').textContent = `${rows.filter(input => input.checked && !input.disabled).length}/${rows.filter(input => !input.disabled).length}`;
     });
   }
-  settingsView.querySelectorAll('[data-workflow-choice]').forEach(choice => {
-    const eligible = sourcesDraft.filter(source => !isOutOfRegion(source) && source.workflows?.some(workflow => workflow.id === choice.dataset.workflowChoice));
+  settingsView.querySelectorAll('[data-pack]').forEach(pack => {
+    const groups = professionalGroups(pack.dataset.pack);
+    const sources = [...new Map(groups.flatMap(group => group.sources).map(source => [source.id, source])).values()];
+    pack.querySelector('[data-pack-count]').textContent = selectionCount(sources);
+    pack.querySelectorAll('[data-workflow-choice]').forEach(choice => {
+    const group = groups.find(group => group.id === choice.dataset.workflowChoice);
+    const eligible = group.sources.filter(source => !isOutOfRegion(source));
     const selected = eligible.filter(isSourceEnabled).length;
     choice.querySelector('[data-workflow-count]').textContent = t('選択済み {selected}/{total}件', { selected, total: eligible.length });
-    const button = choice.querySelector('[data-workflow]');
-    if (button) {
-      button.disabled = selected === eligible.length;
-      button.textContent = button.disabled ? t('すべて選択済み') : t('未選択の{n}件を追加', { n: eligible.length - selected });
-    }
+    choice.querySelectorAll('[data-workflow]').forEach(button => {
+      button.disabled = button.dataset.enabled === 'true' ? selected === eligible.length : selected === 0;
+    });
+    });
   });
   const summary = settingsView.querySelector('.source-summary');
   if (summary) summary.innerHTML = sourceSummary();
@@ -2227,11 +2267,11 @@ settingsView.addEventListener('input', event => {
   const query = event.target.value.trim().toLocaleLowerCase(locale());
   candidates.querySelectorAll('.source-row').forEach(row => {
     const source = sourcesDraft.find(source => source.id === row.querySelector('[data-source]').dataset.source);
-    const searchable = [row.textContent, source.sourceName, source.label, source.subgroup, source.pack?.name, ...source.categories].join(' ').toLocaleLowerCase(locale());
+    const searchable = [row.textContent, source.sourceName, source.label, source.subgroup, source.pack?.name, ...(source.workflows ?? []).map(workflow => t(workflow.name)), ...source.categories].join(' ').toLocaleLowerCase(locale());
     row.hidden = Boolean(query) && !searchable.includes(query);
   });
-  candidates.querySelectorAll('.candidate-kind, .candidate-region, .source-pack, .specialist-packs, .source-country, .source-group[data-type]').forEach(group => {
-    group.hidden = ![...group.querySelectorAll('.source-row')].some(row => !row.hidden);
+  candidates.querySelectorAll('.candidate-kind, .candidate-region, .professional-group, .source-pack, .specialist-packs, .source-candidates, .source-country, .source-group[data-type]').forEach(group => {
+    group.hidden = Boolean(query) && ![...group.querySelectorAll('.source-row')].some(row => !row.hidden);
     if (group.matches('details')) {
       if (query && group.dataset.searchWasOpen === undefined) group.dataset.searchWasOpen = String(group.open);
       if (query && !group.hidden) group.open = true;
@@ -2274,7 +2314,7 @@ settingsView.addEventListener('change', (event) => {
   }
   if (event.target.matches('[data-source]')) {
     setSourceEnabled(event.target.dataset.source, event.target.checked);
-    event.target.closest('.source-row').classList.toggle('is-off', !event.target.checked);
+    syncSourceControls();
     refreshSourceCounts();
     return;
   }
@@ -2300,13 +2340,11 @@ settingsView.addEventListener('click', async (event) => {
 
   const workflowId = event.target.closest('[data-workflow]')?.dataset.workflow;
   if (workflowId) {
-    sourcesDraft.filter(source => !isOutOfRegion(source) && source.workflows?.some(workflow => workflow.id === workflowId))
-      .forEach(source => setSourceEnabled(source.id, true));
-    settingsView.querySelectorAll('[data-source]').forEach(input => {
-      const source = sourcesDraft.find(source => source.id === input.dataset.source);
-      input.checked = isSourceEnabled(source);
-      input.closest('.source-row').classList.toggle('is-off', !input.checked);
-    });
+    const packId = event.target.closest('[data-pack]').dataset.pack;
+    const group = professionalGroups(packId).find(group => group.id === workflowId);
+    const enabled = event.target.closest('[data-workflow]').dataset.enabled === 'true';
+    group.sources.filter(source => !isOutOfRegion(source)).forEach(source => setSourceEnabled(source.id, enabled));
+    syncSourceControls();
     refreshSourceCounts();
     return;
   }
@@ -2319,10 +2357,7 @@ settingsView.addEventListener('click', async (event) => {
     const sources = sourcesDraft.filter(source => source.sourceType === event.target.closest('[data-type]').dataset.type && inPrimarySourceCatalog(source) && !isOutOfRegion(source));
     const turnOn = !sources.some(isSourceEnabled);
     sources.forEach(source => setSourceEnabled(source.id, turnOn));
-    settingsView.querySelectorAll('[data-source]').forEach(input => {
-      input.checked = isSourceEnabled(sourcesDraft.find(source => source.id === input.dataset.source));
-      input.closest('.source-row').classList.toggle('is-off', !input.checked);
-    });
+    syncSourceControls();
     refreshSourceCounts();
   } else if (action === 'add-topic') {
     collectSettings();

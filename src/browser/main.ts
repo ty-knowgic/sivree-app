@@ -13,6 +13,8 @@ import { createScorer, decodeVector, itemVectors, setStaticSimilarities, textKey
 
 const PROFILE_KEY = 'sivry.profile.v1';
 const PROFILE_UPDATED_KEY = 'sivry.profile.updatedAt';
+declare const __SIVREE_PREVIEW__: boolean;
+const LOCAL_PREVIEW = typeof __SIVREE_PREVIEW__ !== 'undefined' && __SIVREE_PREVIEW__;
 
 interface Meta {
   schema?: number;
@@ -111,7 +113,7 @@ async function checkUpdates() {
     const next = await download(meta);
     pending = next;
     // Persist for the next launch without changing the active browsing session.
-    await snapshotStore(next);
+    if (!LOCAL_PREVIEW) await snapshotStore(next);
     window.dispatchEvent(new Event('sivree:update-available'));
   })();
   try { await checking; } finally { checking = null; }
@@ -124,11 +126,11 @@ window.addEventListener('sivree:reload-data', () => {
 
 function load(): Promise<StaticData> {
   loading ??= (async () => {
-    const cached = await snapshotStore();
+    const cached = LOCAL_PREVIEW ? null : await snapshotStore();
     const data = cached && Array.isArray(cached.items) && cached.summaries instanceof Map && cached.sourceIds instanceof Map
       ? cached : await download(await getJson<Meta>('meta'));
     activate(data);
-    if (!cached) void snapshotStore(data);
+    if (!cached && !LOCAL_PREVIEW) void snapshotStore(data);
     setTimeout(() => { void checkUpdates().catch(() => {}); }, 1000);
     return data;
   })();
@@ -208,6 +210,7 @@ async function handle(url: URL, method: string, request: Request): Promise<Respo
       method: 'extractive',
       semantic: { enabled: Boolean(meta.model), model: meta.model, available: Boolean(meta.model), embeddedCount: meta.analysisReady ? active!.items.length : itemVectors.size, threshold: meta.threshold, error: null },
       static: true,
+      localPreview: LOCAL_PREVIEW,
       generatedAt: meta.generatedAt
     });
   }

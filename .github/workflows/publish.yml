@@ -34,6 +34,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run test:robots
+      - run: npm run test:operations
       - run: npm run check:locales
 
       # コードに書いた文言と、情報源の名前・説明が、すべて辞書にあることを確かめる
@@ -62,6 +65,7 @@ jobs:
       - run: npm run test:professional
       - run: npm run test:shell
       - run: npm run test:sources-ux
+      - run: npm run test:preview
 
       # フィード取得の取り直し・同時取得数の上限と、同じ記事の重複のまとめを確かめる
       - run: npm run test:feeds

@@ -32,7 +32,7 @@ const frozenUrls = new Set((JSON.parse(await readFile(path.join(repo, 'scripts/f
 const addedLater = [...new Set(officialFeeds.filter(feed => !frozenUrls.has(feed.feedUrl)).map(feed => sourceId(feed.feedUrl)))];
 const candidateCount = ids.length + addedLater.length;
 const promotedCount = listSources().filter(source => source.candidate && !source.pack && source.sourceType === 'official' && ['national', 'international'].includes(source.level ?? '')).length;
-const additionalCount = candidateCount - promotedCount;
+const additionalCount = listSources().filter(source => source.candidate && !source.pack && !(source.sourceType === 'official' && ['national', 'international'].includes(source.level ?? ''))).length;
 const today = new Date().toISOString().slice(0, 10);
 
 /** 候補の仕組みの前の形（新しい項目がない）の設定 */
@@ -259,13 +259,14 @@ const openSources = async (w: any) => {
   check('設定の「情報源」に「候補」の節が出る', await openSources(w));
   const rows = $$(w, '[data-candidates] [data-source]') as HTMLInputElement[];
   check('追加情報源に移行した5件を残し、国の機関は政府一覧へ集約する', rows.length === additionalCount && rows.every(row => row.checked === ids.includes(row.getAttribute('data-source')!)), rows.map(row => row.checked));
-  check('表示場所を移した国の機関を追加欄に重複させず、全件を維持する', $$(w, '[data-source]').length === sources.length && sources.filter(source => source.candidate && !source.pack && source.sourceType === 'official' && ['national', 'international'].includes(source.level ?? '')).every(source => $(w, `.source-group[data-type="official"] [data-source="${source.id}"]`) && !$(w, `[data-candidates] [data-source="${source.id}"]`)));
+  check('表示場所を移した国の機関を追加欄に重複させず、全件を維持する', new Set($$(w, '[data-source]').map(input => input.getAttribute('data-source'))).size === new Set(sources.map(source => source.id)).size && sources.filter(source => source.candidate && !source.pack && source.sourceType === 'official' && ['national', 'international'].includes(source.level ?? '')).every(source => $(w, `.source-group[data-type="official"] [data-source="${source.id}"]`) && !$(w, `[data-candidates] [data-source="${source.id}"]`)));
   check('追加情報源の見出しに選択数が出る', $(w, '[data-candidates] .source-count')?.textContent === `5/${additionalCount}`);
-  const packs = $$(w, '[data-candidates] .source-pack');
-  check('専門パックは、名前・「正式版では有償」の表示・説明つきで、候補の中にパックごとにまとまる',
+  const packs = $$(w, '.specialist-packs .source-pack');
+  check('専門パックは独立した節に、名前・利用料・説明と直接選択できる情報源を持つ',
     packs.map(pack => pack.getAttribute('data-pack')).join() === 'legal,finance'
-    && packs.every(pack => pack.querySelector('h4')?.textContent && pack.querySelector('.source-badge')?.textContent === '正式版では有償（ベータ中は無料）' && pack.querySelector('.settings-note')?.textContent)
-    && $$(w, '[data-candidates] .source-pack [data-source]').length === listSources().filter(source => source.pack).length,
+    && packs.every(pack => pack.querySelector('h3')?.textContent && pack.querySelector('.source-badge')?.textContent === '正式版では有償（ベータ中は無料）' && pack.querySelector('.source-pack-description')?.textContent)
+    && listSources().filter(source => source.pack).every(source => $(w, `[data-pack="${source.pack!.id}"] .professional-group [data-source="${source.id}"]`))
+    && $(w, '[data-candidates] .source-pack') === null,
     packs.map(pack => pack.textContent?.replace(/\s+/g, ' ').slice(0, 80)));
   check('移行した5件は、パックの外（無償の候補）に並ぶ', ids.every(id => !$(w, `[data-candidates] .source-pack [data-source="${id}"]`) && $(w, `[data-candidates] [data-source="${id}"]`)));
   check('説明文が出る', $(w, '[data-candidates] .settings-note')?.textContent?.includes('既定ではオフ') === true);

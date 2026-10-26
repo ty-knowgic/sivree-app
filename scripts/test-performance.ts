@@ -52,7 +52,7 @@ let stored: unknown;
 let generation = 1;
 let offline = false;
 const calls: string[] = [];
-function open() {
+function open(code = bundle.outputFiles[0].text) {
   const dom = new JSDOM('<!doctype html>', { url: 'https://example.test/', runScripts: 'outside-only' });
   const w = dom.window;
   (w as any).structuredClone = (value: unknown) => JSON.parse(JSON.stringify(value));
@@ -77,7 +77,7 @@ function open() {
     const data: Record<string, unknown> = { 'meta.json': { schema: 2, analysisReady: true, generatedAt: `generation-${generation}`, model: 'test', threshold: .65, topicVectors: {} }, 'news.json': items.map(x => ({ ...x, title: `${generation}-${x.title}` })), 'sources.json': [], 'summaries.json': {}, 'analysis.json': analysis };
     return new Response(JSON.stringify(data[name]));
   }) as any;
-  w.eval(bundle.outputFiles[0].text);
+  w.eval(code);
   return w;
 }
 const json = async (w: any, path: string) => { const r = await w.fetch(path); assert.equal(r.status, 200); return r.json(); };
@@ -113,4 +113,15 @@ p.hiddenItems = [items[0].id];
 assert.equal((await w.fetch('/api/profile', { method: 'PUT', body: JSON.stringify(p) })).status, 200);
 assert(!(await json(w, '/api/news?limit=30')).some((x: any) => x.id === items[0].id));
 console.log('✓ Offline relaunch restores snapshot without network; current hidden-item settings still apply');
+w.close();
+
+const previewBundle = await build({ entryPoints: ['src/browser/main.ts'], bundle: true, format: 'iife', platform: 'browser', write: false, define: { __SIVREE_PREVIEW__: 'true' } });
+offline = false; generation = 3;
+const beforePreview = calls.length, cachedBeforePreview = stored;
+w = open(previewBundle.outputFiles[0].text);
+assert((await json(w, '/api/news?limit=2')).every((x: any) => x.title.startsWith('3-')));
+assert(calls.slice(beforePreview).includes('news.json'));
+assert.equal((await json(w, '/api/config')).localPreview, true);
+assert.equal(stored, cachedBeforePreview);
+console.log('✓ Development preview bypasses the old article snapshot and leaves the cache intact');
 w.close();

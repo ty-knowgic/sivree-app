@@ -113,12 +113,12 @@ const sources = [source('economy', ['経済', 'テクノロジー']), source('te
 saved = { ...saved, regions: ['日本', 'カナダ'], extraSources: ['economy'], candidatesSeenAt: '', savedItems: [] };
 w.settingsFixture(saved, sources);
 const settings = w.document.getElementById('settingsView');
-check('候補は国・地域でまとまり、情報源が重複しない', settings.querySelectorAll('.candidate-region').length === 4 && settings.querySelectorAll('[data-source="economy"]').length === 1);
+check('追加情報源は国・地域でまとまり、情報源が重複しない', settings.querySelectorAll('.candidate-region').length === 3 && settings.querySelectorAll('[data-source="economy"]').length === 1);
 check('有効な候補の国は開き、対象外の国の候補は選べない', settings.querySelector('[data-candidate-region="日本"]').open && settings.querySelector('[data-source="outside"]').disabled);
 check('ウォータールー市はカナダの自治体・オンタリオ州にある', settings.querySelector('[data-source="waterloo"]').closest('[data-candidate-region]').dataset.candidateRegion === 'カナダ' && settings.querySelector('[data-source="waterloo"]').closest('[data-candidate-kind]').dataset.candidateKind === 'local' && settings.querySelector('[data-source="waterloo"]').closest('section').textContent.includes('オンタリオ州'));
 check('国交省は他の省庁と同じ政府一覧・日本に置き、初期オフを維持する', settings.querySelector('[data-source="mlit"]').closest('[data-type]').dataset.type === 'official' && settings.querySelector('[data-source="mlit"]').closest('.source-country').textContent.includes('日本') && !settings.querySelector('[data-source="mlit"]').checked);
-check('追加情報源と専門パックの階層を明示する', settings.querySelector('[data-candidates] h2').textContent.includes('追加情報源') && settings.querySelector('.specialist-packs > h3').textContent === '専門パック' && settings.querySelector('[data-pack] .source-pack-head h4'));
-check('専門パックの説明・区分を維持する', settings.querySelector('[data-pack="test"] .candidate-region [data-source="specialist"]') !== null);
+check('追加情報源と専門パックを同じ階層に置く', settings.querySelector('[data-candidates] h2').textContent.includes('追加情報源') && settings.querySelector('.specialist-packs > h2').textContent === '専門パック' && settings.querySelector('[data-pack] .source-pack-head h3') && settings.querySelector('[data-candidates]').parentElement === settings.querySelector('.specialist-packs').parentElement);
+check('専門パックは分野内で直接情報源を選択できる', settings.querySelector('[data-pack="test"] .professional-group [data-source="specialist"]') !== null);
 const technology = settings.querySelector('[data-source="technology"]');
 technology.checked = true;
 technology.dispatchEvent(new w.Event('change', { bubbles: true }));

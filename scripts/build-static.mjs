@@ -6,7 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const site = path.join(root, 'site');
+const site = process.env.SIVREE_SITE_DIR ? path.resolve(process.env.SIVREE_SITE_DIR) : path.join(root, 'site');
+const developmentPreview = process.env.SIVREE_PREVIEW_MODE === 'development';
 
 // data/ は残して、画面とスクリプトだけ作り直す
 await mkdir(path.join(site, 'data'), { recursive: true });
@@ -19,6 +20,7 @@ await build({
   target: 'es2020',
   platform: 'browser',
   minify: true,
+  define: { __SIVREE_PREVIEW__: JSON.stringify(developmentPreview) },
   logLevel: 'info'
 });
 
@@ -26,7 +28,7 @@ const indexPath = path.join(site, 'index.html');
 const html = await readFile(indexPath, 'utf8');
 if (!html.includes('<script src="app.js">')) throw new Error('index.html に app.js の読み込みが見つかりません');
 // ブラウザが古い app.js と新しい static-api.js のように混ぜて使わないよう、配信ごとに変わる版をファイルの URL に付ける
-const version = (process.env.GITHUB_SHA ?? String(Date.now())).slice(0, 10);
+const version = (process.env.SIVREE_ASSET_VERSION ?? process.env.GITHUB_SHA)?.slice(0, 10) ?? Date.now().toString(36);
 const versioned = html
   .replace('<script src="app.js">', '<script src="static-api.js"></script>\n    <script src="app.js">')
   .replace(/(<script src="(?:i18n|saved|sync|static-api|app)\.js)"/g, `$1?v=${version}"`)
@@ -38,4 +40,4 @@ const worker = (await readFile(path.join(root, 'public/sw.js'), 'utf8'))
   .replace('__SIVREE_SHELL_VERSION__', version)
   .replace('const SHELL_FILES = [];', `const SHELL_FILES = ${JSON.stringify(shellFiles)};`);
 await writeFile(path.join(site, 'sw.js'), worker);
-console.log('site/ を作成しました');
+console.log(`静的サイトを作成しました: ${site}`);

@@ -9,7 +9,7 @@ import { bulletinLinks, readBulletin } from './irsBulletins.js';
 import { workflowsOf } from './feeds/workflows.js';
 import { readHtmlList } from './htmlList.js';
 import { filterNews } from './newsFilters.js';
-import { isAllowedByRobots, USER_AGENT } from './robots.js';
+import { checkRobots, isAllowedByRobots, USER_AGENT } from './robots.js';
 import { cleanFeedText, decodeEntities } from './text.js';
 import { CATEGORIES, SOURCE_TYPES, SUBGROUPS } from './types.js';
 import { officialFeeds } from './feeds/index.js';
@@ -330,6 +330,8 @@ function itemDate(item: { isoDate?: string; pubDate?: string; updatedAt?: string
 
 /** 情報源ごとの直近の取得結果（設定画面と品質チェックで、取得できていない情報源を見つけるため） */
 export interface FeedHealth {
+  /** robots禁止と、取得不能で確認できない状態を区別する。旧スナップショットでは省略。 */
+  robots?: Awaited<ReturnType<typeof checkRobots>>;
   checkedAt: string;
   ok: boolean;
   /** フィードに載っていた記事数（取り込み対象外のものを含む） */
@@ -415,9 +417,11 @@ async function parseFeedText(text: string) {
 export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
   try {
     // 記事ページと同じく、フィードも robots.txt に従う（禁止されている、または robots.txt を確認できないときは取得しない）
-    if (!(await isAllowedByRobots(source.feedUrl))) {
-      console.warn(`[feed] ${source.sourceName}: robots.txt が許可しない、または確認できないため取得しません`);
-      recordHealth(source, { ok: false, entries: 0, imported: 0, error: 'robots.txt: disallowed or unavailable' });
+    const robots = await checkRobots(source.feedUrl);
+    if (!robots.allowed) {
+      const error = `robots.txt: ${robots.reason}${robots.status === undefined ? '' : ` (HTTP ${robots.status})`}`;
+      console.warn(`[feed] ${source.sourceName}: ${error}`);
+      recordHealth(source, { ok: false, entries: 0, imported: 0, error, robots });
       return [];
     }
     const response = await fetchWithRetry(source.feedUrl);
