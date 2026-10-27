@@ -390,6 +390,64 @@ const openSources = async (w: any) => {
   w.close();
 }
 
+// ---------- 5. 「関心がない…」の項目を足す前の設定 ----------
+// トピックごとの除外キーワード（excludeKeywords）と調整の記録（adjustments）はあとから足した項目。
+// 足す前に保存された設定が、そのまま使えること。古い画面が保存して項目が落ちても、設定と記事が壊れないこと。
+{
+  const topic = (extra: object = {}) => ({ id: 'all', label: '全部', enabled: true, keywords: ['発表'], alsoRequires: [], alsoRequiresRegions: [], regions: [], sourceTypes: [], sources: [], boostOnly: false, weight: 1, ...extra });
+  const forYou = async (w: any) => (await api(w, '/api/news?forYou=1&limit=200')).body.map((entry: any) => entry.id as string).sort();
+  const put = (w: any, body: object) => api(w, '/api/profile', { method: 'PUT', body: JSON.stringify(body) });
+  const target = itemOfSource('総務省');
+  const sameSource = (id: string) => items.find(entry => entry.id === id)!.sourceName === '総務省';
+
+  const w = await browser({ 'sivry.profile.v1': JSON.stringify(legacy({ topics: [topic()] })) });
+  const profile = (await api(w, '/api/profile')).body;
+  check('足す前の設定: 調整の記録は空で、トピックに除外キーワードは付かない', Array.isArray(profile.adjustments) && profile.adjustments.length === 0 && !('excludeKeywords' in profile.topics[0]), profile.topics[0]);
+  const shown = await forYou(w);
+  check('足す前の設定: マイニュースの記事は、キーワードに一致したものが出る', shown.length > 1 && shown.includes(target.id), shown.length);
+
+  check('空の除外キーワード・空の記録を明示しても、表示は変わらない', (await put(w, { ...profile, topics: [topic({ excludeKeywords: [] })], adjustments: [] })).status === 200 && JSON.stringify(await forYou(w)) === JSON.stringify(shown));
+
+  const entry = { id: 'a1b2c3d4', at: '2026-10-27T00:00:00.000Z', kind: 'exclude', topicId: 'all', topicLabel: '全部', keyword: '総務省', title: '総務省の発表' };
+  const saved = await put(w, { ...profile, topics: [topic({ excludeKeywords: ['総務省'] })], adjustments: [entry] });
+  const excluded = await forYou(w);
+  check('除外キーワードと調整の記録が保存され、読み直しても残る', saved.status === 200 && stored(w).topics[0].excludeKeywords.join() === '総務省' && stored(w).adjustments.length === 1 && (await api(w, '/api/profile')).body.adjustments[0].id === entry.id);
+  check('除外した語を含む記事だけが、マイニュースから消える（ほかの記事は変わらない）', JSON.stringify(excluded) === JSON.stringify(shown.filter(id => !sameSource(id))), `${excluded.length} / ${shown.length}`);
+  check('「関心がない…」の保存は、情報源と記事の一覧（マイニュース以外）に影響しない', JSON.stringify(await visibleIds(w)) === JSON.stringify(await visibleIds(await browser({ 'sivry.profile.v1': JSON.stringify(legacy({ topics: [topic()] })) }))));
+
+  await put(w, { ...(await api(w, '/api/profile')).body, topics: [topic({ excludeKeywords: [] })], adjustments: [] });
+  check('取り消す（キーワードと記録を外す）と、記事は元どおり戻る', JSON.stringify(await forYou(w)) === JSON.stringify(shown));
+
+  // 古い画面（キャッシュされた古い app.js）が設定を保存すると、新しい項目は落ちる。読み込めて、ほかは変わらないこと
+  await put(w, { ...(await api(w, '/api/profile')).body, topics: [topic({ excludeKeywords: ['総務省'] })], adjustments: [entry], name: 'kept' });
+  const { adjustments, ...withoutRecords } = stored(w);
+  const oldPage = { ...withoutRecords, topics: stored(w).topics.map(({ excludeKeywords, ...rest }: any) => rest) };
+  const w2 = await browser({ 'sivry.profile.v1': JSON.stringify(oldPage) });
+  const after = (await api(w2, '/api/profile')).body;
+  check('古い画面が保存して項目が落ちても読み込める（記録は空、ほかの設定は残る）', after.name === 'kept' && after.adjustments.length === 0 && after.topics.length === 1 && after.sourcesVersion === 1, after);
+  check('古い画面が保存したあと: 落ちた除外が効かなくなるだけで、ほかの記事は変わらない', JSON.stringify(await forYou(w2)) === JSON.stringify(shown));
+
+  // 貼り付け・ドライブ同期は PUT /api/profile を通るので、形式の検証もここで効く
+  const base = (await api(w, '/api/profile')).body;
+  const rejected = [
+    ['記録の id が不正', { ...base, adjustments: [{ ...entry, id: 'BAD ID' }] }],
+    ['記録が 61 件', { ...base, adjustments: Array.from({ length: 61 }, (_, index) => ({ ...entry, id: `e${String(index).padStart(7, '0')}` })) }],
+    ['記録の種類が不正', { ...base, adjustments: [{ ...entry, kind: 'delete' }] }],
+    ['除外キーワードが 41 件', { ...base, topics: [topic({ excludeKeywords: Array.from({ length: 41 }, (_, index) => `w${index}`) })] }],
+    ['除外キーワードが空の文字列', { ...base, topics: [topic({ excludeKeywords: [''] })] }],
+    ['除外キーワードが 61 文字', { ...base, topics: [topic({ excludeKeywords: ['x'.repeat(61)] })] }]
+  ] as const;
+  for (const [label, body] of rejected) check(`形式が正しくない設定は保存しない: ${label}`, (await put(w, body)).status === 400);
+  const limit = await put(w, { ...base, topics: [topic({ excludeKeywords: Array.from({ length: 40 }, (_, index) => `w${index}`) })], adjustments: Array.from({ length: 60 }, (_, index) => ({ ...entry, id: `e${String(index).padStart(7, '0')}` })) });
+  check('上限ちょうど（除外キーワード 40 件・記録 60 件）は保存できる', limit.status === 200 && limit.body.adjustments.length === 60);
+
+  // 初期設定に戻すと、調整の記録も除外キーワードも消える
+  const reset = await api(w, '/api/profile/reset', { method: 'POST' });
+  check('初期設定に戻すと、調整の記録と除外キーワードも初期化される', reset.status === 200 && reset.body.adjustments.length === 0 && reset.body.topics.every((entry: any) => !entry.excludeKeywords?.length), reset.body.adjustments);
+  w.close();
+  w2.close();
+}
+
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);
   process.exit(1);

@@ -121,7 +121,8 @@ const ICONS = {
   quote: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h4v4H8a1 1 0 0 0-1 1v4"/><path d="M15 7h4v4h-3a1 1 0 0 0-1 1v4"/></svg>',
   stack: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg>',
   bookmark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>',
-  external: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'
+  external: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></svg>'
 };
 
 // ---------- 共通 ----------
@@ -604,6 +605,7 @@ function renderHero(item) {
   const category = primaryCategory(item);
   const summary = item.ai?.summary || item.summary;
   return `
+    <div class="hero-wrap">
     <a class="hero" href="#/article/${encodeURIComponent(item.id)}" data-id="${escapeHtml(item.id)}" data-cat="${escapeHtml(category)}">
       <img src="${escapeHtml(articleImage(item))}" alt="" referrerpolicy="no-referrer" data-fallback="hero">
       <div class="hero-body">
@@ -613,7 +615,16 @@ function renderHero(item) {
         <div class="hero-meta">${escapeHtml(t(item.sourceName))} · ${escapeHtml(formatRelative(item.publishedAt))}${item.matches?.length ? ` · ${escapeHtml(formatList(item.matches.map(m => t(m.label))))}` : ''}</div>
       </div>
     </a>
+    ${interestButton(item, 'is-on-image')}
+    </div>
   `;
+}
+
+/** 記事の「関心がない…」を開くボタン（サンプル記事には出さない） */
+function interestButton(item, extraClass = '') {
+  if (item.isSample) return '';
+  const label = t('関心がない…');
+  return `<button class="interest-button${extraClass ? ` ${extraClass}` : ''}" type="button" data-action="interest-menu" data-id="${escapeHtml(item.id)}" aria-haspopup="dialog" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${ICONS.more}</button>`;
 }
 
 /**
@@ -655,7 +666,9 @@ function renderCard(item) {
     ? `<img class="thumb" src="${escapeHtml(image)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallback="thumb" data-initials="${escapeHtml(sourceInitials(t(item.sourceName)))}">`
     : `<div class="thumb-placeholder" aria-hidden="true">${escapeHtml(sourceInitials(t(item.sourceName)))}</div>`;
 
+  // 「関心がない…」のボタンはリンクの外に置く（リンクの中にボタンは置けず、押すと記事が開いてしまう）
   return `
+    <div class="card-wrap">
     <a class="card" href="#/article/${encodeURIComponent(item.id)}" data-id="${escapeHtml(item.id)}" data-cat="${escapeHtml(category)}">
       <div class="card-body">
         <div class="card-meta">
@@ -677,6 +690,8 @@ function renderCard(item) {
       </div>
       ${media}
     </a>
+    ${interestButton(item)}
+    </div>
   `;
 }
 
@@ -927,6 +942,11 @@ searchToggle.addEventListener('click', () => {
 });
 
 newsList.addEventListener('click', (event) => {
+  const interest = event.target.closest('[data-action="interest-menu"]');
+  if (interest) {
+    openInterestSheet(itemsById.get(interest.dataset.id), interest);
+    return;
+  }
   if (event.target.closest('.card, .hero, .briefing-item')) {
     listScrollY = window.scrollY;
     openedFromList = true;
@@ -1079,6 +1099,7 @@ function renderDetail() {
     </div>
     ${item.isSample ? '' : `
       <div class="detail-actions">
+        <button class="secondary-button" type="button" data-action="interest-menu" data-id="${escapeHtml(item.id)}" aria-haspopup="dialog">${escapeHtml(t('関心がない…'))}</button>
         <button class="secondary-button" type="button" data-action="hide-article">${escapeHtml(t('この記事を非表示'))}</button>
         <button class="secondary-button" type="button" data-action="follow-source">${escapeHtml(t('{source}をマイニュースに追加', { source: t(item.sourceName) }))}</button>
         <button class="secondary-button" type="button" data-action="mute-source">${escapeHtml(t('{source}をオフにする', { source: t(item.sourceName) }))}</button>
@@ -1235,19 +1256,32 @@ function leaveDetail() {
   if (openedFromList) history.back(); else location.hash = '#/';
 }
 
-/** 詳細画面の「非表示」「発信元を追加」「発信元をオフ」。保存はこの端末のプロフィールに行う */
-async function articleAction(action) {
-  const item = currentDetail?.item;
+/**
+ * 記事の扱いを変えたあとの一覧の取り直し。詳細画面からは一覧へ戻る。
+ * 一覧からのときは、見ていた位置を保つ（先頭に戻すと、読み進めた記事を見失う）
+ */
+async function settleList(fromDetail) {
+  if (fromDetail) {
+    state.items = [];
+    leaveDetail();
+    refreshNews();
+    return;
+  }
+  const scrollY = window.scrollY;
+  try { await refreshNews(true); } catch { /* 取り直せなくても、表示中の一覧はそのまま */ }
+  window.scrollTo(0, scrollY);
+}
+
+/** 記事の「非表示」「発信元を追加」「発信元をオフ」。詳細画面と、一覧の「関心がない…」から使う。保存はこの端末のプロフィールに行う */
+async function articleAction(action, item = currentDetail?.item, fromDetail = Boolean(currentDetail)) {
   if (!item) return;
   try {
     if (action === 'hide-article') {
       await updateProfile(profile => ({ ...profile, hiddenItems: [...(profile.hiddenItems ?? []).filter(id => id !== item.id), item.id].slice(-HIDDEN_LIMIT) }));
-      state.items = [];
-      leaveDetail();
-      refreshNews();
+      settleList(fromDetail);
       showToast(t('非表示にしました'), {
         label: t('元に戻す'),
-        run: () => updateProfile(profile => ({ ...profile, hiddenItems: (profile.hiddenItems ?? []).filter(id => id !== item.id) })).then(refreshNews).catch(() => showToast(t('保存できませんでした')))
+        run: () => updateProfile(profile => ({ ...profile, hiddenItems: (profile.hiddenItems ?? []).filter(id => id !== item.id) })).then(() => settleList(false)).catch(() => showToast(t('保存できませんでした')))
       });
     } else if (action === 'follow-source') {
       let added = true;
@@ -1271,18 +1305,244 @@ async function articleAction(action) {
         extraSources: source.candidate ? (profile.extraSources ?? []).filter(id => id !== source.id) : profile.extraSources,
         excludedSources: [...new Set([...profile.excludedSources, source.id])]
       }));
-      state.items = [];
-      leaveDetail();
-      refreshNews();
-      showToast(t('{source}をオフにしました。設定の「情報源」でオンに戻せます。', { source: t(item.sourceName) }));
+      settleList(fromDetail);
+      showToast(t('{source}をオフにしました。設定の「情報源」でオンに戻せます。', { source: t(item.sourceName) }), {
+        label: t('元に戻す'),
+        run: () => updateProfile(profile => ({
+          ...profile,
+          extraSources: source.candidate ? [...new Set([...(profile.extraSources ?? []), source.id])] : profile.extraSources,
+          excludedSources: profile.excludedSources.filter(id => id !== source.id)
+        })).then(() => settleList(false)).catch(() => showToast(t('保存できませんでした')))
+      });
     }
   } catch {
     showToast(t('保存できませんでした'));
   }
 }
 
+// ---------- 「関心がない…」 ----------
+// 記事ごとに、トピックの優先度を下げる・除外キーワードを足す・発信元をオフにする・この記事だけを隠す、の4つから選ぶ。
+// 変更は端末のプロフィールに保存し、前の2つは設定の「関心トピック」にある「関心の調整」から元に戻せる（処理は interest.js）
+
+let interestSheet = null;
+
+const weightLabel = weight => t(WEIGHT_OPTIONS.find(option => option.value === SivreeInterest.nearestStep(weight)).label);
+
+/** この記事に一致したトピック（一致の強い順）のうち、いまのプロフィールにあるもの */
+function interestTopics(sheet) {
+  const byId = new Map(sheet.profile.topics.map(topic => [topic.id, topic]));
+  return [...(sheet.item.matches ?? [])].sort((a, b) => b.strength - a.strength).map(match => byId.get(match.id)).filter(Boolean);
+}
+
+let interestOpening = false;
+
+async function openInterestSheet(item, trigger) {
+  if (!window.SivreeInterest || !item || interestSheet || interestOpening) return;
+  interestOpening = true;
+  let profile;
+  try {
+    profile = await fetch('/api/profile').then(response => { if (!response.ok) throw new Error('profile-read'); return response.json(); });
+  } catch {
+    showToast(t('設定を読み込めませんでした'));
+    return;
+  } finally {
+    interestOpening = false;
+  }
+  interestSheet = { item, profile, step: 'menu', topicId: '', error: '', draft: '', trigger, fromDetail: !detailView.hidden && currentDetail?.id === item.id };
+  const root = document.createElement('div');
+  root.id = 'interestSheet';
+  root.className = 'sheet-backdrop';
+  root.addEventListener('click', handleInterestClick);
+  root.addEventListener('submit', handleInterestSubmit);
+  document.body.appendChild(root);
+  document.body.classList.add('has-sheet');
+  renderInterestSheet();
+}
+
+function closeInterestSheet(restoreFocus = true) {
+  const trigger = interestSheet?.trigger;
+  interestSheet = null;
+  document.getElementById('interestSheet')?.remove();
+  document.body.classList.remove('has-sheet');
+  if (restoreFocus && trigger?.isConnected) trigger.focus();
+}
+
+function interestOption(action, title, description, { topic = '', disabled = false } = {}) {
+  return `<button class="sheet-option" type="button" data-sheet="${action}"${topic ? ` data-topic="${escapeHtml(topic)}"` : ''}${disabled ? ' disabled' : ''}>
+    <strong>${escapeHtml(title)}</strong><small>${escapeHtml(description)}</small>
+  </button>`;
+}
+
+function renderInterestSheet() {
+  const sheet = interestSheet;
+  const root = document.getElementById('interestSheet');
+  if (!sheet || !root) return;
+  const topics = interestTopics(sheet);
+  const lowerable = topics.filter(topic => SivreeInterest.lowerStep(topic.weight) !== null);
+  const lowerText = (topic) => t('優先度: {from} → {to}', { from: weightLabel(topic.weight), to: weightLabel(SivreeInterest.lowerStep(topic.weight)) });
+  const lowerSummary = (topic) => t('{topic}の優先度: {from} → {to}', { topic: t(topic.label), from: weightLabel(topic.weight), to: weightLabel(SivreeInterest.lowerStep(topic.weight)) });
+  const topicButtons = (action, list, describe) => list.map(topic => interestOption(action, t(topic.label), describe(topic), { topic: topic.id })).join('');
+  const back = `<button class="secondary-button sheet-back" type="button" data-sheet="back">${escapeHtml(t('戻る'))}</button>`;
+  let title = t('この記事に関心がない');
+  let body;
+
+  if (sheet.step === 'weight') {
+    title = t('優先度を下げるトピック');
+    body = `${topicButtons('lower', lowerable, lowerText)}<div class="sheet-actions">${back}</div>`;
+  } else if (sheet.step === 'pick') {
+    title = t('除外キーワードを足すトピック');
+    body = `${topicButtons('exclude', topics, topic => t('選んだ語を含む記事は、「{topic}」には一致しなくなります。', { topic: t(topic.label) }))}<div class="sheet-actions">${back}</div>`;
+  } else if (sheet.step === 'keyword') {
+    const topic = topics.find(entry => entry.id === sheet.topicId);
+    title = t('除外キーワードを足す');
+    const words = SivreeInterest.suggestWords([sheet.item.title, sheet.item.ai?.headlineJa]);
+    body = `
+      <form class="sheet-form" data-sheet-form>
+        <label class="field">
+          <span>${escapeHtml(t('「{topic}」から除く語', { topic: t(topic?.label ?? '') }))}</span>
+          <input type="text" name="keyword" value="${escapeHtml(sheet.draft ?? '')}" maxlength="${SivreeInterest.KEYWORD_MAX}" autocomplete="off" autocapitalize="off" spellcheck="false" data-sheet-focus>
+        </label>
+        ${words.length ? `<div class="sheet-words" role="group" aria-label="${escapeHtml(t('見出しの語'))}">${words.map(word => `<button class="sheet-word" type="button" data-sheet-word="${escapeHtml(word)}">${escapeHtml(word)}</button>`).join('')}</div>` : ''}
+        <p class="sheet-hint">${escapeHtml(t('見出しの語を選ぶか、入力します。この語を含む記事は、このトピックには一致しなくなります。'))}</p>
+        ${sheet.error ? `<p class="sheet-error" role="alert">${escapeHtml(sheet.error)}</p>` : ''}
+        <div class="sheet-actions">${back}<button class="primary-action" type="submit">${escapeHtml(t('追加'))}</button></div>
+      </form>`;
+  } else {
+    const reason = !topics.length ? t('この記事は、どの関心トピックにも一致していません。') : !lowerable.length ? t('一致したトピックは、すでに最低の優先度です。') : '';
+    const single = topics.length === 1 ? topics[0] : null;
+    body = [
+      interestOption(lowerable.length === 1 ? 'lower' : 'lower-pick', t('このトピックの優先度を下げる'),
+        reason || (lowerable.length === 1 ? lowerSummary(lowerable[0]) : t('一致したトピックから選びます。')),
+        { topic: lowerable.length === 1 ? lowerable[0].id : '', disabled: Boolean(reason) }),
+      interestOption(single ? 'exclude' : 'exclude-pick', t('除外キーワードを足す'),
+        !topics.length ? reason : single ? t('選んだ語を含む記事は、「{topic}」には一致しなくなります。', { topic: t(single.label) }) : t('一致したトピックから選びます。'),
+        { topic: single?.id ?? '', disabled: !topics.length }),
+      interestOption('mute', t('{source}をオフにする', { source: t(sheet.item.sourceName) }), t('この発信元の記事を表示しません。設定の「情報源」で戻せます。')),
+      interestOption('hide', t('今回だけ隠す'), t('この記事だけを隠します。トピックと発信元は変わりません。'))
+    ].join('');
+  }
+
+  root.innerHTML = `
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="interestSheetTitle">
+      <div class="sheet-head">
+        <h2 id="interestSheetTitle">${escapeHtml(title)}</h2>
+        <button class="icon-button" type="button" data-sheet="close" aria-label="${escapeHtml(t('閉じる'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <p class="sheet-article">${escapeHtml(displayTitle(sheet.item))}</p>
+      ${body}
+    </div>`;
+  (root.querySelector('[data-sheet-focus]') ?? root.querySelector('.sheet-option:not(:disabled)') ?? root.querySelector('[data-sheet="close"]'))?.focus();
+}
+
+async function applyInterest(kind, args = {}) {
+  const sheet = interestSheet;
+  if (!sheet) return;
+  const { item, fromDetail } = sheet;
+  if (kind === 'hide' || kind === 'mute') {
+    closeInterestSheet(false);
+    await articleAction(kind === 'hide' ? 'hide-article' : 'mute-source', item, fromDetail);
+    return;
+  }
+  let result = null;
+  try {
+    await updateProfile((profile) => {
+      result = kind === 'lower' ? SivreeInterest.lowerWeight(profile, args.topicId, item.title) : SivreeInterest.addExclude(profile, args.topicId, args.keyword, item.title);
+      return result.profile ?? profile;
+    });
+  } catch {
+    showToast(t('保存できませんでした'));
+    return;
+  }
+  if (result?.error) {
+    const message = {
+      duplicate: t('すでに追加されています'), limit: t('追加できる上限です'), empty: t('キーワードを入力してください'),
+      lowest: t('一致したトピックは、すでに最低の優先度です。')
+    }[result.error];
+    if (sheet.step === 'keyword' && message) {
+      // 入力した語は残して、直せるようにする
+      sheet.error = message;
+      sheet.draft = args.keyword ?? '';
+      renderInterestSheet();
+      return;
+    }
+    closeInterestSheet(false);
+    showToast(message ?? t('保存できませんでした'));
+    return;
+  }
+  const { entry } = result;
+  closeInterestSheet(false);
+  settleList(fromDetail);
+  showToast(entry.kind === 'weight'
+    ? t('「{topic}」の優先度を {from} から {to} に下げました。', { topic: t(entry.topicLabel), from: weightLabel(entry.from), to: weightLabel(entry.to) })
+    : t('「{topic}」から、「{word}」を含む記事を除きました。', { topic: t(entry.topicLabel), word: entry.keyword }), {
+    label: t('元に戻す'),
+    run: () => undoInterest(entry.id)
+  });
+}
+
+async function undoInterest(entryId) {
+  try {
+    await updateProfile(profile => SivreeInterest.undo(profile, entryId));
+    await settleList(false);
+    showToast(t('元に戻しました'));
+  } catch {
+    showToast(t('保存できませんでした'));
+  }
+}
+
+function handleInterestClick(event) {
+  const sheet = interestSheet;
+  if (!sheet) return;
+  if (event.target.id === 'interestSheet') { closeInterestSheet(); return; }
+  const word = event.target.closest('[data-sheet-word]');
+  if (word) {
+    const input = event.currentTarget.querySelector('input[name="keyword"]');
+    input.value = word.dataset.sheetWord;
+    input.focus();
+    return;
+  }
+  const button = event.target.closest('[data-sheet]');
+  if (!button || button.disabled) return;
+  const action = button.dataset.sheet;
+  const goto = (step, topicId = '') => { sheet.step = step; sheet.topicId = topicId; sheet.error = ''; renderInterestSheet(); };
+  if (action === 'close') closeInterestSheet();
+  else if (action === 'back') goto('menu');
+  else if (action === 'lower-pick') goto('weight');
+  else if (action === 'exclude-pick') goto('pick');
+  else if (action === 'lower') applyInterest('lower', { topicId: button.dataset.topic });
+  else if (action === 'exclude') goto('keyword', button.dataset.topic);
+  else if (action === 'mute' || action === 'hide') applyInterest(action);
+}
+
+function handleInterestSubmit(event) {
+  event.preventDefault();
+  if (!interestSheet || interestSheet.step !== 'keyword') return;
+  applyInterest('exclude', { topicId: interestSheet.topicId, keyword: event.target.elements.keyword.value });
+}
+
+// Esc で閉じる。Tab は画面の中だけを回る
+document.addEventListener('keydown', (event) => {
+  const root = document.getElementById('interestSheet');
+  if (!root || !interestSheet) return;
+  if (event.key === 'Escape') { event.preventDefault(); closeInterestSheet(); return; }
+  if (event.key !== 'Tab') return;
+  const focusable = [...root.querySelectorAll('button:not(:disabled), input, [href]')];
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && (document.activeElement === first || !root.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && (document.activeElement === last || !root.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+});
+
+window.addEventListener('hashchange', () => closeInterestSheet(false));
+
 detailView.addEventListener('click', (event) => {
   if (currentDetail?.item) {
+    const interest = event.target.closest('[data-action="interest-menu"]');
+    if (interest) {
+      openInterestSheet(currentDetail.item, interest);
+      return;
+    }
     if (event.target.closest('[data-action="toggle-save"]')) {
       toggleSave(currentDetail.item);
       return;
@@ -1798,6 +2058,11 @@ function renderTopicEditor(topic, index) {
         <textarea data-field="keywords" rows="3" data-shown="${escapeHtml(keywordsShown.join(', '))}" data-hidden="${escapeHtml(JSON.stringify(hiddenKeywords))}">${escapeHtml(keywordsShown.join(', '))}</textarea>
         ${hiddenKeywords.length ? `<small class="field-note">${escapeHtml(t('日本語のキーワード{n}件は英語表示では隠れていますが、そのまま使われます。編集するには日本語表示に切り替えてください。', { n: hiddenKeywords.length }))}</small>` : ''}
       </label>
+      ${topic.excludeKeywords?.length ? `
+      <label class="field">
+        <span>${escapeHtml(t('除外キーワード（これを含む記事は、このトピックには一致しません。改行またはカンマ区切り）'))}</span>
+        <textarea data-field="excludeKeywords" rows="2" data-shown="${escapeHtml(topic.excludeKeywords.join(', '))}">${escapeHtml(topic.excludeKeywords.join(', '))}</textarea>
+      </label>` : ''}
       ${conditions.length ? `<p class="topic-conditions">${conditions.map(escapeHtml).join('<br>')}</p>` : ''}
     </section>
   `;
@@ -2018,10 +2283,46 @@ function renderScopePane() {
   `;
 }
 
+/**
+ * 記事の「関心がない…」で行った調整の一覧。いま効いているかは、記録ではなくトピックの現在の値で判断する。
+ * 「元に戻す」は下書きに反映し、「保存」で確定する（ほかの設定と同じ）
+ */
+function renderAdjustments() {
+  const list = profileDraft.adjustments ?? [];
+  if (!list.length || !window.SivreeInterest) return '';
+  const rows = list.map((entry) => {
+    const status = SivreeInterest.stateOf(profileDraft, entry);
+    const topic = profileDraft.topics.find(candidate => candidate.id === entry.topicId);
+    const what = entry.kind === 'weight'
+      ? t('優先度 {from} → {to}', { from: weightLabel(entry.from), to: weightLabel(entry.to) })
+      : t('除外キーワード「{word}」', { word: entry.keyword });
+    const note = [
+      new Date(entry.at).toLocaleDateString(locale()),
+      entry.title ? t('きっかけ: {title}', { title: entry.title }) : '',
+      status === 'missing' ? t('トピックは削除されています') : status === 'changed' ? t('設定で変更済み') : ''
+    ].filter(Boolean).join(' · ');
+    return `
+      <li class="adjustment${status === 'active' ? '' : ' is-inactive'}" data-adjustment="${escapeHtml(entry.id)}">
+        <div class="adjustment-text">
+          <strong>${escapeHtml(t(topic?.label ?? entry.topicLabel))}</strong> ${escapeHtml(what)}
+          <small>${escapeHtml(note)}</small>
+        </div>
+        <button class="text-button" type="button" data-action="undo-adjustment" data-id="${escapeHtml(entry.id)}">${escapeHtml(status === 'active' ? t('元に戻す') : t('記録を消す'))}</button>
+      </li>`;
+  }).join('');
+  return `
+    <section class="adjustments" aria-labelledby="adjustmentsTitle">
+      <h2 class="settings-subtitle" id="adjustmentsTitle">${escapeHtml(t('関心の調整'))}</h2>
+      <p class="settings-note">${escapeHtml(t('記事の「関心がない…」で行った調整です。「元に戻す」を押して保存すると、調整の前の状態に戻ります。'))}</p>
+      <ul class="adjustment-list">${rows}</ul>
+    </section>`;
+}
+
 function renderTopicsPane() {
   return `
     <p class="settings-lead">${escapeHtml(t('関心のあるトピックを登録すると、キーワードを含む記事と、説明に内容が近い記事を、関連度と新しさで並べて「マイニュース」に表示します。優先度が高いトピックほど上位に表示されます。'))}</p>
     ${semanticStatusNote()}
+    ${renderAdjustments()}
     <div id="topicList">${profileDraft.topics.map(renderTopicEditor).join('')}</div>
     <button class="add-topic" type="button" data-action="add-topic">${escapeHtml(t('＋ トピックを追加'))}</button>
   `;
@@ -2185,6 +2486,10 @@ function collectSettings() {
     if (keywordsInput.dataset.hidden === '[]' || keywordsInput.value.trim() !== keywordsInput.dataset.shown) {
       const hidden = JSON.parse(keywordsInput.dataset.hidden || '[]');
       topic.keywords = [...new Set([...splitKeywords(keywordsInput.value), ...hidden])];
+    }
+    const excludeInput = editor.querySelector('[data-field="excludeKeywords"]');
+    if (excludeInput && excludeInput.value.trim() !== excludeInput.dataset.shown) {
+      topic.excludeKeywords = splitKeywords(excludeInput.value).map(word => word.slice(0, 60)).slice(0, 40);
     }
     const descriptionInput = editor.querySelector('[data-field="description"]');
     const description = descriptionInput.value.trim();
@@ -2438,6 +2743,11 @@ settingsView.addEventListener('click', async (event) => {
     } catch (error) {
       showToast(t(error?.message === 'popup' || error?.message === 'auth' ? 'もう一度押すと、Google のログイン画面を開きます。' : '同期できませんでした'));
     }
+  } else if (action === 'undo-adjustment') {
+    // 入力途中のトピックの内容を下書きに取り込んでから、戻して描き直す
+    if (settingsPane === 'topics') collectSettings();
+    profileDraft = SivreeInterest.undo(profileDraft, event.target.closest('[data-action]').dataset.id);
+    renderSettings();
   } else if (action === 'restore-hidden') {
     try {
       await updateProfile(profile => ({ ...profile, hiddenItems: [] }));
@@ -2476,7 +2786,7 @@ settingsView.addEventListener('click', async (event) => {
     try {
       const profile = await updateProfile(current => {
         const next = { ...current };
-        for (const key of ['regions', 'categories', 'topics', 'excludedSources', 'extraSources', 'candidatesSeenAt']) {
+        for (const key of ['regions', 'categories', 'topics', 'excludedSources', 'extraSources', 'candidatesSeenAt', 'adjustments']) {
           next[key] = applyDraftChanges(base[key], draft[key], current[key]);
         }
         return next;

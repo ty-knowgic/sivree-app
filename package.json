@@ -43,7 +43,8 @@
     "test:professional": "node --import tsx scripts/test-professional.ts",
     "probe:professional": "node --import tsx scripts/probe-professional.ts",
     "test:shell": "node scripts/test-shell.mjs",
-    "test:sources-ux": "node --import tsx scripts/test-sources-ux.ts"
+    "test:sources-ux": "node --import tsx scripts/test-sources-ux.ts",
+    "test:interest": "node --import tsx scripts/test-interest.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",

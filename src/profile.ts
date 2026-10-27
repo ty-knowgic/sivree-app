@@ -11,6 +11,11 @@ import type { NewsItem } from './types.js';
 
 export const DEFAULT_PROFILE_ID = 'default';
 
+/** トピックごとの除外キーワードの上限 */
+export const EXCLUDE_KEYWORDS_LIMIT = 40;
+/** 「関心がない…」の調整の記録の上限（新しいものが先頭。古いものから外れる） */
+export const ADJUSTMENTS_LIMIT = 60;
+
 const TopicSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]{1,40}$/),
   label: z.string().min(1).max(40),
@@ -29,6 +34,8 @@ const TopicSchema = z.object({
   sourceTypes: z.array(z.string()).default([]),
   /** これらの発信元の記事は、キーワードがなくても一致とする（例: 地域ニュースの配信元） */
   sources: z.array(z.string()).default([]),
+  /** いずれかを含む記事は、このトピックには一致しない（記事の「関心がない…」で足す。英字は単語単位、大文字小文字を区別しない） */
+  excludeKeywords: z.array(z.string().min(1).max(60)).max(EXCLUDE_KEYWORDS_LIMIT).optional(),
   /** 単独では一致とせず、他のトピックにも一致した記事の関連度を上げるだけにする */
   boostOnly: z.boolean().default(false),
   /** 関連度の重み（地域・本業に近いほど大きく） */
@@ -61,6 +68,28 @@ const SavedItemSchema = z.object({
 
 export type SavedItem = z.infer<typeof SavedItemSchema>;
 
+/**
+ * 記事の「関心がない…」で行った、トピックへの調整の記録。設定の「関心トピック」に一覧で出し、ここから元に戻せる。
+ * weight は優先度を from から to に下げた記録、exclude は除外キーワードを足した記録。
+ * いまも効いているか（優先度がまだ to か、キーワードがまだ残っているか）は、記録ではなくトピックの現在の値から判断する
+ */
+const AdjustmentSchema = z.object({
+  id: z.string().regex(/^[0-9a-z]{6,20}$/),
+  /** 記録した日時（ISO 8601） */
+  at: z.string().max(40),
+  kind: z.enum(['weight', 'exclude']),
+  topicId: z.string().regex(/^[a-z0-9-]{1,40}$/),
+  /** 記録したときのトピック名（日本語のキー）。トピックを改名・削除したあとも表示できるようにする */
+  topicLabel: z.string().max(40),
+  from: z.number().min(0.1).max(5).optional(),
+  to: z.number().min(0.1).max(5).optional(),
+  keyword: z.string().min(1).max(60).optional(),
+  /** きっかけになった記事の見出し（原題）の先頭 */
+  title: z.string().max(120).default('')
+});
+
+export type Adjustment = z.infer<typeof AdjustmentSchema>;
+
 export const EXTRA_SOURCES_LIMIT = 200;
 /** 情報源の持ち方の現在の版（候補の仕組みを入れた版） */
 export const SOURCES_VERSION = 1;
@@ -88,6 +117,8 @@ export const ProfileSchema = z.object({
   candidatesSeenAt: z.string().regex(/^(\d{4}-\d{2}-\d{2})?$/).default(''),
   /** 「この記事を非表示」にした記事の ID（新しいものが後ろ。古いものから外れる） */
   hiddenItems: z.array(z.string().regex(/^[0-9a-f]{16}$/)).max(300).default([]),
+  /** 「関心がない…」でトピックを調整した記録（新しいものが先頭） */
+  adjustments: z.array(AdjustmentSchema).max(ADJUSTMENTS_LIMIT).default([]),
   /** 保存した記事（新しいものが先頭） */
   savedItems: z.array(SavedItemSchema).max(SAVED_LIMIT).default([])
 });
@@ -109,6 +140,7 @@ export const DEFAULT_PROFILE: Profile = {
   sourcesVersion: SOURCES_VERSION,
   candidatesSeenAt: '',
   hiddenItems: [],
+  adjustments: [],
   savedItems: [],
   topics: [
     {
@@ -280,6 +312,7 @@ interface CompiledTopic {
   keywords: RegExp | null;
   shortUpper: RegExp | null;
   alsoRequires: RegExp | null;
+  excluded: RegExp | null;
 }
 
 const matcherCache = new Map<Topic, CompiledTopic>();
@@ -298,7 +331,8 @@ function compile(topic: Topic): CompiledTopic {
     topic,
     keywords: buildMatcher(others),
     shortUpper: shortUpper.length ? new RegExp(shortUpper.map(k => `(?<![A-Za-z0-9])${k}(?![A-Za-z0-9])`).join('|')) : null,
-    alsoRequires: buildMatcher(topic.alsoRequires)
+    alsoRequires: buildMatcher(topic.alsoRequires),
+    excluded: buildMatcher(topic.excludeKeywords ?? [])
   };
   matcherCache.set(topic, compiled);
   return compiled;
@@ -355,6 +389,8 @@ export function matchTopics(
     if (!topic.enabled) continue;
     if (topic.regions.length && !topic.regions.includes(item.subgroup)) continue;
     if (topic.sourceTypes.length && !topic.sourceTypes.includes(item.sourceType)) continue;
+    // 利用者が「関心がない…」で除いた語を含む記事は、発信元や意味で一致する場合も含めて、このトピックには一致しない
+    if (compile(topic).excluded?.test(text)) continue;
     if (topic.sources.includes(item.sourceName) || DEDICATED_FEEDS[item.feedUrl]?.includes(topic.id)) {
       // 発信元で一致としても、内容がトピックと大きく離れている記事（例: 数学の財団による植物学の奨学金）は弱い一致にする
       const similarity = semantic?.similarity(item.id, topic.id);

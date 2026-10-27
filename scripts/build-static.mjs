@@ -31,10 +31,10 @@ if (!html.includes('<script src="app.js">')) throw new Error('index.html に app
 const version = (process.env.SIVREE_ASSET_VERSION ?? process.env.GITHUB_SHA)?.slice(0, 10) ?? Date.now().toString(36);
 const versioned = html
   .replace('<script src="app.js">', '<script src="static-api.js"></script>\n    <script src="app.js">')
-  .replace(/(<script src="(?:i18n|saved|sync|static-api|app)\.js)"/g, `$1?v=${version}"`)
+  .replace(/(<script src="(?:i18n|saved|interest|sync|static-api|app)\.js)"/g, `$1?v=${version}"`)
   .replace('href="styles.css"', `href="styles.css?v=${version}"`);
 await writeFile(indexPath, versioned);
-const shellFiles = ['index.html', 'i18n.js', 'saved.js', 'sync.js', 'static-api.js', 'app.js', 'styles.css'].map(name => `${name}?v=${version}`).concat(
+const shellFiles = ['index.html', 'i18n.js', 'saved.js', 'interest.js', 'sync.js', 'static-api.js', 'app.js', 'styles.css'].map(name => `${name}?v=${version}`).concat(
   (await readdir(path.join(root, 'public/locales'))).filter(name => name.endsWith('.json')).map(name => `locales/${name}?v=${version}`));
 const worker = (await readFile(path.join(root, 'public/sw.js'), 'utf8'))
   .replace('__SIVREE_SHELL_VERSION__', version)

@@ -31,7 +31,7 @@
   const ipHost = /^\d+\.\d+\.\d+\.\d+$/.test(host) || host.includes(':');
   const blockedOrigin = !loopback && (location.protocol !== 'https:' || ipHost || !host.includes('.'));
   /** 一覧の上限（src/profile.ts の ProfileSchema と同じ値） */
-  const LIMITS = { excludedSources: 500, extraSources: 200, hiddenItems: 300, savedItems: 1000 };
+  const LIMITS = { excludedSources: 500, extraSources: 200, hiddenItems: 300, savedItems: 1000, adjustments: 60, excludeKeywords: 40 };
 
   let client = null;
   let gisLoading = null;
@@ -283,6 +283,21 @@
       merged.excludedSources = list('excludedSources').slice(0, LIMITS.excludedSources);
       merged.extraSources = list('extraSources').slice(0, LIMITS.extraSources);
       merged.topics = list('topics', item => item.id);
+      // 除外キーワードは、端末ごとに別々に足しても両方残し、消した（取り消した）ものは消えたままにする
+      // （配列のまま比べると、同時に足したとき片方の端末のものだけが残る）
+      const topicsById = (profile) => new Map((Array.isArray(profile?.topics) ? profile.topics : []).map((topic) => [topic.id, topic]));
+      const [baseTopics, localTopics, remoteTopics] = [topicsById(base), topicsById(local), topicsById(remote)];
+      merged.topics = merged.topics.map((topic) => {
+        if (!localTopics.has(topic.id) || !remoteTopics.has(topic.id)) return topic;
+        const words = mergeList(baseTopics.has(topic.id), baseTopics.get(topic.id)?.excludeKeywords, localTopics.get(topic.id).excludeKeywords, remoteTopics.get(topic.id).excludeKeywords, laterLocal, (word) => String(word).toLowerCase())
+          .slice(0, LIMITS.excludeKeywords);
+        const { excludeKeywords, ...rest } = topic;
+        return words.length ? { ...rest, excludeKeywords: words } : rest;
+      });
+      // 「関心がない…」の調整の記録。トピックの値とは別に統合する（いま効いているかは、統合後のトピックの値から判断する）。新しいものが先頭
+      merged.adjustments = list('adjustments', (item) => item.id)
+        .sort((a, b) => String(b.at).localeCompare(String(a.at)))
+        .slice(0, LIMITS.adjustments);
     }
     // 非表示にした記事は新しいものが後ろ。上限を超えたら古いものから外す
     merged.hiddenItems = list('hiddenItems').slice(-LIMITS.hiddenItems);

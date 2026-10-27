@@ -186,6 +186,59 @@ b.edit({ extraSources: ['bbbbbbbbbb'] });
 await tapSync(b);
 check('A: 相手が候補をオフにしたら、こちらでもオフになる', (await tapSync(a)) === 'pull' && a.profile.extraSources.join() === 'bbbbbbbbbb');
 
+// 記事の「関心がない…」: 除外キーワードと調整の記録は、端末ごとに足したものが両方残り、取り消しも伝わる
+{
+  const topic = (extra = {}) => ({ id: 'genai', label: '生成AI', enabled: true, weight: 1.6, keywords: ['LLM'], ...extra });
+  const adjustment = (id, at, extra = {}) => ({ id, at, kind: 'exclude', topicId: 'genai', topicLabel: '生成AI', title: '', ...extra });
+  const words = (profile) => [...(profile.topics.find((t) => t.id === 'genai').excludeKeywords ?? [])].sort().join();
+  const recorded = (profile) => profile.adjustments.map((e) => e.id).join();
+  await tapSync(b);
+  a.edit({ topics: [topic()], adjustments: [] });
+  await tapSync(a);
+  await tapSync(b);
+  check('「関心がない…」: 準備（両方に同じトピックがある）', b.profile.topics.length === 1 && b.profile.topics[0].weight === 1.6);
+
+  a.edit({ topics: [topic({ excludeKeywords: ['家庭教師'] })], adjustments: [adjustment('a1xxxx', '2026-10-26T01:00:00.000Z', { keyword: '家庭教師' })] });
+  b.edit({ topics: [topic({ excludeKeywords: ['tutor'] })], adjustments: [adjustment('b1xxxx', '2026-10-26T02:00:00.000Z', { keyword: 'tutor' })] });
+  await tapSync(b);
+  check('A: 端末ごとに足した除外キーワードは両方残り、記録は新しい順', (await tapSync(a)) === 'pull' && words(a.profile) === 'tutor,家庭教師' && recorded(a.profile) === 'b1xxxx,a1xxxx', JSON.stringify([a.profile.topics, a.profile.adjustments]));
+  check('B: 同じ結果になる', (await tapSync(b)) === 'pull' && words(b.profile) === 'tutor,家庭教師' && recorded(b.profile) === 'b1xxxx,a1xxxx');
+
+  // A が取り消し（キーワードと記録を外す）、B は別の語を足す: 取り消しは戻らず、足した語は残る
+  a.edit({ topics: [topic({ excludeKeywords: ['tutor'] })], adjustments: a.profile.adjustments.filter((e) => e.id !== 'a1xxxx') });
+  b.edit({ topics: [topic({ excludeKeywords: ['tutor', '家庭教師', 'quiz'] })], adjustments: [adjustment('b2xxxx', '2026-10-26T03:00:00.000Z', { keyword: 'quiz' }), ...b.profile.adjustments] });
+  await tapSync(a);
+  check('B: A が取り消した語は戻らず、B が足した語は残る', (await tapSync(b)) === 'pull' && words(b.profile) === 'quiz,tutor' && recorded(b.profile) === 'b2xxxx,b1xxxx', JSON.stringify([b.profile.topics, b.profile.adjustments]));
+  check('A: 同じ結果になる', (await tapSync(a)) === 'pull' && words(a.profile) === 'quiz,tutor' && recorded(a.profile) === 'b2xxxx,b1xxxx');
+
+  // 大文字小文字だけが違う語は1つにまとめる
+  a.edit({ topics: [topic({ excludeKeywords: ['quiz', 'tutor', 'Robot'] })] });
+  b.edit({ topics: [topic({ excludeKeywords: ['quiz', 'tutor', 'robot'] })] });
+  await tapSync(b);
+  await tapSync(a);
+  check('大文字小文字だけが違う除外キーワードは重複させない', a.profile.topics[0].excludeKeywords.filter((w) => w.toLowerCase() === 'robot').length === 1, JSON.stringify(a.profile.topics[0].excludeKeywords));
+  await tapSync(b);
+
+  // 同じトピックの優先度を両方で下げたら、後から変えたほうを使う。記録は両方残る
+  a.edit({ topics: [{ ...a.profile.topics[0], weight: 1 }], adjustments: [adjustment('a3xxxx', '2026-10-26T04:00:00.000Z', { kind: 'weight', from: 1.6, to: 1 }), ...a.profile.adjustments] });
+  await sleep(5);
+  b.edit({ topics: [{ ...b.profile.topics[0], weight: 0.6 }], adjustments: [adjustment('b3xxxx', '2026-10-26T05:00:00.000Z', { kind: 'weight', from: 1.6, to: 0.6 }), ...b.profile.adjustments] });
+  await tapSync(b);
+  check('A: 優先度は後に変えた側（B）の値、記録は両方残る', (await tapSync(a)) === 'pull' && a.profile.topics[0].weight === 0.6 && recorded(a.profile).split(',').includes('a3xxxx') && recorded(a.profile).split(',').includes('b3xxxx'), JSON.stringify([a.profile.topics[0].weight, recorded(a.profile)]));
+  await tapSync(b);
+
+  // 上限: 記録は新しい順に 60 件まで
+  const many = Array.from({ length: 70 }, (_, i) => adjustment(`m${String(i).padStart(5, '0')}`, `2026-10-27T00:${String(i % 60).padStart(2, '0')}:00.000Z`, { keyword: `w${i}` }));
+  a.edit({ adjustments: [...many, ...a.profile.adjustments].slice(0, 60) });
+  b.edit({ adjustments: [...b.profile.adjustments] });
+  await tapSync(a);
+  check('B: 記録は 60 件までに収まる', (await tapSync(b)) === 'pull' && b.profile.adjustments.length <= 60, String(b.profile.adjustments.length));
+  a.edit({ adjustments: [] });
+  b.edit({ adjustments: [] });
+  await tapSync(a);
+  await tapSync(b);
+}
+
 // ---------- 許可の期限切れ・取り消し ----------
 const expired = a.reload();
 const token = expired.storage('sivree:sync-token');
