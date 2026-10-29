@@ -208,9 +208,14 @@ svg {
   align-items: center;
   gap: 0.4em;
   font-size: 1.45rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+}
+
+/* ロゴタイプ（Inter 700 を図形にしたもの。作り方と字間の値は BRAND.md） */
+.brand-wordmark {
+  width: 3.2485em;
+  height: 0.748em;
+  flex: none;
+  fill: currentColor;
 }
 
 .brand-mark {
