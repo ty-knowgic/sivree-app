@@ -109,17 +109,17 @@ const CATEGORY_RULES: { category: CategoryKey; pattern: RegExp | RegExp[]; subgr
   {
     // ロボティクス・量子・半導体など（Physical AI を含む）
     category: 'テクノロジー',
-    pattern: /ロボット|ロボティクス|ヒューマノイド|フィジカルAI|自動運転|ドローン|量子コンピュータ|半導体|AI半導体|データセンター|\b(robot(s|ics)?|humanoid|physical AI|embodied AI|autonomous (vehicle|driving|mobile robots?)|self-driving|drones?|quantum comput(er|ing)|semiconductors?|AI chips?|GPUs?|data cent(er|re)s?)\b/i
+    pattern: /ロボット|ロボティクス|ヒューマノイド|フィジカルAI|自動運転|ドローン|量子コンピュータ|半導体|AI半導体|データセンター|\b(robot(s|ics?)?|humanoid|physical AI|embodied AI|autonomous (vehicle|driving|mobile robots?)|self-driving|drones?|quantum comput(er|ing)|semiconductors?|AI chips?|GPUs?|data cent(er|re)s?)\b/i
   },
   {
     category: 'サイエンス',
-    pattern: /数学|定理|予想の(証明|解決)|\b(mathematic(s|al|ian)|theorem|conjecture|proof of)\b/i
+    pattern: /数学|定理|予想の(証明|解決)|\b(mathematic(s|al|ians?)|theorem|conjecture|proof of)\b/i
   },
   {
     // 企業の発表は、セキュリティ製品やイベント告知の宣伝と区別できないため対象外
     category: '安全保障',
     nonCorporate: true,
-    pattern: /防衛|安全保障|自衛隊|ミサイル|サイバー攻撃|不正アクセス|テロ対策|\b(defen[cs]e|military|armed forces|national security|NATO|missiles?|cyber ?attacks?|cyber ?security|ransomware|counter-?terrorism|nuclear weapons?|sanctions)\b/i
+    pattern: /防衛|安全保障|自衛隊|ミサイル|サイバー攻撃|サイバーセキュリティ|不正アクセス|ランサムウェア|テロ対策|\b(defen[cs]e|military|armed forces|national security|NATO|missiles?|cyber ?attacks?|cyber ?security|ransomware|counter-?terrorism|nuclear weapons?|sanctions)\b/i
   },
   {
     category: '文化・芸術',

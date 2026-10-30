@@ -373,6 +373,7 @@ check('市区町村の割り当て', namesAt('local') === ['ウォータール�
   check('分類が重複しない', new Set(classify(official, 'AI and artificial intelligence', '')).size === classify(official, 'AI and artificial intelligence', '').length);
   check('基盤モデル企業の資金調達は配信サービス経由でも生成AIに入る', classify(wire, 'Cohere Announces Series E Fundraise Targeting CAD $7 Billion', '').includes('生成AI'));
   check('企業の「AI 搭載」の宣伝は生成AIに入らない', !classify(wire, 'Breakthrough Cooling Solutions for the AI Computing Surge', '').includes('生成AI'));
+  check('「robotic」「mathematicians」「ランサムウェア」「サイバーセキュリティ」も分類に入る', classify(official, 'New robotic surgery pilot', '').includes('テクノロジー') && classify(official, 'Award for young mathematicians', '').includes('サイエンス') && classify({ ...official, subgroup: '日本' }, 'ランサムウェア被害の注意喚起', '').includes('安全保障') && classify({ ...official, subgroup: '日本' }, 'サイバーセキュリティに関する関係閣僚会議の開催について', '').includes('安全保障'));
   check('一般語の「cohere」「grok」は社名と見なさない', !classify(official, 'Plans must cohere; residents grok the rules', '').includes('生成AI'));
 }
 
@@ -397,6 +398,8 @@ check('市区町村の割り当て', namesAt('local') === ['ウォータール�
     ['No dateline in this description at all.', undefined]
   ];
   for (const [text, expected] of cases) check(`日付行の地域: ${text.slice(-60)}`, datelineRegion(text) === expected, `→ ${datelineRegion(text)}`);
+  // 2026-10-29: Cohere の資金調達の発表は Venture Capital のフィードにあり、日付行の設定がなかったため米国に入った（取りこぼしの監査で検出）
+  check('PR Newswire のフィードはすべて日付行で地域を決める', officialFeeds.filter(feed => feed.sourceName === 'PR Newswire').every(feed => feed.datelineRegion));
   check('日付行で地域を決めるのは PR Newswire だけ', officialFeeds.filter(feed => feed.datelineRegion).every(feed => feed.sourceName === 'PR Newswire') && officialFeeds.some(feed => feed.datelineRegion));
 }
 
