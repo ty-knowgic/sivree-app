@@ -21,6 +21,8 @@
     "build": "tsc",
     "start": "node --env-file-if-exists=.env dist/server.js",
     "audit": "node scripts/audit.mjs",
+    "audit:coverage": "node --import tsx scripts/coverage-audit.ts",
+    "test:coverage": "node --import tsx scripts/test-coverage-audit.ts",
     "build:site": "node scripts/build-static.mjs",
     "export": "tsx --env-file-if-exists=.env scripts/export-data.ts",
     "check:locales": "node scripts/check-locales.mjs",

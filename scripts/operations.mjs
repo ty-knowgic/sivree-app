@@ -62,6 +62,16 @@ try {
   }
   try { report.snapshot = snapshotHealth(await readSnapshot(snapshotDirectory)); }
   catch (error) { report.observations.push(`Snapshot unavailable: ${error.message}`); }
+  // Classification/region gap candidates (docs/coverage-audit.md). Report only: never changes the exit code.
+  if (report.snapshot) {
+    const coverageJson = path.join(runDirectory, 'coverage.json');
+    try {
+      execFileSync(process.execPath, ['--import', 'tsx', 'scripts/coverage-audit.ts', '--data', snapshotDirectory, '--json', coverageJson], { cwd: root, stdio: ['ignore', 'ignore', 'pipe'], timeout: 120_000 });
+      const coverage = JSON.parse(await readFile(coverageJson, 'utf8'));
+      const open = coverage.findings.filter(finding => finding.status === 'open');
+      report.coverage = { log: path.relative(root, coverageJson), open: open.length, fixedInCode: coverage.findings.length - open.length, top: open.filter(finding => finding.priority !== 'P3').slice(0, 10).map(({ priority, code, message }) => ({ priority, code, message })) };
+    } catch (error) { report.observations.push(`Coverage audit unavailable: ${error.message.split('\n')[0]}`); }
+  }
   if (report.mode === 'full') {
     for (const check of qualityChecks) {
       if (Date.now() - Date.parse(startedAt) > 15 * 60_000) {
@@ -87,6 +97,7 @@ try {
     'A passing automated run does not verify mobile usability, live source recovery, or product demand.', '',
     '| Check | Result | Duration (ms) |', '|---|---|---:|', ...report.checks.map(check => `| ${check.id} | ${check.status} | ${check.durationMs} |`), '',
     '## Public snapshot', '', ...(report.snapshot ? [`Generated: ${report.snapshot.generatedAt}; age: ${report.snapshot.ageHours}h; articles: ${report.snapshot.articles}; source definitions: ${report.snapshot.sourceDefinitions}; unique feeds: ${report.snapshot.uniqueFeedUrls}.`, '', ...report.snapshot.findings.map(f => `- ${f.priority} / ${f.code}: ${f.message} (${f.details.length})`)] : ['Unavailable.']), '',
+    '## Coverage audit (report only)', '', ...(report.coverage ? [`Open: ${report.coverage.open}; fixed in code, awaiting publish: ${report.coverage.fixedInCode}.`, '', ...report.coverage.top.map(f => `- ${f.priority} / ${f.code}: ${f.message}`)] : ['Unavailable.']), '',
     '## Limitations', '', ...report.observations.map(value => `- ${value}`), '- Desktop, iPhone and pilot use require separate evidence.', '',
     'See report.json for source references and individual logs for check output.', ''
   ];

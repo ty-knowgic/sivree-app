@@ -79,6 +79,9 @@ jobs:
       # 候補（既定ではオフの情報源）の仕組みと、古い形式の設定の移行（運営者の見え方が変わらないこと）を確かめる
       - run: npm run test:migrate
 
+      # 取りこぼしの監査が、2026-10-29 の事例（分類・地域）を利用者の報告なしに見つけることを確かめる
+      - run: npm run test:coverage
+
       # 蓄積中の記事・要約・ベクトル（直近30日分）を前回から引き継ぐ。無い場合は、いまフィードにある記事から作り直す
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -122,6 +125,12 @@ jobs:
           REQUIRE_SEMANTIC: '1'
 
       - run: npm run build:site
+
+      # 公開するデータの、分類・地域の取りこぼしの候補を実行結果の要約に書く（報告だけで、公開は止めない。docs/coverage-audit.md）
+      - name: Coverage audit (report only)
+        continue-on-error: true
+        timeout-minutes: 3
+        run: npm run audit:coverage -- --data site/data --markdown "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

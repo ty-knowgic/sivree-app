@@ -11,7 +11,7 @@ Live: https://sivree.com/ (GitHub Pages with the custom domain since 2026-10-23;
 - `scripts/` checks and tests. `.github/workflows/publish.yml` runs them in CI.
 
 ## Before every commit (all must pass)
-`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run check:brand` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run test:performance` · `npm run test:feeds` · `npm run test:saved` · `npm run test:tiers` · `npm run test:migrate` · `npm run build:site`
+`npx tsc --noEmit` · `npm run check:locales` · `npm run check:i18n-keys` · `npm run check:source-names` · `npm run check:brand` · `npm run test:xss` · `npm run test:sync` · `npm run test:visit` · `npm run test:onboarding` · `npm run test:hashtags` · `npm run test:refresh` · `npm run test:performance` · `npm run test:feeds` · `npm run test:saved` · `npm run test:tiers` · `npm run test:migrate` · `npm run test:coverage` · `npm run build:site`
 
 ## Conventions that bite
 - **i18n**: the Japanese text is the key. Every new UI string needs an entry in all 12 other `public/locales/*.json` (`check:locales` fails otherwise). New source names **and labels** go in `locales/sources.json`; `check:i18n-keys` fails if code uses a Japanese string that isn't in the dictionaries, `check:source-names` fails for untranslated feed names/labels. Anything generated into data (hashtags, labels) must be translated at render time.
@@ -27,6 +27,7 @@ Live: https://sivree.com/ (GitHub Pages with the custom domain since 2026-10-23;
 - Use `npm run preview` (127.0.0.1:4173) to test unpublished UI changes with a public article snapshot and local source definitions. It watches source changes and bypasses shell/article caches; reload after `[ready]`. `npm run dev` is the Express server, not the published static runtime.
 - Preview now binds to all interfaces by default and prints LAN and Tailscale URLs. For phone access, use these URLs rather than telling the user to operate only on the Mac. `preview:tailscale` / `preview:tailscale:production` configure tailnet-only HTTPS on 8443 / 8444 when Serve has been enabled. Preserve existing Serve routes; do not use Funnel or reset unrelated routes.
 - Use `npm run preview:production` (4174) for the actual Service Worker and snapshot behavior, including `-- --delay-ms 7000` after warming the cache. Keep the two modes on separate ports.
+- `npm run audit:coverage` lists likely classification/region gaps in the public data (report only; also in the publish job's Step Summary and `npm run operations`). Read `docs/coverage-audit.md` for what may be fixed autonomously vs. what needs the user's OK; don't loosen probes to silence findings.
 - `npm test` / `npm run check:all` runs the complete local checks without publishing. See `docs/local-testing.md` for the manual source-picker acceptance steps and iPhone LAN limitations.
 - Exercise actual source-name taps, individual and bulk toggles, shared-source synchronization, save/cancel/reopen, and mobile layout locally before proposing publication. Presence of text/buttons alone is not UX validation.
 
