@@ -1,4 +1,4 @@
-import { buildBriefing, filterChoices, listCategoryGroups, listNews, newsDetail, onboardingOptions, sourcesWithUsage } from '../api.js';
+import { buildBriefing, filterChoices, listCategoryGroups, listNews, newsDetail, onboardingOptions, searchElsewhere, sourcesWithUsage } from '../api.js';
 import type { ApiContext, SourceInfo } from '../api.js';
 import { defaultProfile, migrateProfile, ProfileSchema, semanticQueries, withDefaultDescriptions } from '../profile.js';
 import type { Profile } from '../profile.js';
@@ -243,6 +243,7 @@ async function handle(url: URL, method: string, request: Request): Promise<Respo
   if (path === '/api/options') return json(onboardingOptions(await context()));
   if (path === '/api/sources') return json(sourcesWithUsage(await context()));
   if (path === '/api/briefing') return json(buildBriefing(await context(true)));
+  if (path === '/api/search-elsewhere') return json(searchElsewhere(await context(true), query.get('keyword') ?? ''));
 
   if (path === '/api/news') {
     const text = (name: string) => query.get(name) ?? undefined;

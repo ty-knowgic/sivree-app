@@ -362,5 +362,11 @@
   "設定で変更済み": "Binago sa Mga Setting",
   "記録を消す": "Alisin ang tala",
   "関心の調整": "Mga pagsasaayos ng interes",
-  "記事の「関心がない…」で行った調整です。「元に戻す」を押して保存すると、調整の前の状態に戻ります。": "Mga pagsasaayos na ginawa gamit ang “Hindi interesado…” sa mga artikulo. Pindutin ang “I-undo” at i-save para bumalik sa dating kalagayan."
+  "記事の「関心がない…」で行った調整です。「元に戻す」を押して保存すると、調整の前の状態に戻ります。": "Mga pagsasaayos na ginawa gamit ang “Hindi interesado…” sa mga artikulo. Pindutin ang “I-undo” at i-save para bumalik sa dating kalagayan.",
+  "「すべて」で探す（{n}件）": "Hanapin sa “Lahat” ({n} aytem)",
+  "オフの情報源にも一致する記事があります": "May tugma rin sa mga pinagmulang naka-off",
+  "オンにする": "I-on",
+  "{source}をオンにしました": "Na-on ang {source}",
+  "ほか{n}の情報源": "+{n} pang pinagmulan",
+  "{name}をオンにする": "I-on ang {name}"
 }

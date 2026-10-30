@@ -145,6 +145,29 @@ export function listNews(ctx: ApiContext, query: NewsQuery) {
   return { total: result.length, items: result.slice(start, start + size) };
 }
 
+/**
+ * 検索語に一致する記事が、いまの表示の外にどれだけあるか（検索中の画面が「すべて」への切り替えと、情報源をオンにする案内に使う）。
+ * all: 「すべて」タブで表示される件数（一覧と同じく、同じ話題をまとめたカードの数）。
+ * sources: オフにした情報源・候補のうち、オンにすれば「すべて」に一致する記事が出るもの（件数の多い順）。
+ * 地域・分野・非表示にした記事は利用者の選択のまま絞るので、件数はオンにしたときに実際に増える数になる
+ */
+export function searchElsewhere(ctx: ApiContext, keyword: string) {
+  if (!keyword.trim()) return { all: 0, sources: [] };
+  const all = listNews(ctx, { keyword, limit: 1 }).total;
+  const scope = scopeOf(ctx.profile, false, ctx.sources);
+  const counts = new Map<string, number>();
+  for (const item of filterNews(ctx.items, { keyword, ...scope, excludedSources: new Set() }, ctx.sourceIdOf)) {
+    const id = ctx.sourceIdOf(item.feedUrl);
+    if (scope.excludedSources.has(id)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  const byId = new Map(ctx.sources.map(source => [source.id, source]));
+  const sources = [...counts].flatMap(([id, count]) => {
+    const source = byId.get(id);
+    return source ? [{ id, sourceName: source.sourceName, label: source.label, subgroup: source.subgroup, candidate: Boolean(source.candidate), count }] : [];
+  });
+  return { all, sources: sources.sort((a, b) => b.count - a.count || a.sourceName.localeCompare(b.sourceName)) };
+}
+
 /** 要約（なければ説明文）の最初の一文を、ブリーフィング用の短い説明にする */
 export function firstSentence(text: string, max = 90): string {
   const clean = cleanFeedText(text);

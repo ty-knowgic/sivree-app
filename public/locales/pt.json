@@ -383,5 +383,17 @@
   "設定で変更済み": "Alterado nos Ajustes",
   "記録を消す": "Remover registro",
   "関心の調整": "Ajustes de interesses",
-  "記事の「関心がない…」で行った調整です。「元に戻す」を押して保存すると、調整の前の状態に戻ります。": "Ajustes feitos com “Sem interesse…” nos artigos. Toque em “Desfazer” e salve para voltar ao estado anterior."
+  "記事の「関心がない…」で行った調整です。「元に戻す」を押して保存すると、調整の前の状態に戻ります。": "Ajustes feitos com “Sem interesse…” nos artigos. Toque em “Desfazer” e salve para voltar ao estado anterior.",
+  "「すべて」で探す（{n}件）": {
+    "one": "Buscar em “Tudo” ({n} item)",
+    "other": "Buscar em “Tudo” ({n} itens)"
+  },
+  "オフの情報源にも一致する記事があります": "Fontes desativadas também têm resultados",
+  "オンにする": "Ativar",
+  "{source}をオンにしました": "Fonte ativada: {source}",
+  "ほか{n}の情報源": {
+    "one": "+{n} outra fonte",
+    "other": "+{n} outras fontes"
+  },
+  "{name}をオンにする": "Ativar {name}"
 }

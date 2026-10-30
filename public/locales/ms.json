@@ -353,5 +353,11 @@
   "設定で変更済み": "Diubah dalam Tetapan",
   "記録を消す": "Padam rekod",
   "関心の調整": "Pelarasan minat",
-  "記事の「関心がない…」で行った調整です。「元に戻す」を押して保存すると、調整の前の状態に戻ります。": "Pelarasan yang dibuat melalui “Tidak berminat…” pada artikel. Tekan “Buat asal” dan simpan untuk kembali kepada keadaan sebelum pelarasan."
+  "記事の「関心がない…」で行った調整です。「元に戻す」を押して保存すると、調整の前の状態に戻ります。": "Pelarasan yang dibuat melalui “Tidak berminat…” pada artikel. Tekan “Buat asal” dan simpan untuk kembali kepada keadaan sebelum pelarasan.",
+  "「すべて」で探す（{n}件）": "Cari dalam “Semua” ({n} item)",
+  "オフの情報源にも一致する記事があります": "Sumber yang dimatikan juga sepadan",
+  "オンにする": "Hidupkan",
+  "{source}をオンにしました": "{source} dihidupkan",
+  "ほか{n}の情報源": "+{n} sumber lain",
+  "{name}をオンにする": "Hidupkan {name}"
 }

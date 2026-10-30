@@ -65,6 +65,7 @@ jobs:
       - run: npm run test:professional
       - run: npm run test:shell
       - run: npm run test:sources-ux
+      - run: npm run test:search
       - run: npm run test:preview
 
       # フィード取得の取り直し・同時取得数の上限と、同じ記事の重複のまとめを確かめる

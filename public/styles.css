@@ -519,7 +519,8 @@ main {
   .news-list > .hero-wrap,
   .news-list > .briefing,
   .news-list > .day-heading,
-  .news-list > .empty-state { grid-column: 1 / -1; }
+  .news-list > .empty-state,
+  .news-list > .search-elsewhere { grid-column: 1 / -1; }
 }
 
 .day-heading {
@@ -805,6 +806,77 @@ main {
   margin-bottom: 6px;
   color: var(--text);
   font-size: 1rem;
+}
+
+/* 検索中: いまのタブの外にある一致（「すべて」への切り替え、オフの情報源） */
+/* 一覧のグリッドの中に置くので、間隔はグリッドの gap に任せる */
+.search-elsewhere {
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  font-size: 0.88rem;
+}
+
+.search-all {
+  display: block;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.search-all + .search-elsewhere-head {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.search-elsewhere-head {
+  margin: 0 0 4px;
+  color: var(--text-2);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.search-sources {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-source {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.search-source + .search-source { border-top: 1px solid var(--line); }
+
+.search-source-meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.search-source-meta .source-name { overflow-wrap: anywhere; }
+
+.search-source .secondary-button {
+  flex: none;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+}
+
+.search-elsewhere-more {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .more-button {

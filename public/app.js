@@ -101,6 +101,8 @@ const state = {
   // 発信元の種別（企業 / 公的機関）もタブごとに覚えておく
   sourceTypeByTab: {},
   keyword: '',
+  // 検索中だけ: いまのタブの外にある一致（「すべて」の件数と、オフの情報源）
+  elsewhere: null,
   items: [],
   total: 0,
   loadingMore: false,
@@ -728,7 +730,7 @@ function renderNews() {
     // 設定へのリンクだけは HTML のまま差し込む（文言は固定で、利用者の入力は含まない）
     const settingsLink = `<a href="#/settings">${escapeHtml(t('設定'))}</a>`;
     newsList.innerHTML = state.keyword
-      ? `<div class="empty-state"><strong>${escapeHtml(t('「{keyword}」に一致する記事はありません', { keyword: state.keyword }))}</strong>${escapeHtml(t('別のキーワードをお試しください。'))}</div>`
+      ? `<div class="empty-state"><strong>${escapeHtml(t('「{keyword}」に一致する記事はありません', { keyword: state.keyword }))}</strong>${escapeHtml(t('別のキーワードをお試しください。'))}</div>${renderElsewhere()}`
       : isForYou()
         ? `<div class="empty-state"><strong>${escapeHtml(t('関心に一致する記事がまだありません'))}</strong>${escapeHtml(t('{link}で関心トピックやキーワードを追加できます。', { link: '\u0000' })).replace('\u0000', settingsLink)}</div>`
         : `<div class="empty-state"><strong>${escapeHtml(t('まだ記事がありません'))}</strong>${escapeHtml(t('{scope}の新しい発表が出ると、ここに表示されます。', { scope }))}</div>`;
@@ -742,9 +744,87 @@ function renderNews() {
   lastRenderedDay = rendered.lastDay;
   newsList.innerHTML = briefingHtml
     ? `${briefingHtml}<h2 class="day-heading">${escapeHtml(t('すべてのマイニュース'))}</h2>${rendered.html}`
-    : rendered.html;
+    : `${renderElsewhere()}${rendered.html}`;
   moreButton.hidden = state.items.length >= state.total;
   updateEndNote();
+}
+
+const SEARCH_SOURCE_LIMIT = 5;
+
+/**
+ * 検索中に、いまのタブの外にある一致を案内する。
+ * 「すべて」のほうが多ければ切り替えのボタンを、オフの情報源・候補に一致があれば、その場でオンにするボタンを出す
+ */
+function renderElsewhere() {
+  const found = state.keyword ? state.elsewhere : null;
+  if (!found) return '';
+  const inAll = state.tab === ALL_TAB && !state.subgroupByTab[ALL_TAB] && !state.sourceTypeByTab[ALL_TAB];
+  const showAll = !inAll && found.all > state.total;
+  const sources = found.sources.slice(0, SEARCH_SOURCE_LIMIT);
+  const more = found.sources.length - sources.length;
+  if (!showAll && !sources.length) return '';
+  return `
+    <section class="search-elsewhere">
+      ${showAll ? `<button class="search-all" type="button" data-action="search-all">${escapeHtml(t('「すべて」で探す（{n}件）', { n: found.all.toLocaleString(locale()), count: found.all }))}</button>` : ''}
+      ${sources.length ? `
+        <h2 class="search-elsewhere-head">${escapeHtml(t('オフの情報源にも一致する記事があります'))}</h2>
+        <ul class="search-sources">
+          ${sources.map(source => `
+            <li class="search-source">
+              <span class="search-source-meta">
+                <span class="source-name">${escapeHtml(t(source.sourceName))}</span>
+                <span class="source-desc">${escapeHtml([t(source.label) !== t(source.sourceName) ? t(source.label) : '', t(source.subgroup), t('{n}件', { n: source.count, count: source.count })].filter(Boolean).join(sep()))}</span>
+              </span>
+              <button class="secondary-button" type="button" data-enable-source="${escapeHtml(source.id)}" aria-label="${escapeHtml(t('{name}をオンにする', { name: t(source.label) }))}">${escapeHtml(t('オンにする'))}</button>
+            </li>
+          `).join('')}
+        </ul>
+        ${more > 0 ? `<p class="search-elsewhere-more">${escapeHtml(t('ほか{n}の情報源', { n: more, count: more }))}</p>` : ''}
+      ` : ''}
+    </section>
+  `;
+}
+
+async function fetchElsewhere(keyword) {
+  if (!keyword) return null;
+  try {
+    const response = await fetch(`/api/search-elsewhere?${new URLSearchParams({ keyword })}`);
+    return response.ok ? await response.json() : null;
+  } catch {
+    // 案内が出せなくても、検索結果はそのまま表示する
+    return null;
+  }
+}
+
+/** 検索で見つかったオフの情報源をオンにする。元に戻すと、オフにしたときと同じ状態に戻す */
+async function enableSearchSource(id) {
+  const source = state.elsewhere?.sources.find(entry => entry.id === id);
+  if (!source) return;
+  const setEnabled = enabled => profile => (enabled
+    ? { ...profile, extraSources: source.candidate ? [...new Set([...(profile.extraSources ?? []), id])] : profile.extraSources, excludedSources: profile.excludedSources.filter(entry => entry !== id) }
+    // 候補は extraSources から外す（excludedSources にも入れるのは、古い画面が保存しても移行で戻さないため）
+    : { ...profile, extraSources: source.candidate ? (profile.extraSources ?? []).filter(entry => entry !== id) : profile.extraSources, excludedSources: [...new Set([...profile.excludedSources, id])] });
+  try {
+    await updateProfile(setEnabled(true));
+    refreshNews(true);
+    // 同じ発信元に複数の情報源がある（米連邦官報など）ので、名前は情報源ごとのラベルで示す
+    showToast(t('{source}をオンにしました', { source: t(source.label) }), {
+      label: t('元に戻す'),
+      run: () => updateProfile(setEnabled(false)).then(() => refreshNews(true)).catch(() => showToast(t('保存できませんでした')))
+    });
+  } catch {
+    renderNews();
+    showToast(t('保存できませんでした'));
+  }
+}
+
+function searchAll() {
+  state.subgroupByTab[ALL_TAB] = '';
+  state.sourceTypeByTab[ALL_TAB] = '';
+  if (state.tab !== ALL_TAB) { selectTab(ALL_TAB); return; }
+  syncFilterControls();
+  saveListState();
+  refreshNews();
 }
 
 // 最後まで表示したら「ここまで」と伝える（終わりのある体験）
@@ -855,9 +935,10 @@ async function refreshNews(preserve = false) {
   if (!preserve || !state.items.length) renderSkeleton();
 
   try {
-    const [page, briefing] = await Promise.all([fetchNewsPage(0), showBriefing() ? fetchBriefing() : null]);
+    const [page, briefing, elsewhere] = await Promise.all([fetchNewsPage(0), showBriefing() ? fetchBriefing() : null, fetchElsewhere(state.keyword)]);
     if (seq !== requestSeq) return;
     state.briefing = briefing;
+    state.elsewhere = elsewhere;
     state.items = page.items;
     state.total = page.total;
     lastDataLoad = Date.now();
@@ -942,6 +1023,9 @@ searchToggle.addEventListener('click', () => {
 });
 
 newsList.addEventListener('click', (event) => {
+  if (event.target.closest('[data-action="search-all"]')) { searchAll(); return; }
+  const enable = event.target.closest('[data-enable-source]');
+  if (enable) { enable.disabled = true; enableSearchSource(enable.dataset.enableSource); return; }
   const interest = event.target.closest('[data-action="interest-menu"]');
   if (interest) {
     openInterestSheet(itemsById.get(interest.dataset.id), interest);

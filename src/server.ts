@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchArticleContent } from './articleContent.js';
-import { buildBriefing, filterChoices, listNews, newsDetail, onboardingOptions, sourcesWithUsage, withStoredSummaries } from './api.js';
+import { buildBriefing, filterChoices, listNews, newsDetail, onboardingOptions, searchElsewhere, sourcesWithUsage, withStoredSummaries } from './api.js';
 import type { ApiContext } from './api.js';
 import { embedItemsInBackground, getEmbeddingStatus, loadItemVectors, prepareSemanticScorer } from './embeddings.js';
 import { getNewsById, invalidateNewsCache, listSources, loadNews, setCollectionFilter, sourceId } from './newsPipeline.js';
@@ -123,6 +123,15 @@ app.post('/api/profile/reset', async (_req, res) => {
 
 app.get('/api/categories', (_req, res) => {
   res.json(listCategoryGroups());
+});
+
+app.get('/api/search-elsewhere', async (req, res) => {
+  try {
+    res.json(searchElsewhere(await apiContext(true), typeof req.query.keyword === 'string' ? req.query.keyword : ''));
+  } catch (error) {
+    console.error('[api/search-elsewhere]', error);
+    res.status(500).json({ error: '検索できませんでした。' });
+  }
 });
 
 app.get('/api/news', async (req, res) => {

@@ -383,5 +383,17 @@
   "設定で変更済み": "In den Einstellungen geändert",
   "記録を消す": "Eintrag entfernen",
   "関心の調整": "Anpassungen der Interessen",
-  "記事の「関心がない…」で行った調整です。「元に戻す」を押して保存すると、調整の前の状態に戻ります。": "Anpassungen über „Kein Interesse…“ bei Artikeln. Tippen Sie auf „Rückgängig“ und speichern Sie, um den Zustand davor wiederherzustellen."
+  "記事の「関心がない…」で行った調整です。「元に戻す」を押して保存すると、調整の前の状態に戻ります。": "Anpassungen über „Kein Interesse…“ bei Artikeln. Tippen Sie auf „Rückgängig“ und speichern Sie, um den Zustand davor wiederherzustellen.",
+  "「すべて」で探す（{n}件）": {
+    "one": "In „Alle“ suchen ({n} Beitrag)",
+    "other": "In „Alle“ suchen ({n} Beiträge)"
+  },
+  "オフの情報源にも一致する記事があります": "Auch ausgeschaltete Quellen enthalten Treffer",
+  "オンにする": "Einschalten",
+  "{source}をオンにしました": "{source} eingeschaltet",
+  "ほか{n}の情報源": {
+    "one": "+{n} weitere Quelle",
+    "other": "+{n} weitere Quellen"
+  },
+  "{name}をオンにする": "{name} einschalten"
 }
