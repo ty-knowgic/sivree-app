@@ -64,6 +64,8 @@ export interface FeedSource {
   include?: RegExp;
   /** 見出しと説明文（短縮の前）がこの条件に合う記事は取り込まない */
   exclude?: RegExp;
+  /** 配信サービスのフィード。記事の地域を、フィードの地域ではなく説明文の日付行（「TORONTO, Oct. 29, 2026 /PRNewswire/」）から決める（src/dateline.ts） */
+  datelineRegion?: boolean;
   /** 説明文の先頭から取り除く定型の文（arXiv の RSS の「arXiv:… Announce Type: … Abstract:」など） */
   summaryPrefix?: RegExp;
   /**

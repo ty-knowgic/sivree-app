@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Parser from 'rss-parser';
 import { fetchArticleContent, isGenericImage } from './articleContent.js';
+import { datelineRegion } from './dateline.js';
 import { bulletinLinks, readBulletin } from './irsBulletins.js';
 import { workflowsOf } from './feeds/workflows.js';
 import { readHtmlList } from './htmlList.js';
@@ -89,7 +90,17 @@ const CATEGORY_RULES: { category: CategoryKey; pattern: RegExp | RegExp[]; subgr
   },
   {
     category: '生成AI',
-    pattern: /生成\s?AI|生成ＡＩ|ChatGPT|LLM|大規模言語モデル|基盤モデル|AIエージェント|generative AI|\bGenAI\b|large language model|\bGPT-?\d|\bGemini\b|\bClaude\b|\bAI agents?\b|frontier (AI|model)|foundation models?|生成系AI|対話型AI|エージェンティック|\b(OpenAI|Anthropic|Mistral AI|DeepSeek|Llama ?\d|Copilot|agentic|small language models?|retrieval-augmented)\b/i
+    pattern: [
+      /生成\s?AI|生成ＡＩ|ChatGPT|LLM|大規模言語モデル|基盤モデル|AIエージェント|generative AI|\bGenAI\b|large language model|\bGPT-?\d|\bGemini\b|\bClaude\b|\bAI agents?\b|frontier (AI|model)|foundation models?|生成系AI|対話型AI|エージェンティック|\b(OpenAI|Anthropic|Mistral AI|DeepSeek|Llama ?\d|Copilot|agentic|small language models?|retrieval-augmented)\b|\bsovereign AI\b|ソブリンAI|\bAI Safety Institute\b/i,
+      // 基盤モデルの開発企業（一般語と重なる社名があるため大文字小文字を区別する）
+      /\b(Cohere|Aleph Alpha|xAI|Perplexity|Hugging ?Face|Sakana AI|Qwen|Grok|Midjourney|Stability AI)\b/
+    ]
+  },
+  {
+    // 政府・研究機関・NPO の AI に関する発表（AI 政策・投資・導入支援など）。企業の発表は「AI 搭載」の宣伝と区別できないため対象外
+    category: '生成AI',
+    nonCorporate: true,
+    pattern: [/\bAI\b|ＡＩ|人工知能/, /artificial intelligence|intelligence artificielle/i]
   },
   {
     category: '投資',
@@ -208,16 +219,16 @@ function baseCategory(source: FeedSource, link: string): CategoryKey | undefined
   return source.categoryByUrl?.find(([pattern]) => pattern.test(link))?.[1] ?? source.category;
 }
 
-function classify(source: FeedSource, title: string, summary: string, link = ''): CategoryKey[] {
+export function classify(source: FeedSource, title: string, summary: string, link = ''): CategoryKey[] {
   const text = `${title} ${summary}`;
   const sourceCategory = baseCategory(source, link);
-  const matched = CATEGORY_RULES
+  const matched = [...new Set(CATEGORY_RULES
     .filter(rule =>
       (!rule.subgroup || rule.subgroup === source.subgroup) &&
       (!rule.corporateOnly || source.sourceType === 'corporate') &&
       (!rule.nonCorporate || source.sourceType !== 'corporate') &&
       [rule.pattern].flat().some(pattern => pattern.test(text)))
-    .map(rule => rule.category);
+    .map(rule => rule.category))];
 
   const found = sourceCategory
     ? [...new Set([sourceCategory, ...matched])]
@@ -476,7 +487,7 @@ export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {
 
       items.push(finalizeItem({
         documentKind: source.documentKind,
-        subgroup: source.subgroup,
+        subgroup: (source.datelineRegion && datelineRegion(rawDescription)) || source.subgroup,
         sourceType: source.sourceType,
         title,
         // 説明文が見出しと同じ場合は重複表示を避けるため空にする
@@ -519,7 +530,9 @@ async function loadArchive(): Promise<Map<string, NewsItem>> {
       if (source.sourceType === 'corporate' && PROMOTIONAL_NOISE.test(`${item.title} ${item.summary}`)) continue;
       const categories = classify(source, item.title, item.summary, item.sourceUrl);
       if (categories.length === 0) continue;
-      const refreshed = finalizeItem({ ...item, title: normalizeTitle(item.title), summary: cleanFeedText(item.summary), subgroup: source.subgroup, sourceName: source.sourceName, sourceType: source.sourceType }, categories);
+      // 配信サービスの記事は、取得時に日付行から決めた地域を保つ（保存した説明文は短縮済みで、日付行が残らないことがある）
+      const subgroup = source.datelineRegion ? datelineRegion(item.summary) ?? ((SUBGROUPS as readonly string[]).includes(item.subgroup) ? item.subgroup : source.subgroup) : source.subgroup;
+      const refreshed = finalizeItem({ ...item, title: normalizeTitle(item.title), summary: cleanFeedText(item.summary), subgroup, sourceName: source.sourceName, sourceType: source.sourceType }, categories);
       archive.set(refreshed.id, refreshed);
     }
   } catch (error) {

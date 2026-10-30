@@ -6,7 +6,8 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { withStoredSummaries } from '../src/api.js';
 import { PACKS } from '../src/feeds/packs.js';
-import { applyTitleOnly, ARCHIVE_LIMIT, CANDIDATE_ARCHIVE_LIMIT, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate, trimArchive } from '../src/newsPipeline.js';
+import { applyTitleOnly, ARCHIVE_LIMIT, classify, CANDIDATE_ARCHIVE_LIMIT, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate, trimArchive } from '../src/newsPipeline.js';
+import { datelineRegion } from '../src/dateline.js';
 import { parseListDate, readHtmlList } from '../src/htmlList.js';
 import { defaultOn } from '../src/sourceTier.js';
 import { SOURCE_LEVELS } from '../src/types.js';
@@ -361,6 +362,43 @@ check('専門パック「税務・会計・金融規制」の情報源', packNam
   '米会計検査院', '会計検査院', '国税庁', '米内国歳入庁', 'FRB'].sort().join(','), packNames('finance'));
 check('専門パックはすべて既定でオフ（候補）', officialFeeds.filter(feed => feed.pack).every(feed => !defaultOn(feed)));
 check('市区町村の割り当て', namesAt('local') === ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'].sort().join(','), namesAt('local'));
+
+// ---------- 生成AI の分類 ----------
+{
+  const official = { sourceType: 'official', category: '政治', subgroup: 'カナダ', sourceName: 't', sourceUrl: 'https://example.test/', feedUrl: 'https://example.test/pm', label: 't' } as FeedSource;
+  const wire = { sourceType: 'corporate', matchOnly: ['経済', '投資', '生成AI', 'テクノロジー'], subgroup: '米国', sourceName: 'w', sourceUrl: 'https://example.test/', feedUrl: 'https://example.test/wire', label: 'w' } as FeedSource;
+  check('政府の AI 投資の発表は生成AIにも入る', classify(official, 'Canada announces landmark investment in Cohere to scale secure, sovereign AI', '').includes('生成AI'));
+  check('政府の「artificial intelligence」の発表は生成AIにも入る', classify(official, 'Government of Canada expands support for artificial intelligence adoption', '').includes('生成AI'));
+  check('日本語の「AI」「人工知能」も生成AIに入る', classify({ ...official, subgroup: '日本' }, '第1回ＡＩ・デジタル改革推進会議を開催しました', '').includes('生成AI') && classify({ ...official, subgroup: '日本' }, '人工知能（AI）技術の利用と消費者問題に関する専門調査会', '').includes('生成AI'));
+  check('分類が重複しない', new Set(classify(official, 'AI and artificial intelligence', '')).size === classify(official, 'AI and artificial intelligence', '').length);
+  check('基盤モデル企業の資金調達は配信サービス経由でも生成AIに入る', classify(wire, 'Cohere Announces Series E Fundraise Targeting CAD $7 Billion', '').includes('生成AI'));
+  check('企業の「AI 搭載」の宣伝は生成AIに入らない', !classify(wire, 'Breakthrough Cooling Solutions for the AI Computing Surge', '').includes('生成AI'));
+  check('一般語の「cohere」「grok」は社名と見なさない', !classify(official, 'Plans must cohere; residents grok the rules', '').includes('生成AI'));
+}
+
+// ---------- 配信サービスの日付行から決める地域 ----------
+{
+  const cases: [string, string | undefined][] = [
+    ['Record-setting round marks largest private capital raise in Canadian history, talent and compute TORONTO, Oct. 29, 2026 /PRNewswire/ -- Cohere', 'カナダ'],
+    ['CALGARY, AB, Oct. 29, 2026 /PRNewswire/ -- Frontera', 'カナダ'],
+    ['growth across North America. ST-BRUNO-DE-MONTARVILLE, QC, Oct. 29, 2026 /PRNewswire/ -', 'カナダ'],
+    ['TSX:ORV OTCQX: ORVMF TORONTO, Oct. 29, 2026 /PRNewswire/ -', 'カナダ'],
+    ['MONTRÉAL, Sept. 3, 2026 /CNW/ - x', 'カナダ'],
+    ['LONDON, Ont., Oct. 29, 2026 /PRNewswire/ -', 'カナダ'],
+    ['LONDON, Oct. 29, 2026 /PRNewswire/ -', '欧州'],
+    ['KORTRIJK, Belgium, Oct. 29, 2026 /PRNewswire/ -', '欧州'],
+    ['(AGM). STOCKHOLM, Oct. 29, 2026 /PRNewswire/ -', '欧州'],
+    ['TOKYO, Oct. 29, 2026 /PRNewswire/ -', '日本'],
+    ['tools WATERLOO, Iowa, Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['VANCOUVER, Wash., Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['MIAMI and MEXICO CITY, Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['SAN FRANCISCO and TORONTO, Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['NEW YORK, Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['No dateline in this description at all.', undefined]
+  ];
+  for (const [text, expected] of cases) check(`日付行の地域: ${text.slice(-60)}`, datelineRegion(text) === expected, `→ ${datelineRegion(text)}`);
+  check('日付行で地域を決めるのは PR Newswire だけ', officialFeeds.filter(feed => feed.datelineRegion).every(feed => feed.sourceName === 'PR Newswire') && officialFeeds.some(feed => feed.datelineRegion));
+}
 
 // ---------- 既定の情報源の凍結 ----------
 // 凍結（2026-10-20）までの情報源は、フィードの URL と ID を固定する。URL を替えると ID が変わり、利用者のオン・オフの記録が外れる。
