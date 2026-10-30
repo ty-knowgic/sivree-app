@@ -103,7 +103,9 @@ const items = [...new Set(officialFeeds.map(feed => feed.feedUrl))].map((url, in
   };
 });
 const itemOfSource = (name: string) => items.find(entry => entry.sourceName === name)!;
-const fixtures: Record<string, unknown> = { meta: { generatedAt: new Date().toISOString(), model: null, threshold: 0.5, topicVectors: {} }, news: items, sources, summaries: {}, vectors: {} };
+const head = { schema: 3, generatedAt: new Date().toISOString(), analysisReady: false, model: null, threshold: 0.5 };
+const fixtures = (sourceList: unknown): Record<string, unknown> => ({ head, details: { generatedAt: head.generatedAt, details: {} },
+  list: { head, items, sources: sourceList, scores: { floor: 0, unscored: [], topics: {}, pairs: {} } } });
 
 /** fetch の Request・Response は jsdom にないので、ブラウザ用 API が使う分だけの代わりを渡す */
 class FakeRequest {
@@ -113,9 +115,10 @@ class FakeRequest {
   async json() { return JSON.parse(String(this.body)); }
 }
 class FakeResponse {
-  status: number; ok: boolean; headers: Map<string, string>; private text: string;
-  constructor(body: string, init: any = {}) { this.text = body; this.status = init.status ?? 200; this.ok = this.status < 400; this.headers = new Map(Object.entries(init.headers ?? {})); }
-  async json() { return JSON.parse(this.text); }
+  status: number; ok: boolean; headers: Map<string, string>; private body: string;
+  constructor(body: string, init: any = {}) { this.body = body; this.status = init.status ?? 200; this.ok = this.status < 400; this.headers = new Map(Object.entries(init.headers ?? {})); }
+  async json() { return JSON.parse(this.body); }
+  async text() { return this.body; }
 }
 
 async function browser(storage: Record<string, string> = {}, options: { app?: boolean; sourcesOverride?: unknown } = {}) {
@@ -128,8 +131,8 @@ async function browser(storage: Record<string, string> = {}, options: { app?: bo
   // 本物のブラウザ用 API が「元の fetch」として使うもの。静的なデータとことば（locales）だけを返す
   w.fetch = async (input: unknown) => {
     const url = String(input);
-    const data = url.match(/data\/(\w+)\.json/);
-    if (data) return new FakeResponse(JSON.stringify(data[1] === 'sources' && options.sourcesOverride ? options.sourcesOverride : fixtures[data[1]]));
+    const data = url.match(/data\/([\w-]+)\.json/);
+    if (data) return new FakeResponse(JSON.stringify(fixtures(options.sourcesOverride ?? sources)[data[1]]));
     const dictionary = url.match(/locales\/([\w-]+)\.json/);
     if (dictionary) return new FakeResponse(await readFile(path.join(root, 'locales', `${dictionary[1]}.json`), 'utf8'));
     return new FakeResponse('{}', { status: 404 });

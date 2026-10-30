@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import type { SemanticScorer } from './vectors.js';
 import type { NewsItem } from './types.js';
 
@@ -348,9 +348,9 @@ export interface TopicMatch {
 }
 
 /** キーワードで一致しても、類似度がしきい値よりこれ以上低ければ弱い一致とする（手元の評価では、ここより下はほとんどが誤一致） */
-const WEAK_MARGIN = 0.13;
+export const WEAK_MARGIN = 0.13;
 /** 発信元で一致した記事を、内容が離れているとみなす差（手元の評価: 植物学の奨学金 0.21、数学関連 0.25 以上） */
-const SOURCE_MARGIN = 0.04;
+export const SOURCE_MARGIN = 0.04;
 
 /**
  * 類似度がしきい値ちょうどなら 0.3、しきい値より約 0.09 高ければ 1。
@@ -428,12 +428,12 @@ export function matchTopics(
 }
 
 /** マイニュースの並べ替え: 一致したトピックの重み × 一致の強さの合計 × 新しさ（3日で約半分になる） */
-export function rankForYou<T extends NewsItem>(items: T[], profile: Profile, semantic?: SemanticScorer | null): (T & { matches: TopicMatch[]; score: number })[] {
+export function rankForYou<T extends NewsItem>(items: T[], profile: Profile, semantic?: SemanticScorer | null, match: (item: T) => TopicMatch[] = item => matchTopics(item, profile, semantic)): (T & { matches: TopicMatch[]; score: number })[] {
   const weights = new Map(profile.topics.map(topic => [topic.id, topic.weight]));
   const now = Date.now();
 
   return items
-    .map(item => ({ ...item, matches: matchTopics(item, profile, semantic) }))
+    .map(item => ({ ...item, matches: match(item) }))
     .filter(item => item.matches.length > 0)
     .map((item) => {
       const relevance = item.matches.reduce((sum, match) => sum + (weights.get(match.id) ?? 1) * match.strength, 0);

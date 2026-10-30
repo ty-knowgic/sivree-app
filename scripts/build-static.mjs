@@ -26,11 +26,12 @@ await build({
 
 const indexPath = path.join(site, 'index.html');
 const html = await readFile(indexPath, 'utf8');
-if (!html.includes('<script src="app.js">')) throw new Error('index.html に app.js の読み込みが見つかりません');
+if (!html.includes('<script src="i18n.js" defer>')) throw new Error('index.html に i18n.js の読み込みが見つかりません');
 // ブラウザが古い app.js と新しい static-api.js のように混ぜて使わないよう、配信ごとに変わる版をファイルの URL に付ける
 const version = (process.env.SIVREE_ASSET_VERSION ?? process.env.GITHUB_SHA)?.slice(0, 10) ?? Date.now().toString(36);
 const versioned = html
-  .replace('<script src="app.js">', '<script src="static-api.js"></script>\n    <script src="app.js">')
+  // static-api.js runs first so the article data request starts before the other scripts run
+  .replace('<script src="i18n.js" defer>', '<script src="static-api.js" defer></script>\n    <script src="i18n.js" defer>')
   .replace(/(<script src="(?:i18n|saved|interest|sync|static-api|app)\.js)"/g, `$1?v=${version}"`)
   .replace('href="styles.css"', `href="styles.css?v=${version}"`);
 await writeFile(indexPath, versioned);

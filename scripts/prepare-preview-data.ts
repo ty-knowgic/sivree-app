@@ -1,6 +1,7 @@
 import { mkdir, readFile, copyFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { listSources } from '../src/newsPipeline.js';
+import { schema3Files } from '../src/staticData.js';
 
 const [snapshot, output] = process.argv.slice(2);
 if (!snapshot || !output) throw Error('Usage: prepare-preview-data.ts SNAPSHOT OUTPUT');
@@ -18,3 +19,8 @@ const meta = JSON.parse(await readFile(path.join(output, 'meta.json'), 'utf8'));
 meta.previewSourceGeneratedAt = meta.generatedAt;
 meta.generatedAt = new Date().toISOString();
 await writeFile(path.join(output, 'meta.json'), JSON.stringify(meta));
+// The public snapshot may predate schema 3; derive its files from the legacy ones.
+const read = async (name: string) => JSON.parse(await readFile(path.join(output, `${name}.json`), 'utf8'));
+const [news, summaries, analysis] = await Promise.all([read('news'), read('summaries'), read('analysis')]);
+const current = schema3Files(meta, news, sources, Object.entries(summaries), analysis);
+for (const [name, data] of Object.entries(current)) await writeFile(path.join(output, `${name}.json`), JSON.stringify(data));

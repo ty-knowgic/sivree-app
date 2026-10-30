@@ -944,6 +944,8 @@ async function refreshNews(preserve = false) {
     lastDataLoad = Date.now();
     renderNews();
     performance.mark?.('sivree:list-ready');
+    // The static API defers its background downloads until the first list is visible.
+    window.dispatchEvent(new Event('sivree:list-ready'));
     listView.dataset.readyMs = String(Math.round(performance.now()));
     updateStatus();
     if (preserve) window.scrollTo(0, 0);

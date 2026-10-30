@@ -1,7 +1,7 @@
 import { workflowsOf } from './feeds/workflows.js';
 import { filterNews, listCategoryGroups, listFilterOptions, withPrimaryCategory } from './newsFilters.js';
 import { DEFAULT_PROFILE, matchTopics, rankForYou, STARTER_TOPIC_IDS } from './profile.js';
-import type { Profile } from './profile.js';
+import type { Profile, TopicMatch } from './profile.js';
 import { buildStoryIndex, findRelated, groupStories } from './stories.js';
 import { cleanFeedText } from './text.js';
 import { CATEGORIES, SUBGROUPS } from './types.js';
@@ -46,6 +46,16 @@ export interface ApiContext {
   hasVectors: boolean;
   sources: SourceInfo[];
   sourceIdOf(feedUrl: string): string;
+  /** 記事 ID → 一致したトピック。同じ記事群・プロフィール・判定のあいだだけ使い回す（呼び出し側が作り直す） */
+  matchCache?: Map<string, TopicMatch[]>;
+}
+
+function matchesOf(ctx: ApiContext, item: Parameters<typeof matchTopics>[0]): TopicMatch[] {
+  const cached = ctx.matchCache?.get(item.id);
+  if (cached) return cached;
+  const matches = matchTopics(item, ctx.profile, ctx.semantic);
+  ctx.matchCache?.set(item.id, matches);
+  return matches;
 }
 
 export interface NewsQuery {
@@ -134,8 +144,8 @@ export function listNews(ctx: ApiContext, query: NewsQuery) {
 
   const withSummaries = withStoredSummaries(ctx.summaries, filtered.map(item => withPrimaryCategory(item, profile.categories)));
   const ranked = query.forYou
-    ? rankForYou(withSummaries, profile, ctx.semantic)
-    : withSummaries.map(item => ({ ...item, matches: matchTopics(item, profile, ctx.semantic) }));
+    ? rankForYou(withSummaries, profile, ctx.semantic, item => matchesOf(ctx, item))
+    : withSummaries.map(item => ({ ...item, matches: matchesOf(ctx, item) }));
   // 同じ出来事の発表・報道は1枚のカードにまとめる（埋め込みが使えない場合はまとめない）
   const result = groupForDisplay(ctx, ranked, Boolean(query.forYou));
 
@@ -183,7 +193,7 @@ export function firstSentence(text: string, max = 90): string {
 export function buildBriefing(ctx: ApiContext) {
   const { profile } = ctx;
   const items = withStoredSummaries(ctx.summaries, visibleNews(ctx, true));
-  const stories = groupForDisplay(ctx, rankForYou(items, profile, ctx.semantic), true);
+  const stories = groupForDisplay(ctx, rankForYou(items, profile, ctx.semantic, item => matchesOf(ctx, item)), true);
   const boostOnly = new Set(profile.topics.filter(topic => topic.boostOnly).map(topic => topic.id));
   const MAX_PER_TOPIC = 2;
 

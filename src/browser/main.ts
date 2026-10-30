@@ -1,13 +1,15 @@
 import { buildBriefing, filterChoices, listCategoryGroups, listNews, newsDetail, onboardingOptions, searchElsewhere, sourcesWithUsage } from '../api.js';
 import type { ApiContext, SourceInfo } from '../api.js';
 import { defaultProfile, migrateProfile, ProfileSchema, semanticQueries, withDefaultDescriptions } from '../profile.js';
-import type { Profile } from '../profile.js';
+import type { Profile, TopicMatch } from '../profile.js';
+import { compactScorer, joinSummary } from '../staticData.js';
+import type { CompactScores, DetailsFile, Head, ListFile } from '../staticData.js';
 import type { ArticleSummary, NewsItem } from '../types.js';
-import { createScorer, decodeVector, itemVectors, setStaticSimilarities, textKey } from '../vectors.js';
+import { setStaticSimilarities, textKey } from '../vectors.js';
 
 /**
  * 静的サイト版: サーバーの代わりに、ブラウザの中で `/api/...` への問い合わせに答える。
- * 記事・要約・ベクトルは定期ジョブが書き出した静的ファイル（data/*.json）から読み込み、
+ * 記事・要約・分析は定期ジョブが書き出した静的ファイル（data/*.json）から読み込み、
  * 関心プロフィールはこの端末の localStorage に保存する（アカウントもサーバーも不要）。
  */
 
@@ -16,53 +18,58 @@ const PROFILE_UPDATED_KEY = 'sivry.profile.updatedAt';
 declare const __SIVREE_PREVIEW__: boolean;
 const LOCAL_PREVIEW = typeof __SIVREE_PREVIEW__ !== 'undefined' && __SIVREE_PREVIEW__;
 
-interface Meta {
-  schema?: number;
-  analysisReady?: boolean;
-  generatedAt: string;
-  model: string | null;
-  threshold: number;
-  /** トピックの説明文（textKey） → ベクトル（Base64）。初期設定のトピックだけを事前計算している */
-  topicVectors: Record<string, string>;
-}
-
-interface Analysis {
-  topicScores: Record<string, Record<string, number>>;
-  pairs: Record<string, Record<string, number>>;
-}
+/** list.json is needed before the first cards; details.json (key points, basis) follows once the list is visible. */
+interface Texts { list: string; details?: string }
+/** How long device storage may take before the same data is also requested from the network. */
+const STORAGE_HEAD_START = 800;
 
 interface StaticData {
-  analysis?: Analysis;
-  legacyVectors?: Record<string, string>;
-  meta: Meta;
+  meta: Head;
+  /** Response texts: the snapshot stores strings, which restore faster than object graphs on phones. */
+  texts: Texts;
   items: NewsItem[];
   sources: SourceInfo[];
+  scores: CompactScores;
   summaries: Map<string, ArticleSummary>;
   sourceIds: Map<string, string>;
+  stored?: boolean;
+  details?: Promise<void>;
 }
+
+interface Snapshot { meta: Head; texts: Texts }
 
 const base = new URL('.', document.currentScript instanceof HTMLScriptElement ? document.currentScript.src : location.href);
 
-async function getJson<T>(name: string): Promise<T> {
+async function getText(name: string): Promise<string> {
   const response = await originalFetch(new URL(`data/${name}.json`, base), { cache: 'no-cache' });
   if (!response.ok) throw new Error(`${name}.json: HTTP ${response.status}`);
-  return response.json() as Promise<T>;
+  return response.text();
 }
+const getHead = async () => JSON.parse(await getText('head')) as Head;
+const wait = (ms: number) => new Promise<null>(resolve => setTimeout(() => resolve(null), ms));
 
 const originalFetch = window.fetch.bind(window);
 let loading: Promise<StaticData> | null = null;
 let active: StaticData | null = null;
 let pending: StaticData | null = null;
+let racing: Promise<StaticData> | null = null;
 let checking: Promise<void> | null = null;
 let lastCheck = 0;
 
+// Background work waits until the first list is on screen (app.js dispatches this), or a few seconds.
+const listShown = new Promise<void>(resolve => {
+  window.addEventListener('sivree:list-ready', () => resolve(), { once: true });
+  setTimeout(resolve, 8000);
+});
+
 // A snapshot includes data, never rendered HTML or a user's profile.
-function snapshotStore(write?: StaticData): Promise<StaticData | null> {
+function snapshotStore(write?: Snapshot): Promise<Snapshot | null> {
   return new Promise(resolve => {
     let db: IDBDatabase | undefined;
     let finished = false;
-    const finish = (value: StaticData | null) => { if (finished) return; finished = true; clearTimeout(timer); db?.close(); resolve(value); };
-    const timer = setTimeout(() => finish(null), 800);
+    const finish = (value: Snapshot | null) => { if (finished) return; finished = true; clearTimeout(timer); db?.close(); resolve(value); };
+    // Only guards against a storage that never answers; load() does not wait for this.
+    const timer = setTimeout(() => finish(null), 15000);
     try {
       const open = indexedDB.open('sivree-news-cache', 1);
       open.onupgradeneeded = () => open.result.createObjectStore('snapshots');
@@ -72,7 +79,10 @@ function snapshotStore(write?: StaticData): Promise<StaticData | null> {
         db = open.result;
         if (finished) { db.close(); return; }
         const tx = db.transaction('snapshots', write ? 'readwrite' : 'readonly');
-        const req = write ? tx.objectStore('snapshots').put(write, 'v2') : tx.objectStore('snapshots').get('v2');
+        const store = tx.objectStore('snapshots');
+        const req = write ? store.put(write, 'v3') : store.get('v3');
+        // The schema 2 snapshot held object graphs of the older files.
+        if (write) store.delete('v2');
         tx.oncomplete = () => finish(write ?? req.result ?? null);
         tx.onerror = tx.onabort = () => finish(null);
       };
@@ -80,41 +90,78 @@ function snapshotStore(write?: StaticData): Promise<StaticData | null> {
   });
 }
 
-async function download(meta: Meta): Promise<StaticData> {
-  const [items, sources, summaries, analysis, legacyVectors] = await Promise.all([
-    getJson<NewsItem[]>('news'), getJson<SourceInfo[]>('sources'),
-    getJson<Record<string, ArticleSummary>>('summaries'),
-    meta.schema === 2 ? getJson<Analysis>('analysis') : Promise.resolve(undefined),
-    meta.schema === 2 ? Promise.resolve(undefined) : getJson<Record<string, string>>('vectors')
-  ]);
-  // A deployment may finish between requests. Never combine two generations.
-  if ((await getJson<Meta>('meta')).generatedAt !== meta.generatedAt) throw new Error('Data changed during download');
-  return { meta, items, sources, analysis, legacyVectors,
-    summaries: new Map(Object.entries(summaries)),
-    sourceIds: new Map(sources.map(source => [source.feedUrl, source.id])) };
+function parse(texts: Texts): StaticData {
+  const list = JSON.parse(texts.list) as ListFile<SourceInfo>;
+  if (list.head?.schema !== 3 || !Array.isArray(list.items)) throw new Error('Unknown data format');
+  const summaries = new Map<string, ArticleSummary>();
+  for (const item of list.items) {
+    if (item.t) summaries.set(item.id, joinSummary(item, item.t));
+    delete item.t;
+  }
+  return { meta: list.head, texts, items: list.items, sources: list.sources, summaries, scores: list.scores,
+    sourceIds: new Map(list.sources.map(source => [source.feedUrl, source.id])) };
+}
+
+async function restore(): Promise<StaticData | null> {
+  const snapshot = await snapshotStore();
+  if (typeof snapshot?.texts?.list !== 'string') return null;
+  try { return { ...parse(snapshot.texts), stored: true }; } catch { return null; }
+}
+
+// One file holds a whole generation, so a deployment between requests can never mix two.
+const download = async () => parse({ list: await getText('list') });
+
+/** Key points and the summary basis, needed only by the detail view and kept in the snapshot for offline use. */
+function ensureDetails(data: StaticData): Promise<void> {
+  data.details ??= (async () => {
+    const text = data.texts.details ?? await getText('details');
+    const file = JSON.parse(text) as DetailsFile;
+    // Details of another generation would not match these articles; they stay unavailable for this one.
+    if (file.generatedAt !== data.meta.generatedAt) return;
+    if (data.texts.details === undefined) { data.texts.details = text; data.stored = false; }
+    for (const [id, details] of Object.entries(file.details)) {
+      const summary = data.summaries.get(id);
+      if (summary) Object.assign(summary, details);
+    }
+  })();
+  const result = data.details;
+  // A network failure may be retried by the next detail view.
+  result.catch(() => { if (data.details === result) data.details = undefined; });
+  return result;
+}
+
+async function persist(data: StaticData) {
+  // Never replace a newer downloaded generation with the one on screen.
+  if (LOCAL_PREVIEW || data.stored || (pending && pending !== data)) return;
+  data.stored = Boolean(await snapshotStore({ meta: data.meta, texts: data.texts }));
 }
 
 function activate(data: StaticData) {
   active = data;
-  itemVectors.clear();
-  setStaticSimilarities(data.analysis?.pairs ?? null);
-  for (const [id, vector] of Object.entries(data.legacyVectors ?? {})) itemVectors.set(id, decodeVector(vector));
+  setStaticSimilarities(data.scores.pairs);
   loading = Promise.resolve(data);
+}
+
+/** Keeps a newer generation for an explicit refresh and for the next launch; the active list never changes here. */
+async function offer(next: StaticData) {
+  const current = pending ?? active;
+  if (current && Date.parse(next.meta.generatedAt) <= Date.parse(current.meta.generatedAt)) return;
+  pending = next;
+  await ensureDetails(next).catch(() => {});
+  await persist(next);
+  window.dispatchEvent(new Event('sivree:update-available'));
 }
 
 async function checkUpdates() {
   if (checking) return checking;
   checking = (async () => {
-    const data = await load();
-    const meta = await getJson<Meta>('meta');
+    await load();
+    if (racing) await racing.catch(() => null);
+    const meta = await getHead();
     lastCheck = Date.now();
-    if (meta.generatedAt === data.meta.generatedAt || meta.generatedAt === pending?.meta.generatedAt) return;
-    if (Date.parse(meta.generatedAt) < Date.parse(data.meta.generatedAt)) return;
-    const next = await download(meta);
-    pending = next;
-    // Persist for the next launch without changing the active browsing session.
-    if (!LOCAL_PREVIEW) await snapshotStore(next);
-    window.dispatchEvent(new Event('sivree:update-available'));
+    if (meta.generatedAt === active?.meta.generatedAt || meta.generatedAt === pending?.meta.generatedAt) return;
+    if (Date.parse(meta.generatedAt) < Date.parse((pending ?? active)!.meta.generatedAt)) return;
+    await offer(await download());
   })();
   try { await checking; } finally { checking = null; }
 }
@@ -124,14 +171,34 @@ window.addEventListener('sivree:reload-data', () => {
   if (pending) { activate(pending); pending = null; }
 });
 
+/** The first promise that resolves with data; rejects only when none does. */
+function firstReady(promises: Promise<StaticData | null>[]): Promise<StaticData> {
+  return new Promise((resolve, reject) => {
+    let left = promises.length;
+    const miss = () => { if (--left === 0) reject(new Error('No data')); };
+    for (const promise of promises) promise.then(value => value ? resolve(value) : miss(), miss);
+  });
+}
+
 function load(): Promise<StaticData> {
   loading ??= (async () => {
-    const cached = LOCAL_PREVIEW ? null : await snapshotStore();
-    const data = cached && Array.isArray(cached.items) && cached.summaries instanceof Map && cached.sourceIds instanceof Map
-      ? cached : await download(await getJson<Meta>('meta'));
+    const restoring = LOCAL_PREVIEW ? Promise.resolve(null) : restore();
+    let data = await Promise.race([restoring, wait(STORAGE_HEAD_START)]);
+    if (!data) {
+      // No snapshot, or storage is slow (a phone waking up): also ask the network and show whichever is complete first.
+      const network = download();
+      racing = network;
+      data = await firstReady([restoring, network]);
+      const shown = data;
+      void network.then(next => next === shown ? undefined : offer(next), () => {}).finally(() => { if (racing === network) racing = null; });
+    }
     activate(data);
-    if (!cached && !LOCAL_PREVIEW) void snapshotStore(data);
-    setTimeout(() => { void checkUpdates().catch(() => {}); }, 1000);
+    const loaded = data;
+    void listShown.then(async () => {
+      await ensureDetails(loaded).catch(() => {});
+      await persist(loaded);
+      setTimeout(() => { void checkUpdates().catch(() => {}); }, 1000);
+    });
     return data;
   })();
   const result = loading;
@@ -158,30 +225,30 @@ function saveProfile(input: unknown): Profile {
   return profile;
 }
 
-/** 事前計算したトピックのベクトルがある関心だけ、意味での一致に使う（自分で追加したトピックはキーワードだけで判定する） */
-function semanticFor(profile: Profile, meta: Meta) {
-  if (active?.analysis) {
-    const scores = active.analysis.topicScores;
-    const keys = new Map(semanticQueries(profile).map(topic => [topic.id, textKey(topic.description)]));
-    return { threshold: meta.threshold, similarity: (itemId: string, topicId: string) => scores[keys.get(topicId) ?? '']?.[itemId] };
-  }
-  const vectors = new Map<string, Float32Array>();
-  for (const topic of semanticQueries(profile)) {
-    const encoded = meta.topicVectors[textKey(topic.description)];
-    if (encoded) vectors.set(topic.id, decodeVector(encoded));
-  }
-  return createScorer(vectors, meta.threshold);
+/** 事前計算したトピックの類似度がある関心だけ、意味での一致に使う（自分で追加したトピックはキーワードだけで判定する） */
+function semanticFor(profile: Profile, data: StaticData) {
+  const keys = new Map(semanticQueries(profile).map(topic => [topic.id, textKey(topic.description)]));
+  return compactScorer(data.scores, keys, data.meta.threshold);
+}
+
+// Topic matches depend only on the articles, the saved profile and the scorer: the list and the briefing share them.
+let matchMemo: { key: string; matches: Map<string, TopicMatch[]> } | null = null;
+function matchCacheFor(data: StaticData) {
+  const key = `${data.meta.generatedAt}\n${localStorage.getItem(PROFILE_KEY) ?? ''}`;
+  if (matchMemo?.key !== key) matchMemo = { key, matches: new Map() };
+  return matchMemo.matches;
 }
 
 async function context(withSemantic = false): Promise<ApiContext> {
   const data = await load();
   const profile = loadProfile();
   return {
+    matchCache: withSemantic ? matchCacheFor(data) : undefined,
     items: data.items,
     summaries: data.summaries,
     profile,
-    semantic: withSemantic ? semanticFor(profile, data.meta) : null,
-    hasVectors: Boolean(data.meta.analysisReady) || itemVectors.size > 0,
+    semantic: withSemantic ? semanticFor(profile, data) : null,
+    hasVectors: Boolean(data.meta.analysisReady),
     sources: data.sources,
     sourceIdOf: feedUrl => data.sourceIds.get(feedUrl) ?? ''
   };
@@ -208,7 +275,7 @@ async function handle(url: URL, method: string, request: Request): Promise<Respo
       summaryEnabled: true,
       provider: 'extractive',
       method: 'extractive',
-      semantic: { enabled: Boolean(meta.model), model: meta.model, available: Boolean(meta.model), embeddedCount: meta.analysisReady ? active!.items.length : itemVectors.size, threshold: meta.threshold, error: null },
+      semantic: { enabled: Boolean(meta.model), model: meta.model, available: Boolean(meta.model), embeddedCount: meta.analysisReady ? active!.items.length : 0, threshold: meta.threshold, error: null },
       static: true,
       localPreview: LOCAL_PREVIEW,
       generatedAt: meta.generatedAt
@@ -262,6 +329,8 @@ async function handle(url: URL, method: string, request: Request): Promise<Respo
   const detail = path.match(/^\/api\/news\/([^/]+)(\/summary)?$/);
   if (detail) {
     const id = decodeURIComponent(detail[1]);
+    // Key points arrive after the list; a slow or offline network shows the summary without them.
+    await Promise.race([ensureDetails(await load()).catch(() => {}), wait(4000)]);
     const found = newsDetail(await context(), id);
     if (!found) return json({ error: '記事が見つかりません。' }, 404);
     if (detail[2]) {
