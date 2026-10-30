@@ -403,6 +403,19 @@ check('市区町村の割り当て', namesAt('local') === ['ウォータール�
   check('日付行で地域を決めるのは PR Newswire だけ', officialFeeds.filter(feed => feed.datelineRegion).every(feed => feed.sourceName === 'PR Newswire') && officialFeeds.some(feed => feed.datelineRegion));
 }
 
+// ---------- 米国の政治の代替経路（2026-10-30。米国務省の 403 の代わり） ----------
+{
+  const byLabel = (label: string) => officialFeeds.find(feed => feed.label === label)!;
+  const passes = (feed: FeedSource, text: string) => (!feed.include || feed.include.test(text)) && !feed.exclude?.test(text);
+  const actions = byLabel('The White House: Presidential Actions');
+  const stateFr = byLabel('Federal Register: State Department Sanctions and Determinations');
+  check('ホワイトハウス: 記念月の布告は除く', !passes(actions, 'National Seafood Month, 2026 By the President of the United States'));
+  check('ホワイトハウス: 関税・大統領令は残す', passes(actions, 'ADJUSTING IMPORTS OF ROBOTICS, INDUSTRIAL MACHINERY, AND THEIR PARTS By the President, a Proclamation on Columbus Day, 2026 reference') && passes(actions, 'Presidential Determination Pursuant to Section 303 of the Defense Production Act'));
+  check('官報（国務省）: 制裁・決定・ITAR は残す', ['Notice of Department of State Sanctions Actions', 'Determination Pursuant to Section 451 of the Foreign Assistance Act of 1961', 'International Traffic in Arms Regulations: Syria Country Policy Revision'].every(title => passes(stateFr, title)));
+  check('官報（国務省）: 展示品・情報収集・プライバシー法・会議は除く', ['Notice of Determinations; Culturally Significant Object Being Imported for Exhibition', 'Notice of Determinations; Culturally Significant Objects Being Imported for Exhibition', '30-Day Notice of Proposed Information Collection: Foreign Assistance Requirements', 'Privacy Act of 1974; System of Records', 'Notice of Public Meeting To Prepare for International Maritime Organization MEPC 85 Session'].every(title => !passes(stateFr, title)));
+  check('追加した3経路は既定ではオフの候補（since 付き・利用条件 A）', [actions, byLabel('The White House: Fact Sheets'), stateFr].every(feed => feed.since === '2026-10-30' && feed.terms === 'A' && !feed.pack && !defaultOn(feed)));
+}
+
 // ---------- 既定の情報源の凍結 ----------
 // 凍結（2026-10-20）までの情報源は、フィードの URL と ID を固定する。URL を替えると ID が変わり、利用者のオン・オフの記録が外れる。
 // 凍結より後に足す情報源は、since を付ける（既定ではオフの候補になり、既存の利用者の表示を変えない）
