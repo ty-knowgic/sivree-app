@@ -86,6 +86,11 @@ jobs:
       # 取りこぼしの監査が、2026-10-29 の事例（分類・地域）を利用者の報告なしに見つけることを確かめる
       - run: npm run test:coverage
 
+      # 要約（頭文字で切れない・小見出しを選ばない）、話題の一致（金融の「脆弱性」・会社名の誤一致）、ブリーフィングが選んだ地域を満遍なく取ることを確かめる
+      - run: npm run test:summary
+      - run: npm run test:matching
+      - run: npm run test:briefing
+
       # 蓄積中の記事・要約・ベクトル（直近30日分）を前回から引き継ぐ。無い場合は、いまフィードにある記事から作り直す
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
