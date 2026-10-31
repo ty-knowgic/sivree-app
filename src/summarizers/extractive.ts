@@ -148,7 +148,18 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
 }
 
+/** 文の語が、ほとんど見出しの語に含まれるか（見出しの言い換え） */
+function restatesTitle(terms: Map<string, number>, titleTerms: Map<string, number>): boolean {
+  if (terms.size < 4 || titleTerms.size < 4) return false;
+  let shared = 0;
+  for (const term of terms.keys()) if (titleTerms.has(term)) shared++;
+  return shared / terms.size >= 0.8;
+}
+
 export function summarizeExtractively(title: string, text: string): SummaryDraft {
+  const titleTerms = extractTerms(title);
+  // 本文に見出しの言い換えの小見出しがあれば、ページが記事そのものである証拠になる（会見録のように、本文が見出しと語を共有しなくても）
+  let titleHeadingFound = false;
   const sentences: Sentence[] = [];
   for (const paragraph of cleanArticleText(text)) {
     const isBullet = BULLET.test(paragraph);
@@ -159,7 +170,13 @@ export function summarizeExtractively(title: string, text: string): SummaryDraft
       if (cleaned.length < minLength || cleaned.length > 500 || NOISE.test(cleaned) || BOILERPLATE_SENTENCE.test(cleaned)) continue;
       // 見出しと同じ文は要約として意味がないため除く
       if (cleaned.replace(/\s/g, '') === title.replace(/\s/g, '')) continue;
-      sentences.push({ text: cleaned, index: sentences.length, isBullet, terms: extractTerms(cleaned) });
+      const terms = extractTerms(cleaned);
+      // 本文の小見出し（句点で終わらず、語のほとんどが見出しに含まれる）も除く。残すと、日本語は次に選んだ文に区切りなしでつながる（「…の概要昨日の…」）
+      if (!isBullet && !/[。！？.!?」』）)]$/.test(cleaned) && restatesTitle(terms, titleTerms)) {
+        titleHeadingFound = true;
+        continue;
+      }
+      sentences.push({ text: cleaned, index: sentences.length, isBullet, terms });
     }
   }
 
@@ -172,7 +189,6 @@ export function summarizeExtractively(title: string, text: string): SummaryDraft
   const idf = new Map([...documentFrequency].map(([term, df]) => [term, Math.log(1 + sentences.length / df)]));
 
   const centrality = textRank(sentences, idf);
-  const titleTerms = extractTerms(title);
   const scored = sentences.map((sentence, i) => {
     // ニュースリリースは冒頭の文に要旨が書かれることが多いため、前の方の文を優遇する
     const position = i === 0 ? 1 : 0.6 / (1 + i * 0.5);
@@ -209,7 +225,7 @@ export function summarizeExtractively(title: string, text: string): SummaryDraft
 
   // 抜き出した文が見出しとほとんど関係ない場合（記事ではなく一覧ページにリンクしている等）は、内容不足として扱う
   const relevance = Math.max(...chosen.map(sentence => overlapWithTitle(sentence.terms, titleTerms)), 0);
-  const unrelated = titleTerms.size >= 4 && relevance < 0.15;
+  const unrelated = !titleHeadingFound && titleTerms.size >= 4 && relevance < 0.15;
 
   return {
     headlineJa: title,

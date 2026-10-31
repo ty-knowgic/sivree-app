@@ -29,7 +29,7 @@ w.fetch = async (url, init = {}) => {
   if (url === '/api/options') return respond(options);
   if (url === '/api/filters') {
     if (waitForFilters) await new Promise(resolve => { waitForFilters = resolve; });
-    return respond({ categories: [], subgroups: {}, sourceTypes: [] });
+    return respond({ categories: [], subgroups: {}, sourceTypes: [], regions: ['日本', '米国'], regionOrder: (saved ?? profile).regionOrder ?? [] });
   }
   if (String(url).startsWith('/api/news')) return respond([], { headers: new Map([['X-Total-Count', '0']]) });
   if (url === '/api/briefing') return respond({ stories: [], storyCount: 0 });
@@ -59,6 +59,7 @@ w.SivreeSync = {
 };
 w.eval(src + `
 window.restartOnboarding = () => { onboarding.step = 1; return showOnboarding(); };
+window.__t = { state, draft: () => profileDraft };
 window.settingsFixture = (profile, sources) => {
   state.needsOnboarding = false;
   profileDraft = JSON.parse(JSON.stringify(profile));
@@ -77,6 +78,8 @@ const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }
 const next = () => view().querySelector('[data-action="next"]');
 
 check('最初の質問が表示される', await until(() => view().querySelector('.choice-grid[data-kind="regions"]')));
+const regionGrid = () => [...view().querySelectorAll('.choice-grid[data-kind="regions"] .choice')].map(choice => choice.dataset.value);
+check('初回の質問の地域は、端末の言語（en-US）の地域を先頭に、情報源の多い順に並ぶ', regionGrid().join() === '米国,日本', regionGrid());
 check('質問の前に既存ユーザーの読み込み導線がある', view().querySelector('.onb-restore')?.compareDocumentPosition(view().querySelector('.onb-questions')) === w.Node.DOCUMENT_POSITION_FOLLOWING);
 click(view().querySelector('[data-action="restore-profile"]'));
 check('キャンセルしても質問を続けられる', await until(() => connectCalls === 1 && !view().querySelector('[data-action="restore-profile"]').disabled) && saved === null);
@@ -108,7 +111,12 @@ await until(() => view().hidden);
 const source = (id, categories, region = '日本', pack) => ({ id, categories, subgroup: region, pack, candidate: true, sourceType: 'research', sourceName: id, label: id, sourceUrl: 'https://example.test/', count: 1 });
 const sources = [source('economy', ['経済', 'テクノロジー']), source('technology', ['テクノロジー']), source('outside', ['経済'], '米国'), source('specialist', ['経済'], '日本', { id: 'test', name: 'Test pack', blurb: 'Test' }),
   { ...source('waterloo', ['社会'], 'カナダ'), sourceType: 'official', sourceName: 'ウォータールー市', level: 'local', area: 'CA-ON', city: 'waterloo' },
+  { ...source('osc-news', ['経済'], 'カナダ'), sourceType: 'official', level: 'regional', area: 'CA-ON', sourceName: 'オンタリオ州証券委員会', label: 'OSC News' },
+  { ...source('osc-rules', ['経済'], 'カナダ'), sourceType: 'official', level: 'regional', area: 'CA-ON', sourceName: 'オンタリオ州証券委員会', label: 'OSC Instruments, Rules and Policies' },
+  { ...source('mb-gov', ['政治'], 'カナダ'), sourceType: 'official', level: 'regional', area: 'CA-MB', sourceName: 'マニトバ州政府', label: 'Manitoba News Releases' },
+  { ...source('sk-gov', ['政治'], 'カナダ'), sourceType: 'official', level: 'regional', area: 'CA-SK', sourceName: 'サスカチュワン州政府', label: 'Saskatchewan News Releases' },
   { ...source('mlit', ['社会']), sourceType: 'official', level: 'national', sourceName: '国土交通省' },
+  { ...source('cagov', ['政治'], 'カナダ'), candidate: false, sourceType: 'official', level: 'national', sourceName: 'カナダ政府' },
   { ...source('shiho', ['社会']), sourceName: '日本司法書士会連合会', sourceType: 'npo', level: undefined }];
 saved = { ...saved, regions: ['日本', 'カナダ'], extraSources: ['economy'], candidatesSeenAt: '', savedItems: [] };
 w.settingsFixture(saved, sources);
@@ -119,6 +127,74 @@ check('ウォータールー市はカナダの自治体・オンタリオ州に�
 check('国交省は他の省庁と同じ政府一覧・日本に置き、初期オフを維持する', settings.querySelector('[data-source="mlit"]').closest('[data-type]').dataset.type === 'official' && settings.querySelector('[data-source="mlit"]').closest('.source-country').textContent.includes('日本') && !settings.querySelector('[data-source="mlit"]').checked);
 check('追加情報源と専門パックを同じ階層に置く', settings.querySelector('[data-candidates] h2').textContent.includes('追加情報源') && settings.querySelector('.specialist-packs > h2').textContent === '専門パック' && settings.querySelector('[data-pack] .source-pack-head h3') && settings.querySelector('[data-candidates]').parentElement === settings.querySelector('.specialist-packs').parentElement);
 check('専門パックは分野内で直接情報源を選択できる', settings.querySelector('[data-pack="test"] .professional-group [data-source="specialist"]') !== null);
+// ---------- 同じ名前で別フィードの行 ----------
+{
+  const rowOf = id => settings.querySelector(`[data-candidates] [data-source="${id}"]`).closest('li');
+  const nameOf = id => rowOf(id).querySelector('.source-name').textContent;
+  const descOf = id => rowOf(id).querySelector('.source-desc').textContent;
+  check('同じ発信元名の2つのフィードは、ラベルを行名にして見分けられる', nameOf('osc-news') === 'OSC News' && nameOf('osc-rules') === 'OSC Instruments, Rules and Policies', [nameOf('osc-news'), nameOf('osc-rules')]);
+  check('同じ名前の行は、発信元名を説明行に1回だけ出す', [descOf('osc-news'), descOf('osc-rules')].every(text => text.split('オンタリオ州証券委員会').length === 2), [descOf('osc-news'), descOf('osc-rules')]);
+  check('名前が重ならない行は、これまでどおり発信元名が行名', nameOf('waterloo') === 'ウォータールー市' && nameOf('economy') === 'economy' && nameOf('shiho') === '日本司法書士会連合会');
+  const areaHeadings = [...settings.querySelectorAll('[data-candidate-region="カナダ"] [data-candidate-kind="regional"] h4')].map(h => h.firstChild.textContent.trim());
+  check('州・県は、登録順ではなく画面の言語での名前の順に並び、州名が見出しに付く', areaHeadings.join('|') === '州・都道府県の機関 · オンタリオ州|州・都道府県の機関 · サスカチュワン州|州・都道府県の機関 · マニトバ州', areaHeadings);
+  check('専門パックの行は、これまでどおりラベルが行名', settings.querySelector('[data-pack="test"] [data-source="specialist"]').closest('li').querySelector('.source-name').textContent === 'specialist');
+}
+
+// ---------- 地域の並び順 ----------
+{
+  const all = ['日本', 'カナダ', '米国', '欧州', 'グローバル'];
+  const setLanguages = list => Object.defineProperty(w.navigator, 'languages', { value: list, configurable: true });
+  const home = list => { setLanguages(list); return w.homeRegion(); };
+  check('端末の言語から地域を決める（ja→日本、*-CA→カナダ、*-US→米国、英国・欧州→欧州）',
+    home(['ja-JP']) === '日本' && home(['ja']) === '日本' && home(['en-CA']) === 'カナダ' && home(['fr-CA', 'en']) === 'カナダ' && home(['en-US']) === '米国'
+    && home(['en-GB']) === '欧州' && home(['de']) === '欧州' && home(['fr-FR']) === '欧州' && home(['es-ES', 'en']) === '欧州' && home(['en', 'ja']) === '日本',
+    [home(['ja-JP']), home(['en-CA']), home(['en-US']), home(['en-GB']), home(['de'])]);
+  check('決められない言語（英語だけ・国が対象外）は、地域を決めない', home(['en']) === '' && home(['en-AU']) === '' && home(['pt-BR', 'es']) === '' && home(['zh-Hans']) === '');
+  setLanguages(['ja-JP']);
+  check('自動の順: 日本語の端末は日本が先頭、残りは情報源の多い順（米国4・ほか0）、グローバルは最後', w.regionOrder(all)[0] === '日本' && w.regionOrder(all)[1] === '米国' && w.regionOrder(all).at(-1) === 'グローバル', w.regionOrder(all));
+  setLanguages(['en-CA']);
+  check('自動の順: カナダの端末はカナダが先頭（カナダを固定した順ではない）', w.regionOrder(all)[0] === 'カナダ' && w.regionOrder(all)[1] === '米国' && w.regionOrder(all)[2] === '日本', w.regionOrder(all));
+  setLanguages(['de-DE']);
+  check('自動の順: 欧州の端末は欧州が先頭', w.regionOrder(all)[0] === '欧州' && w.regionOrder(all)[1] === '米国' && w.regionOrder(all).at(-1) === 'グローバル', w.regionOrder(all));
+  setLanguages(['en']);
+  check('自動の順: 地域を決められない端末は、情報源の多い順（米国4・日本3）で、グローバルは最後', w.regionOrder(all).slice(0, 2).join() === '米国,日本' && w.regionOrder(all).at(-1) === 'グローバル', w.regionOrder(all));
+  check('一部の地域だけを並べると、自動の順の相対的な順位を保つ', w.regionOrder(['日本', '米国']).join() === '米国,日本' && w.regionOrder(['日本', 'グローバル']).join() === '日本,グローバル');
+  w.__t.state.regionOrderPref = ['欧州', '日本'];
+  check('利用者の並び順が先で、残りは自動の順で続く', w.regionOrder(all).slice(0, 3).join() === '欧州,日本,米国' && w.regionOrder(all).at(-1) === 'グローバル', w.regionOrder(all));
+  check('利用者の並び順にない地域だけを渡しても、その中で並ぶ', w.regionOrder(['米国', '日本']).join() === '日本,米国', w.regionOrder(['米国', '日本']));
+  w.__t.state.regionOrderPref = [];
+  setLanguages(['en-US']);
+
+  // 設定: 国・地域の画面で、↑↓で並べ替える
+  settings.querySelector('[name="settings-pane"][value="scope"]').click();
+  const orderRows = () => [...settings.querySelectorAll('.region-order-row')].map(row => row.querySelector('[data-direction="up"]').dataset.region);
+  const grid = () => [...settings.querySelectorAll('.choice-grid[data-kind="regions"] .choice')].map(choice => choice.dataset.value);
+  const move = (region, direction) => click([...settings.querySelectorAll('[data-action="move-region"]')].find(button => button.dataset.region === region && button.dataset.direction === direction));
+  const initial = orderRows();
+  check('並び順の欄に、すべての地域が自動の順で並ぶ', initial.length === 5 && [...initial].sort().join() === [...all].sort().join() && initial[0] === '米国' && initial.at(-1) === 'グローバル', initial);
+  check('自動の間は「自動に戻す」を押せない。国・地域の選択肢も同じ順', settings.querySelector('[data-action="reset-region-order"]').disabled && grid().join() === '米国,日本', grid());
+  check('先頭の↑と末尾の↓は押せない', settings.querySelector('.region-order-row [data-direction="up"]').disabled && [...settings.querySelectorAll('.region-order-row')].at(-1).querySelector('[data-direction="down"]').disabled);
+  check('↑↓のボタンに、地域の名前を含む読み上げ名がある', settings.querySelector('[data-action="move-region"][data-region="日本"][data-direction="up"]').getAttribute('aria-label').includes('日本'));
+  move('日本', 'down');
+  const swapped = orderRows();
+  check('↓で1つ下に動き、国・地域の選択肢も新しい順になる', swapped.join() === [initial[0], initial[2], initial[1], ...initial.slice(3)].join() && JSON.stringify(w.__t.draft().regionOrder) === JSON.stringify(swapped), swapped);
+  check('動かしたあとも、そのボタンにフォーカスが残る', w.document.activeElement?.dataset.region === '日本' && w.document.activeElement?.dataset.direction === 'down');
+  check('並べ替えると「自動に戻す」を押せる', settings.querySelector('[data-action="reset-region-order"]').disabled === false);
+  click(settings.querySelector('[data-action="reset-region-order"]'));
+  check('「自動に戻す」で自動の順に戻る', orderRows().join() === initial.join() && w.__t.draft().regionOrder.length === 0);
+  // 目標の順: カナダ → 日本 → 米国（カナダは先頭へ、日本はその次へ）
+  for (let i = 0; i < 5 && orderRows()[0] !== 'カナダ'; i++) move('カナダ', 'up');
+  for (let i = 0; i < 5 && orderRows()[1] !== '日本'; i++) move('日本', 'up');
+  const target = orderRows();
+  check('↑でカナダ・日本を先頭へ動かせる', target.slice(0, 3).join() === 'カナダ,日本,米国' && grid().join() === '日本,米国' && w.__t.draft().regionOrder.join() === target.join(), target);
+  check('国・地域の選択（選んだ地域）は、並べ替えでは変わらない', w.__t.draft().regions.join() === '日本,カナダ');
+  settings.querySelector('[name="settings-pane"][value="sources"]').click();
+  const candidateRegions = [...settings.querySelectorAll('[data-candidate-region]')].map(details => details.dataset.candidateRegion);
+  check('追加情報源の国の並びも、保存前の並び順に従う（選んだ地域が先、対象外の米国は最後）', candidateRegions.join() === 'カナダ,日本,米国', candidateRegions);
+  const officialRegions = [...settings.querySelectorAll('.source-group[data-type="official"] .source-country-heading')].map(heading => heading.textContent);
+  check('政府・自治体の一覧の国の並びも、同じ順に従う（自動の順なら日本が先）', officialRegions.join() === 'カナダ,日本', officialRegions);
+}
+
 const technology = settings.querySelector('[data-source="technology"]');
 technology.checked = true;
 technology.dispatchEvent(new w.Event('change', { bubbles: true }));
@@ -149,6 +225,8 @@ releaseFilters();
 check('閲覧画面に戻った後で保存完了を通知する', await until(() => settings.hidden && w.document.querySelector('.toast')?.textContent === '保存しました'));
 check('候補の変更が保存される', saved.extraSources.includes('technology'));
 check('政府一覧へ移した機関も従来の追加設定として保存される', saved.extraSources.includes('mlit'));
+check('並び順が保存され、選んだ地域・候補のオンは変わらない', saved.regionOrder.slice(0, 3).join() === 'カナダ,日本,米国' && saved.regions.join() === '日本,カナダ' && saved.extraSources.includes('economy'), saved.regionOrder);
+check('地域の絞り込みは、保存した並び順に従う', [...w.document.getElementById('subgroupFilter').options].map(option => option.value).join() === ',日本,米国', [...w.document.getElementById('subgroupFilter').options].map(option => option.value));
 
 // A returning user can restore without submitting any onboarding answers.
 await until(() => view().hidden);
@@ -162,6 +240,11 @@ w.setTimeout = (fn, delay, ...args) => {
 };
 await w.restartOnboarding();
 await until(() => view().querySelector('[data-action="restore-profile"]'));
+Object.defineProperty(w.navigator, 'languages', { value: ['ja-JP'], configurable: true });
+w.__t.state.regionOrderPref = [];
+await w.restartOnboarding();
+await until(() => view().querySelector('.choice-grid[data-kind="regions"]'));
+check('初回の質問の地域は、日本語の端末では日本が先頭になる', regionGrid().join() === '日本,米国', regionGrid());
 click(view().querySelector('[data-action="restore-profile"]'));
 check('質問を保存せず既存の地域・分野を読み込んで再表示する', await until(() => reloadScheduled) && saved?.onboarded === true && saved.regions.join() === '米国');
 

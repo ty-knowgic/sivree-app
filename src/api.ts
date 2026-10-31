@@ -145,18 +145,34 @@ export function listNews(ctx: ApiContext, query: NewsQuery) {
   return { total: result.length, items: result.slice(start, start + size) };
 }
 
+// 英語で、ピリオドが文の終わりではない語: 頭文字（"Arthur B. McDonald"）、敬称・略語（"Dr."、"U.S."）。次に大文字が続いても、ここでは区切らない
+const ABBREVIATION_BEFORE_PERIOD = /(?:^|[\s("'“])(?:[A-Z]|Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|Mt|U\.S|U\.K)$/;
+
 /** 要約（なければ説明文）の最初の一文を、ブリーフィング用の短い説明にする */
 export function firstSentence(text: string, max = 90): string {
   const clean = cleanFeedText(text);
-  const match = clean.match(/^.+?(?:。|[.!?](?=\s|$))/);
-  const sentence = match ? match[0] : clean;
-  return sentence.length > max ? `${sentence.slice(0, max - 1)}…` : sentence;
+  const ending = /。|[.!?](?=\s|$)/g;
+  let sentence = clean;
+  for (let match = ending.exec(clean); match; match = ending.exec(clean)) {
+    if (match[0] === '.' && ABBREVIATION_BEFORE_PERIOD.test(clean.slice(0, match.index))) continue;
+    sentence = clean.slice(0, match.index + match[0].length);
+    break;
+  }
+  if (sentence.length <= max) return sentence;
+  // 英語は語の途中で切らない（日本語は空白がないので、そのまま max で切る）
+  const cut = sentence.slice(0, max - 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`;
 }
 
 /**
  * 今日のブリーフィング: マイニュースのうち直近の話題から、関心トピックが偏らないよう最大5件を選ぶ。
  * 文章は記事の要約・説明文から取り出すだけで、生成AIは使わない
  */
+const BRIEFING_SIZE = 5;
+// 新しい発表を優先し、足りなければ広げる期間（時間）。最長は1週間
+const BRIEFING_WINDOWS = [24, 48, 72, 120, 168];
+
 export function buildBriefing(ctx: ApiContext) {
   const { profile } = ctx;
   const items = withStoredSummaries(ctx.summaries, visibleNews(ctx, true));
@@ -164,39 +180,78 @@ export function buildBriefing(ctx: ApiContext) {
   const boostOnly = new Set(profile.topics.filter(topic => topic.boostOnly).map(topic => topic.id));
   const MAX_PER_TOPIC = 2;
 
-  // 週末など新しい記事が少ない場合は、対象期間を広げる（関心トピックが偏らずに5件選べるまで）
-  const within = (hours: number) => stories.filter(story => Date.now() - new Date(story.publishedAt).getTime() <= hours * 3_600_000);
-  const lineOf = (story: (typeof stories)[number]) => firstSentence(('ai' in story && story.ai?.summary) || story.summary);
-  const pick = (candidates: typeof stories) => {
-    const perTopic = new Map<string, number>();
-    const picked: typeof stories = [];
-    for (const story of candidates) {
-      // 本文で触れているだけ・内容の近さが弱いなど、一致の弱い記事はブリーフィングには載せない
-      if (!story.matches.some(match => !boostOnly.has(match.id) && match.strength >= 0.75)) continue;
-      // 見出しだけで内容が分からない記事は載せない
-      if (lineOf(story).length < 20) continue;
-      const topic = story.matches.find(match => !boostOnly.has(match.id))?.id ?? '';
-      if ((perTopic.get(topic) ?? 0) >= MAX_PER_TOPIC) continue;
-      // プレスリリース配信サービスの発表は1件まで（発信元の多様さを保つ）
-      if (PR_WIRES.has(story.sourceName) && picked.some(other => PR_WIRES.has(other.sourceName))) continue;
-      // 同じ発信元は1件まで（トピックが違っても同じ省庁・企業の発表が並ばないように）
-      if (picked.some(other => other.sourceName === story.sourceName)) continue;
-      perTopic.set(topic, (perTopic.get(topic) ?? 0) + 1);
-      picked.push(story);
-      if (picked.length >= 5) break;
+  type Story = (typeof stories)[number];
+  const ageHours = (story: Story) => (Date.now() - new Date(story.publishedAt).getTime()) / 3_600_000;
+  const within = (hours: number) => stories.filter(story => ageHours(story) <= hours);
+  const lineOf = (story: Story) => firstSentence(('ai' in story && story.ai?.summary) || story.summary);
+  const topicOf = (story: Story) => story.matches.find(match => !boostOnly.has(match.id))?.id ?? '';
+  // 載せてよい記事: 本文で触れているだけ・内容の近さが弱いなど、一致の弱い記事と、見出しだけで内容が分からない記事は載せない
+  const qualified = new Map<Story, boolean>();
+  const qualifies = (story: Story) => {
+    let ok = qualified.get(story);
+    if (ok === undefined) {
+      ok = story.matches.some(match => !boostOnly.has(match.id) && match.strength >= 0.75) && lineOf(story).length >= 20;
+      qualified.set(story, ok);
     }
-    return picked;
+    return ok;
   };
-  let windowHours = 24;
-  let recent = within(windowHours);
-  let picked = pick(recent);
-  // 連休明けなどは1週間まで広げる
-  for (const hours of [48, 72, 120, 168]) {
-    if (picked.length >= 5) break;
+
+  // すでに選んだ記事との関係で、載せられるか
+  const fits = (story: Story, chosen: Story[]) => !chosen.includes(story)
+    && chosen.filter(other => topicOf(other) === topicOf(story)).length < MAX_PER_TOPIC
+    // プレスリリース配信サービスの発表は1件まで（発信元の多様さを保つ）
+    && !(PR_WIRES.has(story.sourceName) && chosen.some(other => PR_WIRES.has(other.sourceName)))
+    // 同じ発信元は1件まで（トピックが違っても同じ省庁・企業の発表が並ばないように）
+    && !chosen.some(other => other.sourceName === story.sourceName);
+  const rankOf = (story: Story) => stories.indexOf(story);
+  // 同じ地域が重複して保存されていても、その地域に2枠は与えない
+  const regions = [...new Set(profile.regions.length ? profile.regions : SUBGROUPS)];
+  // 利用者が選んだ地域（選んでいなければすべて）から、1周に1件ずつ取る。1周の中は、その周の最初の候補の順位が高い地域から。
+  // 地域ごとの候補は、前の地域が選ぶたびに選び直す（前の地域が同じトピックの枠を使い切っても、次の地域は別のトピックの記事を選べる）。
+  // 件数が地域の数より少なければ上位の地域だけ、多ければ2周目以降も同じ順で続く。候補のない地域は飛ばす
+  const balanced = (pool: Story[]) => {
+    const chosen: Story[] = [];
+    const nextFor = (region: string) => pool.find(candidate => candidate.subgroup === region && qualifies(candidate) && fits(candidate, chosen));
+    while (chosen.length < BRIEFING_SIZE) {
+      const order = regions.flatMap(region => { const next = nextFor(region); return next ? [{ region, rank: rankOf(next) }] : []; })
+        .sort((a, b) => a.rank - b.rank);
+      if (!order.length) break;
+      for (const { region } of order) {
+        if (chosen.length >= BRIEFING_SIZE) break;
+        const next = nextFor(region);
+        if (next) chosen.push(next);
+      }
+    }
+    return chosen;
+  };
+  // 新しい発表だけで5件そろえばその期間で、そろわなければ期間を広げる（週末や連休明けは1週間まで）
+  let windowHours = BRIEFING_WINDOWS[0];
+  let picked: Story[] = [];
+  for (const hours of BRIEFING_WINDOWS) {
     windowHours = hours;
-    recent = within(hours);
-    picked = pick(recent);
+    picked = balanced(within(hours));
+    if (picked.length >= BRIEFING_SIZE) break;
   }
+  // 期間を広げずにそろった場合に、新しい発表のない静かな地域も、1週間以内の発表から1件取る。
+  // 5件を保つため、件数のいちばん多い地域の、いちばん順位の低い記事と入れ替える
+  for (const region of regions.filter(value => !picked.some(story => story.subgroup === value))) {
+    let base = picked;
+    if (base.length >= BRIEFING_SIZE) {
+      const counts = new Map<string, number>();
+      for (const story of base) counts.set(story.subgroup, (counts.get(story.subgroup) ?? 0) + 1);
+      const victim = base.filter(story => (counts.get(story.subgroup) ?? 0) > 1).sort((a, b) => rankOf(b) - rankOf(a))
+        .sort((a, b) => (counts.get(b.subgroup) ?? 0) - (counts.get(a.subgroup) ?? 0))[0];
+      if (!victim) continue;
+      base = base.filter(story => story !== victim);
+    }
+    const extra = within(BRIEFING_WINDOWS[BRIEFING_WINDOWS.length - 1]).find(candidate => candidate.subgroup === region && qualifies(candidate) && fits(candidate, base));
+    if (!extra) continue;
+    picked = [...base, extra];
+    windowHours = Math.max(windowHours, BRIEFING_WINDOWS.find(hours => ageHours(extra) <= hours) ?? windowHours);
+  }
+  // 画面には、地域ごとではなく、関連度の順に並べる
+  picked.sort((a, b) => rankOf(a) - rankOf(b));
+  const recent = within(windowHours);
 
   // 関心トピックごとの話題数（「生成AI 12件」のように、全体の動きを一目で見られるように）
   const topicCounts = profile.topics
@@ -242,10 +297,13 @@ export function sourcesWithUsage(ctx: ApiContext) {
   }));
 }
 
-/** タブ（分野）と地域の選択肢。利用者が選んだ分野・地域だけを、選んだ順ではなく既定の並び順で返す */
+/**
+ * タブ（分野）と地域の選択肢。利用者が選んだ分野・地域だけを返す。
+ * 地域の並び順はここでは決めない（画面が regionOrder で決める）。そのために、利用者が並べ替えた順（空なら自動）を添える
+ */
 export function filterChoices(profile: Profile) {
   const pick = <T extends string>(all: readonly T[], chosen: string[]) => (chosen.length ? all.filter(value => chosen.includes(value)) : [...all]);
-  return { ...listFilterOptions(), categories: pick(CATEGORIES, profile.categories), regions: pick(SUBGROUPS, profile.regions) };
+  return { ...listFilterOptions(), categories: pick(CATEGORIES, profile.categories), regions: pick(SUBGROUPS, profile.regions), regionOrder: profile.regionOrder };
 }
 
 /** 初回の質問の選択肢: 地域・分野ごとの情報源数と、直近30日の記事数 */

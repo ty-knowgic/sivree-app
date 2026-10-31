@@ -71,6 +71,11 @@ export const ProfileSchema = z.object({
   onboarded: z.boolean().default(false),
   /** 受け取る国・地域（空ならすべて）。対象外の地域の情報源は取り込まない */
   regions: z.array(z.string().max(20)).max(20).default([]),
+  /**
+   * 地域を並べる順（利用者が設定で並べ替えたもの）。空なら自動（端末の言語・地域、情報源の数）。
+   * 表示する記事・情報源は変えず、並びだけを決める。ドライブ同期では、要素ごとに合わせず、ひとまとまりの値として扱う
+   */
+  regionOrder: z.array(z.string().max(20)).max(20).default([]),
   /** 柱とする分野（空ならすべて）。タブの並びと、すべてのタブ・ブリーフィングの対象を決める */
   categories: z.array(z.string().max(20)).max(30).default([]),
   topics: z.array(TopicSchema).max(30),
@@ -103,6 +108,7 @@ export const DEFAULT_PROFILE: Profile = {
   name: '',
   onboarded: false,
   regions: [],
+  regionOrder: [],
   categories: [],
   excludedSources: [],
   extraSources: [],
@@ -110,6 +116,8 @@ export const DEFAULT_PROFILE: Profile = {
   candidatesSeenAt: '',
   hiddenItems: [],
   savedItems: [],
+  // 新しい利用者の初期設定には、特定の地域に寄ったトピック（ウォータールー周辺・オンタリオ州・日本×カナダ）を含めない（2026-10-27）。
+  // すでにそれらを持つ保存済みの設定は、そのまま読み込まれ、記事の見え方は変わらない（scripts/test-migrate.ts が確かめる）
   topics: [
     {
       id: 'semiconductors', label: '半導体・量子',
@@ -152,14 +160,6 @@ export const DEFAULT_PROFILE: Profile = {
       keywords: ['安全保障', '防衛', '国防', '防衛装備', '軍事', 'NATO', 'defence', 'defense', 'national security', 'military', 'armed forces', 'arms control', 'ceasefire', 'peacekeeping']
     },
     {
-      id: 'local', label: 'ウォータールー周辺', enabled: false, weight: 1, sourceTypes: [], regions: [], alsoRequires: [], alsoRequiresRegions: [], sources: ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'], boostOnly: false,
-      keywords: ['Waterloo', 'Kitchener', 'Guelph', 'Region of Waterloo', 'Waterloo Region', 'Wellington County', 'Communitech', 'Perimeter Institute', 'University of Waterloo', 'Wilfrid Laurier', 'Conestoga', 'southern Ontario', 'FedDev', 'ウォータールー', 'キッチナー']
-    },
-    {
-      id: 'ontario', label: 'オンタリオ州', enabled: false, weight: 0.6, sourceTypes: [], regions: [], alsoRequires: [], alsoRequiresRegions: [], sources: ['オンタリオ州政府'], boostOnly: false,
-      keywords: ['Ontario', 'Ont.', 'Toronto', 'オンタリオ', 'トロント']
-    },
-    {
       id: 'genai', label: '生成AI',
       description: '生成AI: 大規模言語モデル（LLM）、AIエージェント、基盤モデルの研究開発、生成AIの企業導入、AIスタートアップ、AIインフラ。Generative AI, large language models, AI agents, foundation models, enterprise AI adoption, AI startups and AI infrastructure.', enabled: false, weight: 1.6, regions: [], alsoRequires: [], alsoRequiresRegions: [], sources: [], boostOnly: false, sourceTypes: [],
       keywords: ['生成AI', '生成ＡＩ', 'LLM', '大規模言語モデル', 'AIエージェント', 'ChatGPT', 'generative AI', 'GenAI', 'large language model', 'AI agent', 'AI agents', 'foundation model', 'OpenAI', 'Anthropic', 'Gemini', 'Claude', 'Cohere', 'Mistral', 'artificial intelligence']
@@ -168,13 +168,6 @@ export const DEFAULT_PROFILE: Profile = {
       id: 'physical-ai', label: 'Physical AI・ロボット',
       description: 'Physical AI・ロボット: ロボティクス、ヒューマノイド、ロボット学習、自動運転、ドローン、身体性AI、シミュレーションと世界モデル。Physical AI and robotics: humanoids, robot learning, manipulation, autonomous vehicles, drones, embodied AI, world models and simulation.', enabled: false, weight: 1.6, regions: [], alsoRequires: [], alsoRequiresRegions: [], sources: [], boostOnly: false, sourceTypes: [],
       keywords: ['Physical AI', 'フィジカルAI', 'ロボット', 'ロボティクス', 'ヒューマノイド', '自動運転', 'robot', 'robots', 'robotics', 'robotic', 'humanoid', 'embodied', 'autonomous vehicle', 'autonomous driving', 'self-driving', 'drone', 'drones', 'manipulation', 'vision-language-action', 'world model']
-    },
-    {
-      id: 'japan-canada', label: '日本×カナダ', enabled: false, weight: 2, regions: [], sources: [], boostOnly: false, sourceTypes: [],
-      keywords: ['Canada', 'Canadian', 'Ontario', 'カナダ', 'オンタリオ', 'トロント', 'バンクーバー'],
-      // カナダの記事は日本への言及があるもの、日本の記事はカナダへの言及があるものを対象にする
-      alsoRequires: ['Japan', 'Japanese', 'Tokyo', 'Osaka', '日本', '日系', '日加', '東京'],
-      alsoRequiresRegions: ['日本']
     },
     {
       id: 'us-eu-tech-policy', label: '米国・EU のテック政策',
@@ -342,13 +335,33 @@ const DEDICATED_FEEDS: Record<string, string[]> = {
   'https://www.gov.uk/government/organisations/ai-security-institute.atom': ['us-eu-tech-policy']
 };
 
+/**
+ * 組織名の一部にトピックの語を含むもの（例: 株式会社サイバーセキュリティクラウド）。記事の話題ではないので、判定の前に除く。
+ * 保存済みのトピックのキーワードは書き換えず、判定のときだけ使う
+ */
+const ORGANIZATION_NAMES = /サイバーセキュリティクラウド/g;
+
+/**
+ * 一つの意味に決まらない語（初期設定のトピックごと）。別の意味で使われている証拠（other）があり、
+ * このトピックの文脈（context）がない記事では、その語をキーワードとして数えない。
+ * 例: 「脆弱性」は、ソフトウェアの欠陥のほかに、金融の「クロスボーダーの脆弱性」にも使う（手元の評価では、金融の記事が混ざっていた）。
+ * 別の意味の証拠がなければ数える（「Cloudflare links vulnerability discovery…」のように、短い記事でも）
+ */
+const AMBIGUOUS_KEYWORDS: Record<string, { words: RegExp; other: RegExp; context: RegExp }> = {
+  cybersecurity: {
+    words: /脆弱性|vulnerabilit(?:y|ies)/gi,
+    other: /金融|ステーブルコイン|銀行|保険|証券|市場|通貨|financ|stablecoin|bank|insurance|monetary|securities|market|crypto|IMF/i,
+    context: /セキュリティ|サイバー|CVE-|CVSS|ソフトウェア|アプリ|ウェブ|\bweb\b|ファームウェア|サーバー|ネットワーク機器|ライブラリ|パッチ|修正プログラム|アップデート|悪用|攻撃|不正アクセス|インジェクション|PHP|security|cyber|software|firmware|exploit|patch|attack|malware|zero-day|hack|injection/i
+  }
+};
+
 export function matchTopics(
   item: NewsItem & { ai?: { summary?: string; headlineJa?: string } },
   profile: Profile,
   semantic?: SemanticScorer | null
 ): TopicMatch[] {
-  const headline = `${item.title} ${item.ai?.headlineJa ?? ''}`;
-  const text = `${headline} ${item.summary} ${item.ai?.summary ?? ''} ${item.sourceName}`;
+  const rawHeadline = `${item.title} ${item.ai?.headlineJa ?? ''}`.replace(ORGANIZATION_NAMES, ' ');
+  const rawText = `${rawHeadline} ${item.summary} ${item.ai?.summary ?? ''} ${item.sourceName}`.replace(ORGANIZATION_NAMES, ' ');
   const matches: TopicMatch[] = [];
 
   for (const topic of profile.topics) {
@@ -365,7 +378,14 @@ export function matchTopics(
     }
     const { keywords, shortUpper, alsoRequires } = compile(topic);
     // 「日本×カナダ」のような組み合わせの条件は、意味で一致した場合にも満たす必要がある
-    if (alsoRequires && !topic.alsoRequiresRegions.includes(item.subgroup) && !alsoRequires.test(text)) continue;
+    if (alsoRequires && !topic.alsoRequiresRegions.includes(item.subgroup) && !alsoRequires.test(rawText)) continue;
+
+    // 一つの意味に決まらない語は、別の意味の証拠があり、このトピックの文脈がなければ、キーワードとして数えない
+    const ambiguous = AMBIGUOUS_KEYWORDS[topic.id];
+    const otherSense = Boolean(ambiguous && ambiguous.other.test(rawText) && !ambiguous.context.test(rawText));
+    const withoutAmbiguous = (value: string) => (ambiguous && otherSense ? value.replace(ambiguous.words, ' ') : value);
+    const headline = withoutAmbiguous(rawHeadline);
+    const text = withoutAmbiguous(rawText);
 
     const hit = Boolean(keywords?.test(text) || shortUpper?.test(text));
     // 見出しに関心の語がある記事は、本文で触れているだけの記事より関連が強い
@@ -375,6 +395,7 @@ export function matchTopics(
     // 逆に、キーワードを含んでも内容がトピックと大きく離れている記事（例: 「quantum」を含む物理学の記事が
     // テック政策に一致）は、一致の強さを半分にする
     if (keywordStrength && similarity !== undefined && similarity < semantic!.threshold - WEAK_MARGIN) keywordStrength /= 2;
+
     const meaningStrength = similarity !== undefined && similarity >= semantic!.threshold ? semanticStrength(similarity, semantic!.threshold) : 0;
 
     if (!keywordStrength && !meaningStrength) continue;

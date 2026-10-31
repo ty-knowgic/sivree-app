@@ -1,5 +1,8 @@
 export const CATEGORIES = ['政治', '経済', '投資', '安全保障', '国際', '社会', 'テクノロジー', '生成AI', 'サイエンス', '文化・芸術', 'イベント'] as const;
-/** 地域（発信元の所在地）。グローバルは国際機関や、複数国の発表を配信する通信社など */
+/**
+ * 地域（発信元の所在地）の値の一覧。グローバルは国際機関や、複数国の発表を配信する通信社など。
+ * この並びは画面の並び順ではない（画面の順は public/app.js の regionOrder が、端末の言語・利用者の並べ替え・情報源の数から決める）
+ */
 export const SUBGROUPS = ['日本', 'カナダ', '米国', '欧州', 'グローバル'] as const;
 
 export type CategoryKey = (typeof CATEGORIES)[number];

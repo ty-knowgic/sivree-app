@@ -124,6 +124,14 @@
   "カナダ知的財産庁": "Canadian Intellectual Property Office",
   "カナダ・プライバシー・コミッショナー": "Office of the Privacy Commissioner of Canada",
   "オンタリオ州証券委員会": "Ontario Securities Commission",
+  "マニトバ州政府": "Government of Manitoba",
+  "サスカチュワン州政府": "Government of Saskatchewan",
+  "ニューファンドランド・ラブラドール州政府": "Government of Newfoundland and Labrador",
+  "カリフォルニア州知事室": "Office of the Governor of California",
+  "カリフォルニア州司法省": "California Department of Justice",
+  "カリフォルニア州プライバシー保護庁": "California Privacy Protection Agency",
+  "テキサス州知事室": "Office of the Governor of Texas",
+  "ニューヨーク州金融サービス局": "New York State Department of Financial Services",
   "日本公認会計士協会": "Japanese Institute of Certified Public Accountants",
   "日本公認会計士協会 お知らせ": "Japanese Institute of Certified Public Accountants – announcements",
   "金融安定理事会": "Financial Stability Board",
@@ -157,5 +165,9 @@
   "日本弁護士連合会 会長声明・談話": "Japan Federation of Bar Associations – president’s statements",
   "米連邦最高裁判所": "US Supreme Court",
   "日本司法書士会連合会": "Japan Federation of Shiho-Shoshi Lawyer’s Associations",
-  "日本司法書士会連合会 お知らせ": "Japan Federation of Shiho-Shoshi Lawyer’s Associations – announcements"
+  "日本司法書士会連合会 お知らせ": "Japan Federation of Shiho-Shoshi Lawyer’s Associations – announcements",
+  "カナダ・サイバーセキュリティセンター": "Canadian Centre for Cyber Security",
+  "英国 NCSC": "UK NCSC",
+  "英国国防省": "UK Ministry of Defence",
+  "フランス CERT-FR": "France CERT-FR"
 }

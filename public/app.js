@@ -31,12 +31,80 @@ const SOURCE_TYPE_LABELS = { official: '政府・自治体', corporate: '企業'
 const SOURCE_BADGES = { corporate: '企業', research: '研究', npo: '団体' };
 // 初回の質問と設定で使う、地域・分野の説明
 const REGION_INFO = {
-  カナダ: '連邦政府・オンタリオ州・ウォータールー地域の自治体',
+  カナダ: '連邦政府・カナダ銀行・統計局・研究機関',
   日本: '官邸・各省庁・日本銀行・企業の発表',
   米国: '連邦政府・規制当局・企業',
   欧州: 'EU・英国',
   グローバル: '国際機関・多国籍企業'
 };
+
+// ---------- 地域の並び順 ----------
+// 初回の質問・地域の絞り込み・設定の情報源と候補の一覧の並びは、すべて regionOrder で決める（ほかで順を持たない）。
+// 利用者が設定で並べ替えたとき（profile.regionOrder）はその順。空のときは自動で、
+// 端末の言語・地域に当たる地域を先頭に、残りは既定の情報源が多い順、グローバルは最後。特定の国を固定した順は持たない
+const REGION_GLOBAL = 'グローバル';
+const REGION_VALUES = ['日本', 'カナダ', '米国', '欧州', REGION_GLOBAL];
+// 欧州は EU・英国と、欧州経済領域・スイス（国の指定がある言語タグ用）
+const EUROPE_COUNTRIES = new Set(['AT', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK']);
+// 国の指定がない言語タグで、地域を決められる言語（英語・スペイン語・フランス語・ポルトガル語などは複数の地域にまたがるため決めない）
+const EUROPE_LANGUAGES = new Set(['bg', 'cs', 'cy', 'da', 'de', 'el', 'et', 'fi', 'ga', 'hr', 'hu', 'is', 'it', 'lt', 'lv', 'mt', 'nb', 'nl', 'nn', 'no', 'pl', 'ro', 'sk', 'sl', 'sv']);
+
+/** 端末の言語設定（順に）と表示言語から、いちばん近い地域。決められなければ空 */
+function homeRegion() {
+  const tags = [...(navigator.languages?.length ? navigator.languages : [navigator.language]), getLang()].filter(Boolean);
+  for (const tag of tags) {
+    let country = '';
+    let language = String(tag).split('-')[0].toLowerCase();
+    try {
+      const parsed = new Intl.Locale(tag);
+      country = parsed.region ?? '';
+      language = parsed.language;
+    } catch {
+      // 解釈できない言語タグは、先頭の言語名だけで見る
+    }
+    if (country) {
+      if (country === 'JP') return '日本';
+      if (country === 'CA') return 'カナダ';
+      if (country === 'US') return '米国';
+      if (EUROPE_COUNTRIES.has(country)) return '欧州';
+    } else if (language === 'ja') {
+      return '日本';
+    } else if (EUROPE_LANGUAGES.has(language)) {
+      return '欧州';
+    }
+  }
+  return '';
+}
+
+/** 地域ごとの既定の情報源の数（初回の質問の選択肢から。まだ読み込めていなければ空） */
+function regionSourceCounts() {
+  return new Map((choiceOptions?.regions ?? []).map(option => [option.value, option.sources]));
+}
+
+/** いま使う並べ替えの指定。設定を開いている間は、保存前の下書き */
+function regionPreference() {
+  const draft = !settingsView.hidden && profileDraft ? profileDraft.regionOrder : null;
+  return draft ?? state.regionOrderPref;
+}
+
+/** 地域を並べた配列（values を省くと、すべての地域）。指定した順にない地域は、自動の順で後ろに続ける */
+function regionOrder(values = [...new Set([...(choiceOptions?.regions ?? []).map(option => option.value), ...REGION_VALUES])]) {
+  const home = homeRegion();
+  const counts = regionSourceCounts();
+  const automatic = [...values].sort((a, b) =>
+    Number(b === home) - Number(a === home)
+    || Number(a === REGION_GLOBAL) - Number(b === REGION_GLOBAL)
+    || (counts.get(b) ?? 0) - (counts.get(a) ?? 0)
+    || a.localeCompare(b, locale()));
+  const chosen = (regionPreference() ?? []).filter(region => values.includes(region));
+  return [...new Set([...chosen, ...automatic])];
+}
+
+/** 地域の順位（小さいほど先）。一覧を並べるときに1回だけ作って使う */
+function regionRanker() {
+  const order = regionOrder();
+  return region => (order.includes(region) ? order.indexOf(region) : order.length);
+}
 const CATEGORY_INFO = {
   政治: '政府の方針・法案・選挙',
   経済: '金融政策・統計・企業の決算や M&A',
@@ -96,6 +164,9 @@ document.addEventListener('error', (event) => {
 
 const state = {
   tab: FOR_YOU_TAB,
+  // 利用者が並べ替えた地域の順（空なら自動）と、地域の絞り込みに出す地域
+  regionOrderPref: [],
+  filterRegions: [],
   // タブごとに地域の選択を覚えておく
   subgroupByTab: {},
   // 発信元の種別（企業 / 公的機関）もタブごとに覚えておく
@@ -464,11 +535,20 @@ function selectTab(value) {
   refreshNews();
 }
 
-function renderFilterOptions(filters) {
+/** 地域の絞り込み。並びは regionOrder が決める（情報源の数が分かったあとに、並べ直すためにも呼ぶ） */
+function renderRegionOptions() {
+  const current = subgroupFilter.value;
   subgroupFilter.innerHTML = [`<option value="">${escapeHtml(t('すべての地域'))}</option>`,
-    ...filters.regions.map(region => `<option value="${escapeHtml(region)}">${escapeHtml(t(region))}</option>`)].join('');
+    ...regionOrder(state.filterRegions).map(region => `<option value="${escapeHtml(region)}">${escapeHtml(t(region))}</option>`)].join('');
+  subgroupFilter.value = current;
+}
+
+function renderFilterOptions(filters) {
+  if (Array.isArray(filters.regionOrder)) state.regionOrderPref = filters.regionOrder;
+  state.filterRegions = filters.regions ?? [];
+  renderRegionOptions();
   sourceTypeFilter.innerHTML = [`<option value="">${escapeHtml(t('すべての発信元'))}</option>`,
-    ...filters.sourceTypes.map(type => `<option value="${escapeHtml(type)}">${escapeHtml(typeLabel(type))}</option>`)].join('');
+    ...(filters.sourceTypes ?? []).map(type => `<option value="${escapeHtml(type)}">${escapeHtml(typeLabel(type))}</option>`)].join('');
 }
 
 /** 選んだ分野・地域に合わせて、タブと地域の選択肢を作り直す */
@@ -1482,6 +1562,19 @@ async function loadChoiceOptions() {
   return choiceOptions;
 }
 
+/**
+ * 地域ごとの既定の情報源の数が分かると、地域の並び順（自動）が定まる。起動時に先に読み、地域の絞り込みを並べ直す。
+ * 読み込めなければ、いまの並びのまま使う（設定や初回の質問を開くときに、もう一度読む）
+ */
+function refineRegionOrder() {
+  if (choiceOptions) return;
+  fetch('/api/options').then(r => (r.ok ? r.json() : null)).then((options) => {
+    if (!Array.isArray(options?.regions)) return;
+    choiceOptions ??= options;
+    renderRegionOptions();
+  }).catch(() => {});
+}
+
 /** 言語の選択欄。設定と初回の質問の両方で使う */
 function renderLanguageSelect() {
   const options = Object.entries(LANGUAGES).map(([code, language]) =>
@@ -1493,7 +1586,8 @@ const CHECK_ICON = '<svg class="choice-check" viewBox="0 0 24 24" aria-hidden="t
 
 function renderChoiceGrid(kind, selected) {
   const options = kind === 'regions'
-    ? choiceOptions.regions.map(option => ({ value: option.value, info: REGION_INFO[option.value], meta: t('情報源 {n}', { n: option.sources }) }))
+    ? regionOrder(choiceOptions.regions.map(option => option.value)).map(value => choiceOptions.regions.find(option => option.value === value))
+      .map(option => ({ value: option.value, info: REGION_INFO[option.value], meta: t('情報源 {n}', { n: option.sources }) }))
     : kind === 'topics'
       ? choiceOptions.topics.map(option => ({ value: option.value, label: option.label, info: '', meta: '' }))
       : choiceOptions.categories.map(option => ({ value: option.value, info: CATEGORY_INFO[option.value], meta: t('30日で{n}件', { n: option.articles }) }));
@@ -1705,7 +1799,6 @@ function applyDraftChanges(base, draft, current) {
 // 設定画面で表示中の区分（情報源 / 関心トピック）
 let settingsPane = 'scope';
 const SOURCE_TYPE_ORDER = ['official', 'corporate', 'research', 'npo'];
-const REGION_ORDER = ['カナダ', '日本', '米国', '欧州', 'グローバル'];
 
 function nearestWeight(weight) {
   return WEIGHT_OPTIONS.reduce((best, option) => (Math.abs(option.value - weight) < Math.abs(best.value - weight) ? option : best)).value;
@@ -1792,6 +1885,12 @@ function isOutOfRegion(source) {
   return profileDraft.regions.length > 0 && !profileDraft.regions.includes(source.subgroup);
 }
 
+/** 選んだ地域の情報源を先に、対象外の地域の情報源は後ろにまとめる。その中は、地域の並び順（regionOrder）に従う */
+function compareByRegion() {
+  const rank = regionRanker();
+  return (a, b) => Number(isOutOfRegion(a)) - Number(isOutOfRegion(b)) || rank(a.subgroup) - rank(b.subgroup);
+}
+
 function uniqueSources(sources) {
   const result = new Map();
   for (const source of sources) {
@@ -1807,12 +1906,28 @@ function isSourceEnabled(source) {
   return source.candidate ? profileDraft.extraSources.includes(source.id) : !profileDraft.excludedSources.includes(source.id);
 }
 
+// 同じ名前で別フィードの情報源（例: オンタリオ州証券委員会の2つのフィード、PR Newswire の各リスト）の名前。行名で見分けられないので、フィードのラベルを行名にする
+let ambiguousNames = { for: null, names: new Set() };
+function isAmbiguousName(source) {
+  if (ambiguousNames.for !== sourcesDraft) {
+    const counts = new Map();
+    // 専門パックの情報源は、いつもラベルで表示するので、数えない
+    for (const candidate of uniqueSources(sourcesDraft).filter(value => !value.pack)) counts.set(candidate.sourceName, (counts.get(candidate.sourceName) ?? 0) + 1);
+    ambiguousNames = { for: sourcesDraft, names: new Set([...counts].filter(([, n]) => n > 1).map(([name]) => name)) };
+  }
+  return ambiguousNames.names.has(source.sourceName);
+}
+
 function renderSourceRow(source, context = '') {
   const professional = typeof context === 'string' && context.startsWith('professional-');
   const inputId = `source-${source.id}${professional ? `-${context}` : ''}`;
   const enabled = isSourceEnabled(source);
   const outOfRegion = isOutOfRegion(source);
-  const details = [t(source.label) !== t(source.sourceName) ? t(professional ? source.sourceName : source.label) : '', t(source.subgroup), formatList(source.categories.map(category => t(category))), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count })].filter(Boolean);
+  // 専門パックの中、または同じ名前の情報源が複数ある行は、ラベルを行名にし、発信元名は説明行に回す（ラベルに含まれていれば繰り返さない）
+  const labelAsName = professional || isAmbiguousName(source);
+  const otherName = labelAsName ? source.sourceName : source.label;
+  const repeated = labelAsName && !professional && t(source.label).includes(t(source.sourceName));
+  const details = [t(source.label) !== t(source.sourceName) && !repeated ? t(otherName) : '', t(source.subgroup), formatList(source.categories.map(category => t(category))), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count })].filter(Boolean);
   // 直近の取得に失敗した情報源（発信元のサイトの変更や、アクセスの制限など）
   const failing = !outOfRegion && source.health && !source.health.ok;
   const url = safeUrl(source.sourceUrl);
@@ -1824,7 +1939,7 @@ function renderSourceRow(source, context = '') {
         <span class="visually-hidden">${escapeHtml(t('{name}を使う', { name: t(source.label) }))}</span>
       </label>
       <label class="source-meta" for="${escapeHtml(inputId)}">
-        <span class="source-name">${escapeHtml(t(professional ? source.label : source.sourceName))}</span>
+        <span class="source-name">${escapeHtml(t(labelAsName ? source.label : source.sourceName))}</span>
         ${professional && !source.pack ? `<span class="source-free-label">${escapeHtml(t('無料の情報源'))}</span>` : ''}
         <span class="source-desc">${details.map(escapeHtml).join(' · ')}</span>
         ${failing ? `<span class="source-error">${escapeHtml(t('取得できていません（発信元のサイトの変更またはアクセス制限）'))}</span>` : ''}
@@ -1846,7 +1961,7 @@ function renderSourceGroup(type) {
   const sources = uniqueSources(sourcesDraft)
     .filter(source => source.sourceType === type && inPrimarySourceCatalog(source))
     // 選んだ地域の情報源を先に、対象外の地域の情報源は後ろにまとめる
-    .sort((a, b) => Number(isOutOfRegion(a)) - Number(isOutOfRegion(b)) || REGION_ORDER.indexOf(a.subgroup) - REGION_ORDER.indexOf(b.subgroup));
+    .sort(compareByRegion());
   if (!sources.length) return '';
   const enabledCount = sources.filter(isSourceEnabled).length;
   const available = sources.filter(source => !isOutOfRegion(source)).length;
@@ -1867,8 +1982,14 @@ const CANDIDATE_KIND_LABELS = {
   international: '国際機関', official: '政府・自治体',
   research: '研究機関', corporate: '企業', npo: '団体・NPO'
 };
-const CANDIDATE_KIND_ORDER = ['local', 'regional', 'national', 'international', 'official', 'research', 'corporate', 'npo'];
-const SOURCE_AREA_LABELS = { 'CA-ON': 'オンタリオ州' };
+// 標準の順: 国の機関 → 国際機関 → 州・県 → 自治体 → その他（利用者の所在地を前提にしない）
+const CANDIDATE_KIND_ORDER = ['national', 'international', 'regional', 'local', 'official', 'research', 'corporate', 'npo'];
+const SOURCE_AREA_LABELS = {
+  'CA-MB': 'マニトバ州', 'CA-NL': 'ニューファンドランド・ラブラドール州', 'CA-ON': 'オンタリオ州', 'CA-SK': 'サスカチュワン州',
+  'US-CA': 'カリフォルニア州', 'US-NY': 'ニューヨーク州', 'US-TX': 'テキサス州'
+};
+// 州・県の並びは、画面の言語での名前の順（登録した順や、開発者の所在地を先にしない）
+const areaName = area => SOURCE_AREA_LABELS[area] ? t(SOURCE_AREA_LABELS[area]) : '';
 const candidateKind = source => source.sourceType === 'official' ? (source.level || 'official') : source.sourceType;
 function candidateCount(sources) {
   return `${sources.filter(isSourceEnabled).length}/${sources.filter(source => !isOutOfRegion(source)).length}`;
@@ -1882,12 +2003,12 @@ function renderCandidateRegions(sources) {
       <summary>${escapeHtml(t(region))} <span class="source-count">${candidateCount(regional)}</span></summary>
       <div class="candidate-region-body">${CANDIDATE_KIND_ORDER.map(kind => {
         const typed = regional.filter(source => candidateKind(source) === kind);
-        const areas = [...new Set(typed.map(source => ['local', 'regional'].includes(kind) ? (source.area || '') : ''))];
+        const areas = [...new Set(typed.map(source => ['local', 'regional'].includes(kind) ? (source.area || '') : ''))].sort((a, b) => areaName(a).localeCompare(areaName(b), locale()));
         return areas.map(area => {
           const group = typed.filter(source => (['local', 'regional'].includes(kind) ? (source.area || '') : '') === area);
-          const areaLabel = SOURCE_AREA_LABELS[area];
+          const areaLabel = areaName(area);
           return `<section class="candidate-kind" data-candidate-kind="${escapeHtml(kind)}">
-            <h4>${escapeHtml(t(CANDIDATE_KIND_LABELS[kind]))}${areaLabel ? ` · ${escapeHtml(t(areaLabel))}` : ''} <span class="source-count">${candidateCount(group)}</span></h4>
+            <h4>${escapeHtml(t(CANDIDATE_KIND_LABELS[kind]))}${areaLabel ? ` · ${escapeHtml(areaLabel)}` : ''} <span class="source-count">${candidateCount(group)}</span></h4>
             <ul class="source-list">${group.map(renderSourceRow).join('')}</ul>
           </section>`;
         }).join('');
@@ -1943,7 +2064,7 @@ function renderProfessionalPacks() {
 function renderCandidateGroup() {
   const sources = sourcesDraft
     .filter(source => !inPrimarySourceCatalog(source) && !source.pack)
-    .sort((a, b) => Number(isOutOfRegion(a)) - Number(isOutOfRegion(b)) || REGION_ORDER.indexOf(a.subgroup) - REGION_ORDER.indexOf(b.subgroup));
+    .sort(compareByRegion());
   if (!sources.length) return '';
   const enabledCount = sources.filter(isSourceEnabled).length;
   const available = sources.filter(source => !isOutOfRegion(source)).length;
@@ -1971,7 +2092,7 @@ function renderSourcesPane() {
   return `
     <p class="settings-lead">${escapeHtml(t('政府・自治体、企業、研究機関、団体・NPO が自ら公開した発表だけを集めています。報道機関の記事や論評は含みません。オフにした情報源は、すべてのタブとブリーフィングに表示されず、取り込みもしません。'))}</p>
     <p class="source-summary">${sourceSummary()}</p>
-    <p class="settings-note">${escapeHtml(t('選択中の地域: {regions}', { regions: formatList(profileDraft.regions.map(region => t(region))) }))} <button type="button" class="text-button" data-action="edit-scope">${escapeHtml(t('地域・分野を変更'))}</button></p>
+    <p class="settings-note">${escapeHtml(t('選択中の地域: {regions}', { regions: formatList(regionOrder(profileDraft.regions).map(region => t(region))) }))} <button type="button" class="text-button" data-action="edit-scope">${escapeHtml(t('地域・分野を変更'))}</button></p>
     <p class="settings-note">${escapeHtml(t('情報源名またはスイッチで切り替え、最後に「保存」を押してください。'))}</p>
     <label class="candidate-search"><span class="visually-hidden">${escapeHtml(t('情報源を検索'))}</span><input type="search" data-candidate-search placeholder="${escapeHtml(t('情報源を検索'))}" /></label>
     <p class="settings-note" data-candidate-empty hidden>${escapeHtml(t('該当する情報源がありません'))}</p>
@@ -1981,11 +2102,31 @@ function renderSourcesPane() {
   `;
 }
 
+const ARROW_UP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>';
+const ARROW_DOWN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10l6 6 6-6"/></svg>';
+
+/** 地域の並び順の並べ替え（上へ・下へのボタン。ドラッグには頼らない）。並びは保存するまで下書き */
+function renderRegionOrderEditor() {
+  const order = regionOrder();
+  const custom = (profileDraft.regionOrder ?? []).length > 0;
+  const move = (region, direction, disabled) => `<button type="button" class="icon-button" data-action="move-region" data-region="${escapeHtml(region)}" data-direction="${direction}" ${disabled ? 'disabled' : ''} aria-label="${escapeHtml(t(direction === 'up' ? '{name}を上へ' : '{name}を下へ', { name: t(region) }))}">${direction === 'up' ? ARROW_UP : ARROW_DOWN}</button>`;
+  return `
+    <h2 class="settings-subtitle">${escapeHtml(t('地域の並び順'))}</h2>
+    <p class="settings-note">${escapeHtml(t('地域の選択肢と情報源の一覧は、この順に並びます。並び順を変えても、表示される記事や情報源は変わりません。'))}</p>
+    <ol class="region-order">
+      ${order.map((region, index) => `<li class="region-order-row"><span class="region-order-name">${escapeHtml(t(region))}</span>${move(region, 'up', index === 0)}${move(region, 'down', index === order.length - 1)}</li>`).join('')}
+    </ol>
+    <p class="settings-note">${escapeHtml(custom ? t('並べ替えた順で表示しています。') : t('いまは自動の並び順です（端末の言語と情報源の数から決めます）。'))}</p>
+    <button type="button" class="text-button" data-action="reset-region-order" ${custom ? '' : 'disabled'}>${escapeHtml(t('自動に戻す'))}</button>
+  `;
+}
+
 function renderScopePane() {
   return `
     <p class="settings-lead">${escapeHtml(t('受け取る国・地域と、柱にする分野を選びます。選んだ分野がタブになります。選んだ地域の外の情報源は取り込みません。マイニュースとブリーフィングは関心トピックで選ぶため、分野に関係なく一致する発表を表示します。'))}</p>
     <h2 class="settings-subtitle">${escapeHtml(t('国・地域'))}</h2>
     ${renderChoiceGrid('regions', profileDraft.regions)}
+    <section class="region-order-section" data-region-order-section>${renderRegionOrderEditor()}</section>
     <h2 class="settings-subtitle">${escapeHtml(t('分野'))}</h2>
     ${renderChoiceGrid('categories', profileDraft.categories)}
   `;
@@ -2189,7 +2330,7 @@ async function showSettings() {
       // 埋め込みモデルの接続状況は変わりうるため、設定画面を開くたびに確認する
       fetch('/api/config').then(r => r.json()).catch(() => state.config)
     ]);
-    profileDraft = { ...profile, excludedSources: profile.excludedSources ?? [], extraSources: profile.extraSources ?? [] };
+    profileDraft = { ...profile, excludedSources: profile.excludedSources ?? [], extraSources: profile.extraSources ?? [], regionOrder: profile.regionOrder ?? [] };
     // 空（未選択）は「すべて」を意味するため、画面ではすべて選んだ状態で表示する
     await loadChoiceOptions();
     if (!profileDraft.regions?.length) profileDraft.regions = choiceOptions.regions.map(option => option.value);
@@ -2338,6 +2479,29 @@ settingsView.addEventListener('click', async (event) => {
     return;
   }
 
+  if (action === 'move-region' || action === 'reset-region-order') {
+    const button = event.target.closest('[data-action]');
+    const { region, direction } = button.dataset;
+    if (action === 'reset-region-order') {
+      profileDraft.regionOrder = [];
+    } else {
+      const order = regionOrder();
+      const index = order.indexOf(region);
+      const target = index + (direction === 'up' ? -1 : 1);
+      if (index < 0 || target < 0 || target >= order.length) return;
+      [order[index], order[target]] = [order[target], order[index]];
+      profileDraft.regionOrder = order;
+    }
+    // 国・地域の選択肢も新しい順に並べ直す。操作したボタンにフォーカスを戻す（動かせなくなったときは、反対向きのボタン）
+    settingsView.querySelector('.settings-pane').innerHTML = renderScopePane();
+    const pane = settingsView.querySelector('.settings-pane');
+    const moveButton = way => [...pane.querySelectorAll('[data-action="move-region"]')].find(candidate => candidate.dataset.region === region && candidate.dataset.direction === way);
+    const same = moveButton(direction);
+    const other = moveButton(direction === 'up' ? 'down' : 'up');
+    (same && !same.disabled ? same : other && !other.disabled ? other : pane.querySelector('[data-action="move-region"]:not([disabled])'))?.focus();
+    return;
+  }
+
   const workflowId = event.target.closest('[data-workflow]')?.dataset.workflow;
   if (workflowId) {
     const packId = event.target.closest('[data-pack]').dataset.pack;
@@ -2427,6 +2591,7 @@ settingsView.addEventListener('click', async (event) => {
     onboarding.step = 1;
     onboarding.regions = [];
     onboarding.categories = [];
+    state.regionOrderPref = [];
     state.needsOnboarding = true;
     location.hash = '#/';
     route();
@@ -2452,6 +2617,8 @@ settingsView.addEventListener('click', async (event) => {
         for (const key of ['regions', 'categories', 'topics', 'excludedSources', 'extraSources', 'candidatesSeenAt']) {
           next[key] = applyDraftChanges(base[key], draft[key], current[key]);
         }
+        // 地域の並び順は、要素ごとに合わせず、ひとまとまりの値として扱う（この画面で変えたときだけ上書きする）
+        if (JSON.stringify(base.regionOrder ?? []) !== JSON.stringify(draft.regionOrder ?? [])) next.regionOrder = draft.regionOrder ?? [];
         return next;
       });
       setSaved(profile.savedItems);
@@ -2580,12 +2747,13 @@ function updateToday() {
   status.textContent = t('読み込み中…');
 
   const [categories] = await Promise.all([
-    fetch('/api/filters').then(r => r.json()).then((filters) => { renderFilterOptions(filters); return filters.categories; }).catch(() => []),
+    fetch('/api/filters').then(r => r.json()).then((filters) => { renderFilterOptions(filters); return filters.categories ?? []; }).catch(() => []),
     fetch('/api/config').then(r => r.json()).then(config => { state.config = config; state.summaryEnabled = Boolean(config.summaryEnabled); }).catch(() => {}),
     fetch('/api/profile').then(r => r.json()).then(profile => { state.needsOnboarding = profile.onboarded === false; setSaved(profile.savedItems); }).catch(() => {})
   ]);
   renderTabs(categories);
   syncFilterControls();
+  refineRegionOrder();
   route();
   // ほかの端末で変えた設定は、タップして同期するまで読み込めない
   if (window.SivreeSync?.needsAuth()) {

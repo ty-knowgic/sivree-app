@@ -212,6 +212,58 @@ for (const [label, profile] of cases) {
   check('初回の質問の情報源数は、候補を数えない', options.regions.find((region: any) => region.value === 'カナダ').sources === canadaDefaults, options.regions);
 }
 {
+  // 地域の並び順（regionOrder）は並びだけを決める。表示される記事・情報源は変わらない
+  const w = await browser({ 'sivry.profile.v1': JSON.stringify(legacy({ regions: ['日本', 'カナダ'] })) });
+  const profile = (await api(w, '/api/profile')).body;
+  check('古い形式の設定に regionOrder はなく、空（自動）として読み込まれる', Array.isArray(profile.regionOrder) && profile.regionOrder.length === 0, profile.regionOrder);
+  const sourceState = async () => JSON.stringify((await api(w, '/api/sources')).body.map((source: any) => [source.id, source.enabled, source.outOfRegion, source.count]));
+  const shownBefore = await visibleIds(w);
+  const forYouBefore = JSON.stringify((await api(w, '/api/news?forYou=1&limit=200')).body.map((entry: any) => entry.id));
+  const listBefore = await sourceState();
+  const filtersBefore = (await api(w, '/api/filters')).body;
+  const optionsBefore = JSON.stringify((await api(w, '/api/options')).body);
+  const order = ['グローバル', 'カナダ', '日本', '米国', '欧州'];
+  const put = await api(w, '/api/profile', { method: 'PUT', body: JSON.stringify({ ...profile, regionOrder: order }) });
+  check('regionOrder を保存できる', put.status === 200 && put.body.regionOrder.join() === order.join() && stored(w).regionOrder.join() === order.join(), put.body.regionOrder);
+  check('並び順を変えても、表示される記事は変わらない', JSON.stringify(await visibleIds(w)) === JSON.stringify(shownBefore));
+  check('並び順を変えても、マイニュースの記事とその順は変わらない', JSON.stringify((await api(w, '/api/news?forYou=1&limit=200')).body.map((entry: any) => entry.id)) === forYouBefore);
+  check('並び順を変えても、情報源の一覧（オン・オフ・対象外・件数）は変わらない', (await sourceState()) === listBefore);
+  const filtersAfter = (await api(w, '/api/filters')).body;
+  check('地域の絞り込みは同じ集合のまま、利用者の並び順を添える', [...filtersAfter.regions].sort().join() === [...filtersBefore.regions].sort().join()
+    && filtersBefore.regionOrder.length === 0 && filtersAfter.regionOrder.join() === order.join(), filtersAfter);
+  check('初回の質問の選択肢（地域ごとの情報源数）は変わらない', JSON.stringify((await api(w, '/api/options')).body) === optionsBefore);
+  const reset = await api(w, '/api/profile', { method: 'PUT', body: JSON.stringify({ ...put.body, regionOrder: [] }) });
+  check('空にすると自動の並び順に戻る', reset.body.regionOrder.length === 0 && (await api(w, '/api/filters')).body.regionOrder.length === 0);
+  check('regionOrder の形式と上限は保存のときに検証される',
+    !ProfileSchema.safeParse({ ...legacy(), regionOrder: 'x' }).success
+    && !ProfileSchema.safeParse({ ...legacy(), regionOrder: Array.from({ length: 21 }, (_, index) => `r${index}`) }).success
+    && !ProfileSchema.safeParse({ ...legacy(), regionOrder: ['x'.repeat(21)] }).success
+    && ProfileSchema.safeParse({ ...legacy(), regionOrder: ['米国', '日本'] }).success);
+  check('migrateProfile は regionOrder を変えない（冪等）', JSON.stringify(migrateProfile(parse({ ...legacy(), regionOrder: ['米国', '日本'] })).regionOrder) === JSON.stringify(['米国', '日本']));
+  check('新規の利用者の設定は regionOrder が空', defaultProfile().regionOrder.length === 0);
+  w.close();
+}
+{
+  // 新しい利用者の初期設定から、特定の地域に寄ったトピックを外した。すでに持っている保存済みの設定は、そのまま使える
+  const regional = ['local', 'ontario', 'japan-canada'];
+  check('新しい利用者の初期設定に、ウォータールー周辺・オンタリオ州・日本×カナダのトピックはない', regional.every(id => !defaultProfile().topics.some(topic => topic.id === id)));
+  const topics = [
+    { id: 'local', label: 'ウォータールー周辺', enabled: true, weight: 1, sources: ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'], keywords: ['Waterloo', 'Kitchener'] },
+    { id: 'ontario', label: 'オンタリオ州', enabled: true, weight: 0.6, sources: ['オンタリオ州政府'], keywords: ['Ontario'] },
+    { id: 'japan-canada', label: '日本×カナダ', enabled: true, weight: 2, keywords: ['Canada'], alsoRequires: ['Japan'], alsoRequiresRegions: ['日本'] }
+  ];
+  const w = await browser({ 'sivry.profile.v1': JSON.stringify(legacy({ topics })) });
+  const loaded = (await api(w, '/api/profile')).body;
+  check('保存済みの設定が持つ3つのトピックは、そのまま読み込まれる（有効・重み・条件を含む）', regional.every((id, index) => JSON.stringify(loaded.topics.find((topic: any) => topic.id === id)) === JSON.stringify({ ...parse({ ...legacy({ topics }) }).topics[index] })), loaded.topics);
+  const forYou = (await api(w, '/api/news?forYou=1&limit=200')).body;
+  check('保存済みのトピックは、初期設定になくても、記事に一致する（ウォータールー市の発表が「ウォータールー周辺」に、オンタリオ州政府の発表が「オンタリオ州」に）',
+    forYou.some((entry: any) => entry.sourceName === 'ウォータールー市' && entry.matches?.some((match: any) => match.id === 'local'))
+    && forYou.some((entry: any) => entry.sourceName === 'オンタリオ州政府' && entry.matches?.some((match: any) => match.id === 'ontario')), forYou.length);
+  const put = await api(w, '/api/profile', { method: 'PUT', body: JSON.stringify(loaded) });
+  check('保存し直しても3つのトピックは残る', regional.every(id => put.body.topics.some((topic: any) => topic.id === id)));
+  w.close();
+}
+{
   // 設定の貼り付け・ドライブ同期は PUT /api/profile を通る
   const w = await browser();
   const put = await api(w, '/api/profile', { method: 'PUT', body: JSON.stringify(legacy({ excludedSources: [idOf('ケンブリッジ市')] })) });

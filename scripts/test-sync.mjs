@@ -382,6 +382,39 @@ function simultaneousUploads() {
   check('初回の重複ファイル: 統合済みのコピーから削除記事が復活しない', ids(left.profile) === 'b' && ids(right.profile) === 'b');
   left.window.close(); right.window.close();
 }
+// ---------- 地域の並び順（regionOrder）は、要素ごとではなく、ひとまとまりの値として合わせる ----------
+{
+  const [left, right] = await pair();
+  const orderOf = (d) => (d.profile.regionOrder ?? []).join();
+  const allSame = (value) => [left.profile, right.profile, remote().profile].every((p) => (p.regionOrder ?? []).join() === value);
+  left.edit({ regionOrder: ['米国', '日本', 'カナダ', '欧州', 'グローバル'] });
+  await tapSync(left); await tapSync(right);
+  check('並び順: 片方だけが並べ替えたら、もう片方もその順になる', allSame('米国,日本,カナダ,欧州,グローバル'), orderOf(right));
+  // 両方が別々に並べ替える: 要素ごとに混ぜず、どちらか一方の順がそのまま残る（同じ要素が重なったり、欠けたりしない）
+  left.edit({ regionOrder: ['欧州', '日本', '米国', 'カナダ', 'グローバル'] });
+  right.edit({ regionOrder: ['カナダ', 'グローバル', '米国', '日本', '欧州'] });
+  await tapSync(left); await tapSync(right); await tapSync(left); await tapSync(right);
+  const settled = orderOf(left);
+  check('並び順: 両方が別々に並べ替えても、どちらか一方の順に収束し、混ざらない',
+    [settled === '欧州,日本,米国,カナダ,グローバル', settled === 'カナダ,グローバル,米国,日本,欧州'].some(Boolean) && allSame(settled), settled);
+  // 「自動に戻す」（空）は、削除として伝わる。要素ごとの合わせ方だと、相手の順が残ってしまう
+  left.edit({ regionOrder: [] });
+  await tapSync(left); await tapSync(right);
+  check('並び順: 自動に戻す（空）も、もう片方に伝わる', allSame(''), orderOf(right));
+  // 並び順の変更は、ほかの項目（情報源のオン・オフ、保存した記事）の変更を妨げない
+  left.edit({ regionOrder: ['日本', '米国'] });
+  right.edit({ savedItems: [...right.profile.savedItems, entry('q')], excludedSources: ['bbbbbbbbbb'] });
+  await tapSync(left); await tapSync(right); await tapSync(left);
+  check('並び順: 同時に変えた保存記事・除外と、両方が残る', [left.profile, right.profile, remote().profile].every((p) => (p.regionOrder ?? []).join() === '日本,米国' && ids(p) === 'aq' && p.excludedSources.join() === 'bbbbbbbbbb'));
+  // 古い版の画面（regionOrder を知らず、読み込みのときに落とす）と合わせても、並び順を削除とは見なさない
+  left.edit({ marker: 'other-device-change' });
+  await tapSync(left);
+  right.edit({ marker: 'older-client' });
+  delete right.profile.regionOrder;
+  await tapSync(right); await tapSync(left);
+  check('並び順: 項目を持たない古い画面と合わせても、ドライブの並び順を消さない', [left.profile, remote().profile].every((p) => (p.regionOrder ?? []).join() === '日本,米国') && remote().profile.marker === 'older-client', JSON.stringify(remote().profile.regionOrder));
+  left.window.close(); right.window.close();
+}
 for (const url of ['http://192.168.1.12:4173/', 'http://100.64.0.1:4173/', 'https://192.168.1.12/', 'http://newtonian.tail78a3e5.ts.net:4173/']) {
   const d = device({ url, storage: { 'sivry:sync': JSON.stringify({ enabled: true }) } });
   const before = drive.calls.length;

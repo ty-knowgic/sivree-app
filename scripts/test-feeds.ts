@@ -253,10 +253,12 @@ check('並び順は変わらない', titles(ordered) === 'new / dup / old', titl
 }
 
 // ---------- 見出しと原文へのリンクだけを表示する情報源（利用条件が商用を制限するもの） ----------
-// 2026-10-20 の15件と、2026-10-23 に足した専門職向けの B1 の情報源（同じ名前の複数のフィードは1つに数える）
+// 2026-10-20 の15件と、2026-10-23 に足した専門職向けの B1 の情報源（同じ名前の複数のフィードは1つに数える）。2026-10-27: カナダ首相府（条項が見つかり B1 と分かった）とカナダ・サイバーセキュリティセンター（B1 の候補）を加えた。州・県は B1 のサスカチュワン・ニューファンドランド・ラブラドール・テキサス・ニューヨーク州金融サービス局と、A でも説明が要約にならないカリフォルニア州知事室
 const TITLE_ONLY = ['カナダ政府', 'オンタリオ州政府', 'ウォータールー・リージョン', 'ケンブリッジ市', 'JPX', 'JETRO', 'ジェトロ', 'JAXA', 'KEK', 'WHO', 'Fraunhofer', 'Microsoft Research', 'カーネギーメロン大学', 'Simons Foundation', 'CIFAR',
   'カナダ官報', 'カナダ歳入庁', 'カナダ知的財産庁', 'カナダ・プライバシー・コミッショナー', 'オンタリオ州証券委員会', '日本公認会計士協会', '金融安定理事会', '国際決済銀行',
-  '企業会計基準委員会', 'カナダ金融機関監督庁', 'SEC', '米内国歳入庁'];
+  '企業会計基準委員会', 'カナダ金融機関監督庁', 'SEC', '米内国歳入庁', 'カナダ首相府', 'カナダ・サイバーセキュリティセンター',
+  'サスカチュワン州政府', 'ニューファンドランド・ラブラドール州政府', 'テキサス州知事室', 'ニューヨーク州金融サービス局',
+  'カリフォルニア州知事室'];
 const flagged = [...new Set(officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.sourceName))].sort();
 check('SOURCE_TERMS.md の制限付き情報源と通達集メタデータは titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
 
@@ -350,7 +352,20 @@ const namesAt = (level: string) => [...new Set(officialFeeds.filter(feed => feed
 check('国際機関・EU の機関の割り当て', namesAt('international') === ['ECB', 'ECDC', 'ESA', 'WHO', 'WTO', '欧州医薬品庁', '欧州委員会', '欧州委員会（デジタル）', '欧州理事会',
   // 2026-10-23 に足した専門職向けの情報源
   'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', '欧州銀行監督機構', '欧州保険・年金監督機構', '金融安定理事会', '国際決済銀行', 'EUR-Lex', '欧州特許庁', '証券監督者国際機構'].sort().join(','), namesAt('international'));
-check('州・県の政府の割り当て', namesAt('regional') === ['オンタリオ州政府', 'オンタリオ州証券委員会'].sort().join(','), namesAt('regional'));
+check('州・県の政府の割り当て', namesAt('regional') === ['オンタリオ州政府', 'オンタリオ州証券委員会',
+  // 2026-10-27 に足した、カナダの3州と米国の3州（src/feeds/regional.ts）
+  'マニトバ州政府', 'サスカチュワン州政府', 'ニューファンドランド・ラブラドール州政府', 'カリフォルニア州知事室', 'カリフォルニア州司法省', 'カリフォルニア州プライバシー保護庁', 'テキサス州知事室', 'ニューヨーク州金融サービス局'].sort().join(','), namesAt('regional'));
+const areaOf = (name: string) => [...new Set(officialFeeds.filter(feed => feed.sourceName === name).map(feed => feed.area))].join();
+check('州・県の管轄（area）の割り当て', ['マニトバ州政府:CA-MB', 'サスカチュワン州政府:CA-SK', 'ニューファンドランド・ラブラドール州政府:CA-NL', 'カリフォルニア州知事室:US-CA', 'カリフォルニア州司法省:US-CA', 'カリフォルニア州プライバシー保護庁:US-CA', 'テキサス州知事室:US-TX', 'ニューヨーク州金融サービス局:US-NY']
+  .every(pair => areaOf(pair.split(':')[0]) === pair.split(':')[1]));
+{
+  // 州・県の名前は画面（public/app.js の SOURCE_AREA_LABELS）が持つ。足し忘れると、設定の見出しから州名が消え、ほかの州と見分けられなくなる
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const labels = app.slice(app.indexOf('const SOURCE_AREA_LABELS'), app.indexOf('const areaName'));
+  const missing = [...new Set(officialFeeds.map(feed => feed.area).filter(Boolean))].filter(area => !labels.includes(`'${area}'`));
+  check('feeds の area はすべて、画面の州・県の名前（SOURCE_AREA_LABELS）にある', labels.length > 0 && missing.length === 0, missing.join());
+}
+
 // 専門パックの中身（PR の説明の一覧表と同じ。変えるときはユーザーの確認が要る）
 const packNames = (pack: string) => [...new Set(officialFeeds.filter(feed => feed.pack === pack).map(feed => feed.sourceName))].sort().join(',');
 check('専門パック「法務・知財・立法」の情報源', packNames('legal') === ['米政府出版局', '米連邦官報', '米連邦取引委員会', 'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', 'e-Gov パブリック・コメント', '消費者庁',

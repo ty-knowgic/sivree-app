@@ -276,7 +276,10 @@
     const hasBase = Boolean(base);
     const merged = {};
     for (const key of new Set([...Object.keys(remote), ...Object.keys(local)])) {
-      merged[key] = pickValue(hasBase, base?.[key], local[key], remote[key], laterLocal);
+      // この端末が知らない項目（古い版の画面は、新しい項目を読み込みのときに落とす）は、削除とは見なさず、ドライブの値を使う
+      merged[key] = local[key] === undefined && remote[key] !== undefined
+        ? remote[key]
+        : pickValue(hasBase, base?.[key], local[key], remote[key], laterLocal);
     }
     const list = (key, keyOf) => mergeList(hasBase, base?.[key], local[key], remote[key], laterLocal, keyOf);
     if (hasBase) {
