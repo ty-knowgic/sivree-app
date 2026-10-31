@@ -9,6 +9,7 @@ import { defaultProfile } from '../src/profile.js';
 import { getStoredSummaries, summarizeLatestInBackground } from '../src/summarizer.js';
 import { buildStaticAnalysis } from '../src/staticAnalysis.js';
 import { withStoredSummaries } from '../src/api.js';
+import { schema3Files } from '../src/staticData.js';
 
 const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../site/data');
 await mkdir(outDir, { recursive: true });
@@ -44,22 +45,22 @@ if (!semanticReady) console.warn('[export] 埋め込みを使えなかったた�
 const analysis = buildStaticAnalysis(items, semanticReady ? vectors : {}, semanticReady ? topicVectors : {});
 
 const write = (name: string, data: unknown) => writeFile(path.join(outDir, `${name}.json`), JSON.stringify(data));
+// 見出しと原文へのリンクだけを表示する記事（利用条件による）の要約は、以前に保存したものがあっても書き出さない
+const publicSummaries = [...summaries].filter(([id]) => ids.has(id) && !titleOnlyIds.has(id));
+const meta = { analysisReady: semanticReady, generatedAt: new Date().toISOString(), model: semanticReady ? status.model : null, threshold: status.threshold };
+const sources = listSources();
+const current = schema3Files(meta, items, sources, publicSummaries, analysis);
+// Current clients read head.json, list.json and details.json; the legacy files serve already-open older clients.
 await Promise.all([
   write('news', items),
-  write('sources', listSources()),
-  // 見出しと原文へのリンクだけを表示する記事（利用条件による）の要約は、以前に保存したものがあっても書き出さない
-  write('summaries', Object.fromEntries([...summaries].filter(([id]) => ids.has(id) && !titleOnlyIds.has(id)))),
+  write('sources', sources),
+  ...Object.entries(current).filter(([name]) => name !== 'head').map(([name, data]) => write(name, data)),
+  write('summaries', Object.fromEntries(publicSummaries)),
   write('analysis', analysis),
-  // Keep the legacy file for already-open older clients. New clients never request it.
   write('vectors', semanticReady ? vectors : {}),
-  write('meta', {
-    schema: 2,
-    analysisReady: semanticReady,
-    generatedAt: new Date().toISOString(),
-    model: semanticReady ? status.model : null,
-    threshold: status.threshold,
-    topicVectors: semanticReady ? topicVectors : {}
-  })
+  write('meta', { schema: 2, ...meta, topicVectors: semanticReady ? topicVectors : {} })
 ]);
+// head.json names the generation, so it is written last.
+await write('head', current.head);
 console.log(`[export] 書き出しました: 記事${items.length}件・要約${summaries.size}件・ベクトル${Object.keys(vectors).length}件 → ${outDir}`);
 process.exit(0);

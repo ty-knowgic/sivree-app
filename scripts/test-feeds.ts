@@ -6,7 +6,8 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { withStoredSummaries } from '../src/api.js';
 import { PACKS } from '../src/feeds/packs.js';
-import { applyTitleOnly, ARCHIVE_LIMIT, CANDIDATE_ARCHIVE_LIMIT, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate, trimArchive } from '../src/newsPipeline.js';
+import { applyTitleOnly, ARCHIVE_LIMIT, classify, CANDIDATE_ARCHIVE_LIMIT, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate, trimArchive } from '../src/newsPipeline.js';
+import { datelineRegion } from '../src/dateline.js';
 import { parseListDate, readHtmlList } from '../src/htmlList.js';
 import { defaultOn } from '../src/sourceTier.js';
 import { SOURCE_LEVELS } from '../src/types.js';
@@ -376,6 +377,59 @@ check('専門パック「税務・会計・金融規制」の情報源', packNam
   '米会計検査院', '会計検査院', '国税庁', '米内国歳入庁', 'FRB'].sort().join(','), packNames('finance'));
 check('専門パックはすべて既定でオフ（候補）', officialFeeds.filter(feed => feed.pack).every(feed => !defaultOn(feed)));
 check('市区町村の割り当て', namesAt('local') === ['ウォータールー市', 'キッチナー市', 'ケンブリッジ市', 'ウォータールー・リージョン'].sort().join(','), namesAt('local'));
+
+// ---------- 生成AI の分類 ----------
+{
+  const official = { sourceType: 'official', category: '政治', subgroup: 'カナダ', sourceName: 't', sourceUrl: 'https://example.test/', feedUrl: 'https://example.test/pm', label: 't' } as FeedSource;
+  const wire = { sourceType: 'corporate', matchOnly: ['経済', '投資', '生成AI', 'テクノロジー'], subgroup: '米国', sourceName: 'w', sourceUrl: 'https://example.test/', feedUrl: 'https://example.test/wire', label: 'w' } as FeedSource;
+  check('政府の AI 投資の発表は生成AIにも入る', classify(official, 'Canada announces landmark investment in Cohere to scale secure, sovereign AI', '').includes('生成AI'));
+  check('政府の「artificial intelligence」の発表は生成AIにも入る', classify(official, 'Government of Canada expands support for artificial intelligence adoption', '').includes('生成AI'));
+  check('日本語の「AI」「人工知能」も生成AIに入る', classify({ ...official, subgroup: '日本' }, '第1回ＡＩ・デジタル改革推進会議を開催しました', '').includes('生成AI') && classify({ ...official, subgroup: '日本' }, '人工知能（AI）技術の利用と消費者問題に関する専門調査会', '').includes('生成AI'));
+  check('分類が重複しない', new Set(classify(official, 'AI and artificial intelligence', '')).size === classify(official, 'AI and artificial intelligence', '').length);
+  check('基盤モデル企業の資金調達は配信サービス経由でも生成AIに入る', classify(wire, 'Cohere Announces Series E Fundraise Targeting CAD $7 Billion', '').includes('生成AI'));
+  check('企業の「AI 搭載」の宣伝は生成AIに入らない', !classify(wire, 'Breakthrough Cooling Solutions for the AI Computing Surge', '').includes('生成AI'));
+  check('「robotic」「mathematicians」「ランサムウェア」「サイバーセキュリティ」も分類に入る', classify(official, 'New robotic surgery pilot', '').includes('テクノロジー') && classify(official, 'Award for young mathematicians', '').includes('サイエンス') && classify({ ...official, subgroup: '日本' }, 'ランサムウェア被害の注意喚起', '').includes('安全保障') && classify({ ...official, subgroup: '日本' }, 'サイバーセキュリティに関する関係閣僚会議の開催について', '').includes('安全保障'));
+  check('一般語の「cohere」「grok」は社名と見なさない', !classify(official, 'Plans must cohere; residents grok the rules', '').includes('生成AI'));
+}
+
+// ---------- 配信サービスの日付行から決める地域 ----------
+{
+  const cases: [string, string | undefined][] = [
+    ['Record-setting round marks largest private capital raise in Canadian history, talent and compute TORONTO, Oct. 29, 2026 /PRNewswire/ -- Cohere', 'カナダ'],
+    ['CALGARY, AB, Oct. 29, 2026 /PRNewswire/ -- Frontera', 'カナダ'],
+    ['growth across North America. ST-BRUNO-DE-MONTARVILLE, QC, Oct. 29, 2026 /PRNewswire/ -', 'カナダ'],
+    ['TSX:ORV OTCQX: ORVMF TORONTO, Oct. 29, 2026 /PRNewswire/ -', 'カナダ'],
+    ['MONTRÉAL, Sept. 3, 2026 /CNW/ - x', 'カナダ'],
+    ['LONDON, Ont., Oct. 29, 2026 /PRNewswire/ -', 'カナダ'],
+    ['LONDON, Oct. 29, 2026 /PRNewswire/ -', '欧州'],
+    ['KORTRIJK, Belgium, Oct. 29, 2026 /PRNewswire/ -', '欧州'],
+    ['(AGM). STOCKHOLM, Oct. 29, 2026 /PRNewswire/ -', '欧州'],
+    ['TOKYO, Oct. 29, 2026 /PRNewswire/ -', '日本'],
+    ['tools WATERLOO, Iowa, Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['VANCOUVER, Wash., Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['MIAMI and MEXICO CITY, Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['SAN FRANCISCO and TORONTO, Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['NEW YORK, Oct. 29, 2026 /PRNewswire/ -', undefined],
+    ['No dateline in this description at all.', undefined]
+  ];
+  for (const [text, expected] of cases) check(`日付行の地域: ${text.slice(-60)}`, datelineRegion(text) === expected, `→ ${datelineRegion(text)}`);
+  // 2026-10-29: Cohere の資金調達の発表は Venture Capital のフィードにあり、日付行の設定がなかったため米国に入った（取りこぼしの監査で検出）
+  check('PR Newswire のフィードはすべて日付行で地域を決める', officialFeeds.filter(feed => feed.sourceName === 'PR Newswire').every(feed => feed.datelineRegion));
+  check('日付行で地域を決めるのは PR Newswire だけ', officialFeeds.filter(feed => feed.datelineRegion).every(feed => feed.sourceName === 'PR Newswire') && officialFeeds.some(feed => feed.datelineRegion));
+}
+
+// ---------- 米国の政治の代替経路（2026-10-30。米国務省の 403 の代わり） ----------
+{
+  const byLabel = (label: string) => officialFeeds.find(feed => feed.label === label)!;
+  const passes = (feed: FeedSource, text: string) => (!feed.include || feed.include.test(text)) && !feed.exclude?.test(text);
+  const actions = byLabel('The White House: Presidential Actions');
+  const stateFr = byLabel('Federal Register: State Department Sanctions and Determinations');
+  check('ホワイトハウス: 記念月の布告は除く', !passes(actions, 'National Seafood Month, 2026 By the President of the United States'));
+  check('ホワイトハウス: 関税・大統領令は残す', passes(actions, 'ADJUSTING IMPORTS OF ROBOTICS, INDUSTRIAL MACHINERY, AND THEIR PARTS By the President, a Proclamation on Columbus Day, 2026 reference') && passes(actions, 'Presidential Determination Pursuant to Section 303 of the Defense Production Act'));
+  check('官報（国務省）: 制裁・決定・ITAR は残す', ['Notice of Department of State Sanctions Actions', 'Determination Pursuant to Section 451 of the Foreign Assistance Act of 1961', 'International Traffic in Arms Regulations: Syria Country Policy Revision'].every(title => passes(stateFr, title)));
+  check('官報（国務省）: 展示品・情報収集・プライバシー法・会議は除く', ['Notice of Determinations; Culturally Significant Object Being Imported for Exhibition', 'Notice of Determinations; Culturally Significant Objects Being Imported for Exhibition', '30-Day Notice of Proposed Information Collection: Foreign Assistance Requirements', 'Privacy Act of 1974; System of Records', 'Notice of Public Meeting To Prepare for International Maritime Organization MEPC 85 Session'].every(title => !passes(stateFr, title)));
+  check('追加した3経路は既定ではオフの候補（since 付き・利用条件 A）', [actions, byLabel('The White House: Fact Sheets'), stateFr].every(feed => feed.since === '2026-10-30' && feed.terms === 'A' && !feed.pack && !defaultOn(feed)));
+}
 
 // ---------- 既定の情報源の凍結 ----------
 // 凍結（2026-10-20）までの情報源は、フィードの URL と ID を固定する。URL を替えると ID が変わり、利用者のオン・オフの記録が外れる。

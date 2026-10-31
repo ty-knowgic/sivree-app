@@ -8,7 +8,7 @@
 
 | 情報源 | 失敗URL数 | 旧記録 | 分かったこと / 次の確認 |
 |---|---:|---|---|
-| 米国務省 | 1 | HTTP 403 | フィードのアクセス拒否。回避しない。次回収集で再確認 |
+| 米国務省 | 1 | HTTP 403 | フィードのアクセス拒否（2026-10-30 には robots.txt も 403）。回避しない。代わりにホワイトハウス（Presidential Actions・Fact Sheets）と連邦官報の国務省の制裁・決定を候補に追加（SOURCE_TERMS.md） |
 | 欧州委員会 Press Corner | 1（2定義） | robots禁止または確認不能 | 同URLの重複定義。新診断は1URLとして集計し、各定義は保持 |
 | 英国外務省・科学技術省・AI Security Institute | 3 | robots禁止または確認不能 | 閲覧経路で見たgov.ukのrobotsには該当フィード経路の禁止なし。旧障害が通信失敗だった可能性はあるが確定不可 |
 | Canada News Centre・CIPO | 2 | robots禁止または確認不能 | api.io.canada.caのrobotsは別経路でも取得不能。禁止と断定できない |

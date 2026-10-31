@@ -1,7 +1,7 @@
 import { workflowsOf } from './feeds/workflows.js';
 import { filterNews, listCategoryGroups, listFilterOptions, withPrimaryCategory } from './newsFilters.js';
 import { DEFAULT_PROFILE, matchTopics, rankForYou, STARTER_TOPIC_IDS } from './profile.js';
-import type { Profile } from './profile.js';
+import type { Profile, TopicMatch } from './profile.js';
 import { buildStoryIndex, findRelated, groupStories } from './stories.js';
 import { cleanFeedText } from './text.js';
 import { CATEGORIES, SUBGROUPS } from './types.js';
@@ -46,6 +46,16 @@ export interface ApiContext {
   hasVectors: boolean;
   sources: SourceInfo[];
   sourceIdOf(feedUrl: string): string;
+  /** 記事 ID → 一致したトピック。同じ記事群・プロフィール・判定のあいだだけ使い回す（呼び出し側が作り直す） */
+  matchCache?: Map<string, TopicMatch[]>;
+}
+
+function matchesOf(ctx: ApiContext, item: Parameters<typeof matchTopics>[0]): TopicMatch[] {
+  const cached = ctx.matchCache?.get(item.id);
+  if (cached) return cached;
+  const matches = matchTopics(item, ctx.profile, ctx.semantic);
+  ctx.matchCache?.set(item.id, matches);
+  return matches;
 }
 
 export interface NewsQuery {
@@ -134,8 +144,8 @@ export function listNews(ctx: ApiContext, query: NewsQuery) {
 
   const withSummaries = withStoredSummaries(ctx.summaries, filtered.map(item => withPrimaryCategory(item, profile.categories)));
   const ranked = query.forYou
-    ? rankForYou(withSummaries, profile, ctx.semantic)
-    : withSummaries.map(item => ({ ...item, matches: matchTopics(item, profile, ctx.semantic) }));
+    ? rankForYou(withSummaries, profile, ctx.semantic, item => matchesOf(ctx, item))
+    : withSummaries.map(item => ({ ...item, matches: matchesOf(ctx, item) }));
   // 同じ出来事の発表・報道は1枚のカードにまとめる（埋め込みが使えない場合はまとめない）
   const result = groupForDisplay(ctx, ranked, Boolean(query.forYou));
 
@@ -143,6 +153,29 @@ export function listNews(ctx: ApiContext, query: NewsQuery) {
   const start = Math.max(0, Number(query.offset) || 0);
   const size = Math.min(200, Math.max(1, Number(query.limit) || 200));
   return { total: result.length, items: result.slice(start, start + size) };
+}
+
+/**
+ * 検索語に一致する記事が、いまの表示の外にどれだけあるか（検索中の画面が「すべて」への切り替えと、情報源をオンにする案内に使う）。
+ * all: 「すべて」タブで表示される件数（一覧と同じく、同じ話題をまとめたカードの数）。
+ * sources: オフにした情報源・候補のうち、オンにすれば「すべて」に一致する記事が出るもの（件数の多い順）。
+ * 地域・分野・非表示にした記事は利用者の選択のまま絞るので、件数はオンにしたときに実際に増える数になる
+ */
+export function searchElsewhere(ctx: ApiContext, keyword: string) {
+  if (!keyword.trim()) return { all: 0, sources: [] };
+  const all = listNews(ctx, { keyword, limit: 1 }).total;
+  const scope = scopeOf(ctx.profile, false, ctx.sources);
+  const counts = new Map<string, number>();
+  for (const item of filterNews(ctx.items, { keyword, ...scope, excludedSources: new Set() }, ctx.sourceIdOf)) {
+    const id = ctx.sourceIdOf(item.feedUrl);
+    if (scope.excludedSources.has(id)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  const byId = new Map(ctx.sources.map(source => [source.id, source]));
+  const sources = [...counts].flatMap(([id, count]) => {
+    const source = byId.get(id);
+    return source ? [{ id, sourceName: source.sourceName, label: source.label, subgroup: source.subgroup, candidate: Boolean(source.candidate), count }] : [];
+  });
+  return { all, sources: sources.sort((a, b) => b.count - a.count || a.sourceName.localeCompare(b.sourceName)) };
 }
 
 // 英語で、ピリオドが文の終わりではない語: 頭文字（"Arthur B. McDonald"）、敬称・略語（"Dr."、"U.S."）。次に大文字が続いても、ここでは区切らない
@@ -176,7 +209,7 @@ const BRIEFING_WINDOWS = [24, 48, 72, 120, 168];
 export function buildBriefing(ctx: ApiContext) {
   const { profile } = ctx;
   const items = withStoredSummaries(ctx.summaries, visibleNews(ctx, true));
-  const stories = groupForDisplay(ctx, rankForYou(items, profile, ctx.semantic), true);
+  const stories = groupForDisplay(ctx, rankForYou(items, profile, ctx.semantic, item => matchesOf(ctx, item)), true);
   const boostOnly = new Set(profile.topics.filter(topic => topic.boostOnly).map(topic => topic.id));
   const MAX_PER_TOPIC = 2;
 

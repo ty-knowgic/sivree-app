@@ -4,6 +4,7 @@ import { coreFeeds } from '../src/feeds/core.js';
 import { professionalFeeds } from '../src/feeds/professional.js';
 import { regionalFeeds } from '../src/feeds/regional.js';
 import { securityFeeds } from '../src/feeds/security.js';
+import { usPolicyFeeds } from '../src/feeds/usPolicy.js';
 import { officialFeeds, listSources } from '../src/newsPipeline.js';
 import { defaultOn, tierOf } from '../src/sourceTier.js';
 import { SOURCE_LEVELS } from '../src/types.js';
@@ -45,9 +46,11 @@ check('凍結した情報源98件の層は、無償93・上限の対象5（オ�
   coreFeeds.length === 98 && breakdown(coreFeeds) === '93/5/0 of 98', breakdown(coreFeeds));
 check('専門職向けの61件の層は、無償25・上限の対象2・有償34',
   professionalFeeds.length === 61 && breakdown(professionalFeeds) === '25/2/34 of 61', breakdown(professionalFeeds));
+// 2026-10-30 に足した米国の政治の代替経路（src/feeds/usPolicy.ts。米国務省の 403 の代わり）
+check('米国の政治の代替経路3件は、すべて無償の候補', usPolicyFeeds.length === 3 && breakdown(usPolicyFeeds) === '3/0/0 of 3' && usPolicyFeeds.every(feed => feed.since === '2026-10-30' && !defaultOn(feed)), breakdown(usPolicyFeeds));
 check('安全保障の4件の層は、すべて無償（パックには入れない）', securityFeeds.length === 4 && breakdown(securityFeeds) === '4/0/0 of 4', breakdown(securityFeeds));
 check('州・県の8件の層は、すべて上限の対象（パックには入れない）', regionalFeeds.length === 8 && breakdown(regionalFeeds) === '0/8/0 of 8', breakdown(regionalFeeds));
-check('フィードの一覧は、この4つを合わせたもの', officialFeeds.length === coreFeeds.length + professionalFeeds.length + securityFeeds.length + regionalFeeds.length);
+check('フィードの一覧は、この5つを合わせたもの', officialFeeds.length === coreFeeds.length + professionalFeeds.length + usPolicyFeeds.length + securityFeeds.length + regionalFeeds.length);
 const limitedNames = ['ウォータールー市', 'ウォータールー・リージョン', 'オンタリオ州政府', 'キッチナー市', 'ケンブリッジ市'].sort().join(',');
 check('凍結した情報源で上限の対象の5件は、オンタリオ州政府とウォータールー周辺の4自治体',
   coreFeeds.filter(feed => tierOf(feed) === 'limited').map(feed => feed.sourceName).sort().join(',') === limitedNames);
@@ -56,7 +59,7 @@ check('凍結した情報源で since が付いているのは、候補へ移し
 check('専門職向けの情報源は、すべて since が付き、既定ではオフ', professionalFeeds.every(feed => ['2026-10-23', '2026-10-24'].includes(feed.since ?? '') && !defaultOn(feed)) && professionalFeeds.filter(feed => feed.since === '2026-10-24').length === 8);
 check('安全保障の情報源は、すべて since が付き、既定ではオフ', securityFeeds.every(feed => feed.since === '2026-10-27' && !defaultOn(feed)));
 check('州・県の情報源は、すべて since が付き、既定ではオフ', regionalFeeds.every(feed => feed.since === '2026-10-27' && !defaultOn(feed)));
-check('既定でオンの対象は93件（候補の5件と、専門職向けの61件、安全保障の4件、州・県の8件を除く）', officialFeeds.filter(defaultOn).length === 93 && officialFeeds.filter(feed => !defaultOn(feed)).length === 78);
+check('既定でオンの対象は93件（候補の5件と、専門職向けの61件、米国の政治の代替経路3件、安全保障の4件、州・県の8件を除く）', officialFeeds.filter(defaultOn).length === 93 && officialFeeds.filter(feed => !defaultOn(feed)).length === 81);
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);
