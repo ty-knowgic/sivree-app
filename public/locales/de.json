@@ -395,5 +395,19 @@
     "one": "+{n} weitere Quelle",
     "other": "+{n} weitere Quellen"
   },
-  "{name}をオンにする": "{name} einschalten"
+  "{name}をオンにする": "{name} einschalten",
+  "既読": "Gelesen",
+  "見出しのみ": "Nur Schlagzeile",
+  "この発信元は利用条件により、Sivree では見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Gemäß den Nutzungsbedingungen dieses Herausgebers zeigt Sivree nur Schlagzeile und Link. Den Inhalt finden Sie auf der Originalseite.",
+  "発信元のページから本文を取り出せなかったため、見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Sivree konnte den Text nicht von der Seite des Herausgebers abrufen, daher werden nur Schlagzeile und Link angezeigt. Den Inhalt finden Sie auf der Originalseite.",
+  "共有メニューの「ホーム画面に追加」で、ブラウザを開かずに1タップで起動できます。": "Mit „Zum Home-Bildschirm“ im Teilen-Menü öffnen Sie Sivree mit einem Tippen, ohne den Browser zu starten.",
+  "読んだ記事": "Gelesene Artikel",
+  "閲覧: {time}": "Geöffnet {time}",
+  "元記事を開く": "Original öffnen",
+  "まだ読んだ記事はありません": "Noch keine gelesenen Artikel",
+  "一覧から記事を開くと、ここに記録されます。": "Artikel, die Sie aus der Liste öffnen, werden hier festgehalten.",
+  "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Speichert bis zu {n} geöffnete Artikel, die neuesten zuerst. Nur im Browser dieses Geräts gespeichert; nicht in kopierten Einstellungen oder der Drive-Synchronisierung enthalten und nie an die Server von Sivree gesendet.",
+  "読んだ記事を検索": "Gelesene Artikel durchsuchen",
+  "履歴を消去": "Verlauf löschen",
+  "読んだ記事の履歴を消去しますか？": "Verlauf der gelesenen Artikel löschen?"
 }

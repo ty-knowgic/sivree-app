@@ -359,5 +359,19 @@
   "オンにする": "Nyalakan",
   "{source}をオンにしました": "{source} dinyalakan",
   "ほか{n}の情報源": "+{n} sumber lain",
-  "{name}をオンにする": "Nyalakan {name}"
+  "{name}をオンにする": "Nyalakan {name}",
+  "既読": "Sudah dibaca",
+  "見出しのみ": "Judul saja",
+  "この発信元は利用条件により、Sivree では見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Sesuai ketentuan penggunaan penerbit ini, Sivree hanya menampilkan judul dan tautan. Baca isinya di halaman aslinya.",
+  "発信元のページから本文を取り出せなかったため、見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Sivree tidak dapat mengambil teks dari halaman penerbit, jadi hanya judul dan tautan yang ditampilkan. Baca isinya di halaman aslinya.",
+  "共有メニューの「ホーム画面に追加」で、ブラウザを開かずに1タップで起動できます。": "Gunakan “Tambahkan ke Layar Utama” di menu bagikan untuk membuka Sivree dengan sekali ketuk, tanpa membuka browser.",
+  "読んだ記事": "Artikel yang dibaca",
+  "閲覧: {time}": "Dibuka {time}",
+  "元記事を開く": "Buka aslinya",
+  "まだ読んだ記事はありません": "Belum ada artikel yang dibaca",
+  "一覧から記事を開くと、ここに記録されます。": "Artikel yang Anda buka dari daftar dicatat di sini.",
+  "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Menyimpan hingga {n} artikel yang Anda buka, terbaru lebih dulu. Hanya dicatat di browser perangkat ini; tidak termasuk dalam salinan pengaturan atau sinkronisasi Drive, dan tidak pernah dikirim ke server Sivree.",
+  "読んだ記事を検索": "Cari artikel yang dibaca",
+  "履歴を消去": "Hapus riwayat",
+  "読んだ記事の履歴を消去しますか？": "Hapus riwayat artikel yang dibaca?"
 }

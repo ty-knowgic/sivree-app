@@ -398,5 +398,19 @@
     "one": "+{n} autre source",
     "other": "+{n} autres sources"
   },
-  "{name}をオンにする": "Activer {name}"
+  "{name}をオンにする": "Activer {name}",
+  "既読": "Lu",
+  "見出しのみ": "Titre seulement",
+  "この発信元は利用条件により、Sivree では見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Selon les conditions d’utilisation de cet éditeur, Sivree n’affiche que le titre et le lien. Lisez le contenu sur la page d’origine.",
+  "発信元のページから本文を取り出せなかったため、見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Sivree n’a pas pu extraire le texte de la page de l’éditeur ; seuls le titre et le lien sont affichés. Lisez le contenu sur la page d’origine.",
+  "共有メニューの「ホーム画面に追加」で、ブラウザを開かずに1タップで起動できます。": "Avec « Sur l’écran d’accueil » dans le menu Partager, ouvrez Sivree d’un geste, sans lancer le navigateur.",
+  "読んだ記事": "Articles lus",
+  "閲覧: {time}": "Ouvert {time}",
+  "元記事を開く": "Ouvrir l’original",
+  "まだ読んだ記事はありません": "Aucun article lu pour l’instant",
+  "一覧から記事を開くと、ここに記録されます。": "Les articles que vous ouvrez depuis la liste sont enregistrés ici.",
+  "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Conserve jusqu’à {n} articles ouverts, du plus récent au plus ancien. Enregistré uniquement dans le navigateur de cet appareil ; non inclus dans la copie des réglages ni dans la synchronisation Drive, et jamais envoyé aux serveurs de Sivree.",
+  "読んだ記事を検索": "Rechercher dans les articles lus",
+  "履歴を消去": "Effacer l’historique",
+  "読んだ記事の履歴を消去しますか？": "Effacer l’historique des articles lus ?"
 }

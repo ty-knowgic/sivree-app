@@ -53,6 +53,9 @@ jobs:
       # 「新着」の印と「ここまで」の表示を確かめる
       - run: npm run test:visit
 
+      # 既読と読んだ記事の履歴、見出しだけの記事の表示、右スワイプで戻る操作、未操作の一覧への新着の反映を確かめる
+      - run: npm run test:reading
+
       # 初回の質問（地域・分野・テーマ）の流れと、選んだテーマの保存を確かめる
       - run: npm run test:onboarding
 

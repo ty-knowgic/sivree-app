@@ -359,5 +359,19 @@
   "オンにする": "Bật",
   "{source}をオンにしました": "Đã bật {source}",
   "ほか{n}の情報源": "+{n} nguồn khác",
-  "{name}をオンにする": "Bật {name}"
+  "{name}をオンにする": "Bật {name}",
+  "既読": "Đã đọc",
+  "見出しのみ": "Chỉ có tiêu đề",
+  "この発信元は利用条件により、Sivree では見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Theo điều khoản sử dụng của nhà phát hành này, Sivree chỉ hiển thị tiêu đề và liên kết. Hãy đọc nội dung trên trang gốc.",
+  "発信元のページから本文を取り出せなかったため、見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Sivree không lấy được văn bản từ trang của nhà phát hành nên chỉ hiển thị tiêu đề và liên kết. Hãy đọc nội dung trên trang gốc.",
+  "共有メニューの「ホーム画面に追加」で、ブラウザを開かずに1タップで起動できます。": "Dùng “Thêm vào MH chính” trong menu chia sẻ để mở Sivree chỉ bằng một chạm, không cần mở trình duyệt.",
+  "読んだ記事": "Bài đã đọc",
+  "閲覧: {time}": "Đã mở {time}",
+  "元記事を開く": "Mở bản gốc",
+  "まだ読んだ記事はありません": "Chưa có bài nào đã đọc",
+  "一覧から記事を開くと、ここに記録されます。": "Các bài bạn mở từ danh sách sẽ được ghi lại ở đây.",
+  "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Lưu tối đa {n} bài bạn đã mở, mới nhất trước. Chỉ ghi trong trình duyệt của thiết bị này; không nằm trong bản sao cài đặt hay đồng bộ Drive, và không bao giờ gửi đến máy chủ của Sivree.",
+  "読んだ記事を検索": "Tìm trong bài đã đọc",
+  "履歴を消去": "Xóa lịch sử",
+  "読んだ記事の履歴を消去しますか？": "Xóa lịch sử các bài đã đọc?"
 }

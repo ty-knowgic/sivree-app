@@ -63,6 +63,9 @@ const IMAGES_KEY = 'sivry:images';
 const VISIT_KEY = 'sivry:visit';
 const VISIT_GAP = 30 * 60 * 1000;
 const CITE_FORMAT_KEY = 'sivree:citeFormat';
+const READ_KEY = 'sivree:read';
+const READ_LIMIT = 300;
+const INSTALL_HINT_KEY = 'sivree:installHint';
 // 記事の画面で選べる引用の書式（CSV は保存した記事の一覧からの書き出しだけ）
 const CITE_FORMATS = ['plain', 'apa', 'markdown', 'bibtex', 'ris'];
 
@@ -608,7 +611,7 @@ function renderHero(item) {
   const summary = item.ai?.summary || item.summary;
   return `
     <div class="hero-wrap">
-    <a class="hero" href="#/article/${encodeURIComponent(item.id)}" data-id="${escapeHtml(item.id)}" data-cat="${escapeHtml(category)}">
+    <a class="hero${isRead(item) ? ' is-read' : ''}" href="#/article/${encodeURIComponent(item.id)}" data-id="${escapeHtml(item.id)}" data-cat="${escapeHtml(category)}">
       <img src="${escapeHtml(articleImage(item))}" alt="" referrerpolicy="no-referrer" data-fallback="hero">
       <div class="hero-body">
         <span class="cat-pill">${escapeHtml(t(category))}${escapeHtml(sep())}${escapeHtml(t(item.subgroup))}</span>
@@ -650,6 +653,44 @@ function isNewSinceVisit(item) {
   return lastVisit > 0 && Date.parse(item.publishedAt) > lastVisit;
 }
 
+/**
+ * 読んだ記事の履歴（新しい順・最大 READ_LIMIT 件）。掲載期間が過ぎても見つけ直せるよう、見出し・発信元・URL も残す。
+ * 端末の中にだけ記録し、設定のコピーやドライブ同期には含めない
+ */
+let readHistory = (() => {
+  try {
+    const list = JSON.parse(localStorage.getItem(READ_KEY));
+    return Array.isArray(list) ? list.filter(entry => typeof entry?.id === 'string') : [];
+  } catch {
+    return [];
+  }
+})();
+let readIds = new Set(readHistory.map(entry => entry.id));
+
+function storeReadHistory() {
+  readIds = new Set(readHistory.map(entry => entry.id));
+  try {
+    localStorage.setItem(READ_KEY, JSON.stringify(readHistory));
+  } catch {
+    // 保存できなくても、記事を読む操作は止めない
+  }
+}
+
+function markRead(item) {
+  if (!item || item.isSample) return;
+  const entry = {
+    id: item.id, title: item.title, headline: item.ai?.headlineJa || '', source: item.sourceName,
+    url: safeUrl(item.sourceUrl), publishedAt: item.publishedAt, readAt: new Date().toISOString()
+  };
+  readHistory = [entry, ...readHistory.filter(old => old.id !== item.id)].slice(0, READ_LIMIT);
+  storeReadHistory();
+}
+
+const isRead = item => readIds.has(item.id);
+
+/** 本文の代わりになる文（要約・配信文）が無く、開いても見出しとリンクしか出ない記事 */
+const headlineOnly = item => !item.isSample && !item.ai?.summary && !item.summary;
+
 const DOCUMENT_KIND_LABELS = {
   'proposed-rule': '規則案', 'consumer-protection': '消費者保護',
   'regulatory-policy': '規制方針', 'enforcement': '執行・処分',
@@ -671,7 +712,7 @@ function renderCard(item) {
   // 「関心がない…」のボタンはリンクの外に置く（リンクの中にボタンは置けず、押すと記事が開いてしまう）
   return `
     <div class="card-wrap">
-    <a class="card" href="#/article/${encodeURIComponent(item.id)}" data-id="${escapeHtml(item.id)}" data-cat="${escapeHtml(category)}">
+    <a class="card${isRead(item) ? ' is-read' : ''}" href="#/article/${encodeURIComponent(item.id)}" data-id="${escapeHtml(item.id)}" data-cat="${escapeHtml(category)}">
       <div class="card-body">
         <div class="card-meta">
           <span class="cat-label">${item.isSample ? escapeHtml(t('サンプル')) : `${escapeHtml(t(category))}${escapeHtml(sep())}${escapeHtml(t(item.subgroup))}`}</span>
@@ -682,7 +723,9 @@ function renderCard(item) {
         <h3 class="card-title">${escapeHtml(displayTitle(item))}</h3>
         ${cardSummary(item)}
         <div class="card-foot">
+          ${isRead(item) ? `<span class="visually-hidden">${escapeHtml(t('既読'))}</span>` : ''}
           ${documentBadge(item)}
+          ${headlineOnly(item) ? `<span class="headline-only-badge">${escapeHtml(t('見出しのみ'))}</span>` : ''}
           ${isNewSinceVisit(item) ? `<span class="new-badge">${escapeHtml(t('新着'))}</span>` : ''}
           <time datetime="${escapeHtml(item.publishedAt)}">${escapeHtml(formatRelative(item.publishedAt))}</time>
           ${isSaved(item.id) ? `<span class="saved-mark" role="img" aria-label="${escapeHtml(t('保存済み'))}">${bookmarkIcon(true)}</span>` : ''}
@@ -903,7 +946,22 @@ updateNewsButton.className = 'news-update-button secondary-button';
 updateNewsButton.hidden = true;
 updateNewsButton.addEventListener('click', () => reloadData());
 listView.append(updateNewsButton);
+
+/**
+ * 開いた（または戻ってきた）直後で、まだ何も操作していなければ、届いた新しい記事にそのまま切り替える。
+ * 読み始めた後は一覧を入れ替えず、これまでどおりボタンを押したときだけ切り替える
+ */
+const AUTO_ADOPT_WINDOW = 20_000;
+let untouchedSince = Date.now();
+for (const type of ['pointerdown', 'keydown', 'wheel', 'touchstart']) {
+  window.addEventListener(type, () => { untouchedSince = 0; }, { capture: true, passive: true });
+}
+window.addEventListener('scroll', () => { if (window.scrollY > 40) untouchedSince = 0; }, { passive: true });
+const untouchedList = () => untouchedSince > 0 && Date.now() - untouchedSince < AUTO_ADOPT_WINDOW
+  && !listView.hidden && !state.needsOnboarding && window.scrollY <= 40;
+
 window.addEventListener('sivree:update-available', () => {
+  if (untouchedList()) { reloadData(); return; }
   updateNewsButton.textContent = t('新しい記事があります');
   updateNewsButton.hidden = false;
 });
@@ -1110,6 +1168,13 @@ function renderExcerpt(detail) {
     if (content.truncated) body += `<p class="excerpt-more">${escapeHtml(t('続きは元記事でご覧ください。'))}</p>`;
   } else {
     const fallback = content.description || item.summary;
+    if (!fallback && !summary && detail.summaryState !== 'loading' && content.status !== 'pdf') {
+      // 開いてから空の欄を見せるのではなく、見出しとリンクだけの理由を先に示す（元記事のボタンは画面下に常に出ている）
+      const reason = item.titleOnly
+        ? t('この発信元は利用条件により、Sivree では見出しとリンクだけを表示しています。内容は元記事でご覧ください。')
+        : t('発信元のページから本文を取り出せなかったため、見出しとリンクだけを表示しています。内容は元記事でご覧ください。');
+      return `<p class="headline-only-note">${escapeHtml(reason)}</p>`;
+    }
     const notice = content.status === 'pdf'
       ? t('発表資料は PDF で公開されています。')
       : t('発信元ページから本文を取得できませんでした。');
@@ -1117,7 +1182,7 @@ function renderExcerpt(detail) {
   }
 
   // 要約がある場合（または作成中）は、抜粋は補助的な情報なので閉じておく
-  const open = !summary && !['loading', 'idle'].includes(detail.summaryState);
+  const open = !summary && detail.summaryState !== 'loading' && (Boolean(content) || detail.summaryState !== 'idle');
   return `
     <details class="excerpt" ${open ? 'open' : ''}>
       <summary>${escapeHtml(t('本文の冒頭（発信元より）'))}</summary>
@@ -1245,6 +1310,7 @@ async function showDetail(id) {
   currentDetail = { id, item: known, content: null, summary: null, summaryState: 'idle' };
 
   if (known) {
+    markRead(known);
     renderDetail();
     document.title = `${displayTitle(known)} | Sivree`;
   } else {
@@ -1260,11 +1326,13 @@ async function showDetail(id) {
     itemsById.set(data.item.id, { ...known, ...data.item });
     Object.assign(currentDetail, { item: data.item, content: data.content, summary: data.summary, related: data.related ?? [] });
     document.title = `${data.summary?.headlineJa || data.item.title} | Sivree`;
+    if (!known) markRead(data.item);
 
     if (data.summary) {
       currentDetail.summaryState = 'done';
       renderDetail();
-    } else if (!data.item.isSample) {
+    } else if (!data.item.isSample && !state.config?.static) {
+      // 静的版の要約は公開データに含まれる分だけで、ここで無ければ取り直しても出てこない
       loadSummary(id);
     } else {
       currentDetail.summaryState = 'idle';
@@ -1727,10 +1795,17 @@ const savedCopyLabel = () => {
   return t('{n}件の引用をコピー', { n, count: n });
 };
 
+/** 「保存した記事」と「読んだ記事」を切り替えるタブ。履歴に積まず置き換えるので、戻るボタンは一覧へ戻る */
+function savedTabs(active) {
+  const tab = (hash, label) => `<a href="${hash}" data-replace-hash${hash === active ? ' aria-current="page"' : ''}>${escapeHtml(t(label))}</a>`;
+  return `<nav class="saved-tabs">${tab('#/saved', '保存した記事')}${tab('#/history', '読んだ記事')}</nav>`;
+}
+
 function renderSaved() {
   const format = citeFormat(true);
   savedView.innerHTML = `
     <h1 class="settings-title">${escapeHtml(t('保存した記事'))}</h1>
+    ${savedTabs('#/saved')}
     <p class="settings-note">${escapeHtml(t('この端末のブラウザに保存されます。Google ドライブの同期を有効にすると、端末間でも共有されます。Sivree のサーバーには送られません。'))}</p>
     ${savedItems.length ? `
       <div class="saved-toolbar">
@@ -1769,12 +1844,85 @@ async function showSaved() {
   try {
     // 別の端末から取り込んだ内容などを反映するため、開くたびに読み直す
     const profile = await fetch('/api/profile').then(r => r.json());
-    if (savedView.hidden) return;
+    if (savedView.hidden || location.hash !== '#/saved') return;
     setSaved(profile.savedItems);
     renderSaved();
   } catch {
     // 読み直せなくても、表示済みの内容を使う
   }
+}
+
+// ---------- 読んだ記事 ----------
+
+let historyQuery = '';
+
+function visibleHistory() {
+  const query = historyQuery.trim().toLowerCase();
+  if (!query) return readHistory;
+  return readHistory.filter(entry => [entry.headline, entry.title, t(entry.source)].some(text => text?.toLowerCase().includes(query)));
+}
+
+function renderHistoryItem(entry) {
+  const url = safeUrl(entry.url);
+  // 掲載期間を過ぎた記事は Sivree では開けないが、元記事へのリンクは残る
+  return `
+    <li class="saved-item history-item">
+      <div class="card-meta">
+        <span class="source">${escapeHtml(t(entry.source))}</span>
+        <span class="sep" aria-hidden="true"></span>
+        <time datetime="${escapeHtml(entry.readAt)}">${escapeHtml(t('閲覧: {time}', { time: formatRelative(entry.readAt) }))}</time>
+      </div>
+      <h3 class="saved-title"><a href="#/article/${encodeURIComponent(entry.id)}">${escapeHtml(entry.headline || entry.title)}</a></h3>
+      ${url ? `<a class="history-original" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t('元記事を開く'))}${ICONS.external}</a>` : ''}
+    </li>
+  `;
+}
+
+function renderHistoryList() {
+  if (!readHistory.length) {
+    return `<div class="empty-state"><strong>${escapeHtml(t('まだ読んだ記事はありません'))}</strong>${escapeHtml(t('一覧から記事を開くと、ここに記録されます。'))}</div>`;
+  }
+  const shown = visibleHistory();
+  if (!shown.length) {
+    return `<div class="empty-state"><strong>${escapeHtml(t('「{keyword}」に一致する記事はありません', { keyword: historyQuery.trim() }))}</strong>${escapeHtml(t('別のキーワードをお試しください。'))}</div>`;
+  }
+  return `<ul class="saved-list">${shown.map(renderHistoryItem).join('')}</ul>`;
+}
+
+function renderHistory() {
+  savedView.innerHTML = `
+    <h1 class="settings-title">${escapeHtml(t('読んだ記事'))}</h1>
+    ${savedTabs('#/history')}
+    <p class="settings-note">${escapeHtml(t('開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。', { n: READ_LIMIT }))}</p>
+    ${readHistory.length ? `
+      <div class="saved-toolbar">
+        <label class="search-field saved-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+          <input type="search" data-history-search value="${escapeHtml(historyQuery)}" placeholder="${escapeHtml(t('読んだ記事を検索'))}" aria-label="${escapeHtml(t('読んだ記事を検索'))}" enterkeyhint="search" autocomplete="off" />
+        </label>
+        <div class="saved-export">
+          <button class="secondary-button" type="button" data-action="clear-history">${escapeHtml(t('履歴を消去'))}</button>
+        </div>
+      </div>` : ''}
+    <div id="historyList">${renderHistoryList()}</div>
+  `;
+}
+
+function showHistory() {
+  document.body.classList.add('is-detail');
+  document.body.classList.remove('is-onboarding');
+  onboardingView.hidden = true;
+  listView.hidden = true;
+  detailView.hidden = true;
+  settingsView.hidden = true;
+  savedView.hidden = false;
+  backButton.hidden = false;
+  shareButton.hidden = true;
+  saveButton.hidden = true;
+  document.title = `${t('読んだ記事')} | Sivree`;
+  window.scrollTo(0, 0);
+  historyQuery = '';
+  renderHistory();
 }
 
 function refreshSavedList() {
@@ -1788,9 +1936,28 @@ function refreshSavedList() {
 }
 
 savedView.addEventListener('input', (event) => {
+  if (event.target.matches('[data-history-search]')) {
+    historyQuery = event.target.value;
+    savedView.querySelector('#historyList').innerHTML = renderHistoryList();
+    return;
+  }
   if (!event.target.matches('[data-saved-search]')) return;
   savedQuery = event.target.value;
   refreshSavedList();
+});
+
+savedView.addEventListener('click', (event) => {
+  const tab = event.target.closest('a[data-replace-hash]');
+  if (tab) {
+    event.preventDefault();
+    if (location.hash !== tab.getAttribute('href')) location.replace(tab.getAttribute('href'));
+    return;
+  }
+  if (event.target.closest('[data-action="clear-history"]') && window.confirm(t('読んだ記事の履歴を消去しますか？'))) {
+    readHistory = [];
+    storeReadHistory();
+    renderHistory();
+  }
 });
 
 savedView.addEventListener('change', async (event) => {
@@ -1838,7 +2005,7 @@ savedView.addEventListener('click', async (event) => {
       refreshSavedList();
       showToast(t('保存を解除しました'), {
         label: t('元に戻す'),
-        run: () => restoreSaved(entry).then(() => { if (!savedView.hidden) refreshSavedList(); }).catch(() => showToast(t('保存できませんでした')))
+        run: () => restoreSaved(entry).then(() => { if (!savedView.hidden && location.hash === '#/saved') refreshSavedList(); }).catch(() => showToast(t('保存できませんでした')))
       });
     } catch {
       showToast(t('保存できませんでした'));
@@ -2913,21 +3080,24 @@ savedButton.addEventListener('click', () => {
   location.hash = '#/saved';
 });
 
-// 画面の左端から右へスワイプすると前の画面に戻る（ホーム画面に追加したアプリでは標準の戻る操作が効かないため）
+// 記事などの画面で右へスワイプすると前の画面に戻る。ニュースアプリと同じく、画面のどこから始めてもよい
 {
-  // 指が最初に触れる位置は端から少し離れることが多いため、開始位置は広めに取る
-  const EDGE = 48;
+  // ブラウザで開いているときは、左端の帯をブラウザ自身の「戻る」に任せる（両方が動くと2画面戻ってしまう）
+  const BROWSER_EDGE = 24;
   const DISTANCE = 70;
   // 向きを判断するまでに動かす距離。最初の数ピクセルは斜めにぶれるので、それだけでは取り消さない
   const DECIDE = 12;
+  const standalone = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
   let swipe = null;
   const content = () => document.querySelector('main') ?? document.body;
   const reset = () => { swipe = null; content().style.transform = ''; };
   document.addEventListener('touchstart', (event) => {
     const touch = event.touches[0];
-    swipe = event.touches.length === 1 && touch.clientX <= EDGE && !backButton.hidden
-      ? { x: touch.clientX, y: touch.clientY, horizontal: false }
-      : null;
+    const ok = event.touches.length === 1 && !backButton.hidden
+      && (standalone() || touch.clientX > BROWSER_EDGE)
+      // 入力欄の中の操作や、横に動かせる部品の操作は戻る操作にしない
+      && !event.target.closest?.('input, textarea, select, .sheet, [data-no-swipe]');
+    swipe = ok ? { x: touch.clientX, y: touch.clientY, horizontal: false } : null;
   }, { passive: true });
   document.addEventListener('touchmove', (event) => {
     if (!swipe) return;
@@ -2935,8 +3105,8 @@ savedButton.addEventListener('click', () => {
     const dy = Math.abs(event.touches[0].clientY - swipe.y);
     if (!swipe.horizontal) {
       if (Math.max(Math.abs(dx), dy) < DECIDE) return;
-      // 縦のスクロールか、左向きの動きなら対象外にする
-      if (dy > Math.abs(dx) || dx < 0) { reset(); return; }
+      // 縦のスクロール（斜めも含む）か、左向きの動きなら対象外にする
+      if (dy * 1.5 > Math.abs(dx) || dx < 0) { reset(); return; }
       swipe.horizontal = true;
     }
     content().style.transform = `translateX(${Math.max(0, Math.min(dx, 120)) / 3}px)`;
@@ -2947,6 +3117,8 @@ savedButton.addEventListener('click', () => {
     const dy = Math.abs(event.changedTouches[0].clientY - swipe.y);
     const horizontal = swipe.horizontal;
     reset();
+    // 文字を選んでいる途中の指の動きは戻る操作にしない
+    if (window.getSelection?.().toString()) return;
     if (horizontal && dx >= DISTANCE && dx > dy) backButton.click();
   }, { passive: true });
   document.addEventListener('touchcancel', reset, { passive: true });
@@ -2963,6 +3135,8 @@ function route() {
     showSettings();
   } else if (location.hash === '#/saved') {
     showSaved();
+  } else if (location.hash === '#/history') {
+    showHistory();
   } else if (match) {
     showDetail(decodeURIComponent(match[1]));
   } else {
@@ -2981,11 +3155,31 @@ document.getElementById('brand').addEventListener('click', () => {
   }, 0);
 });
 
-// Check for updates on return; never replace the list without a tap.
+// Check for updates on return. The list changes without a tap only while it is untouched at the top (untouchedList).
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || state.needsOnboarding || listView.hidden) return;
+  if (window.scrollY <= 40) untouchedSince = Date.now();
   if (Date.now() - lastUpdateCheck > STALE_AFTER) checkForUpdates();
 });
+
+/**
+ * スマートフォンのブラウザで2回目以降に開いたとき、ホーム画面への追加を一度だけ案内する
+ * （ブラウザを立ち上げてアドレスを開く手間が、使わなくなる一番の理由になるため）
+ */
+function offerInstallHint() {
+  try {
+    const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+    const phone = window.matchMedia?.('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 600;
+    if (standalone || !phone || lastVisit === 0 || localStorage.getItem(INSTALL_HINT_KEY)) return;
+    localStorage.setItem(INSTALL_HINT_KEY, new Date().toISOString());
+  } catch {
+    return;
+  }
+  setTimeout(() => {
+    if (document.querySelector('.toast')) return;
+    showToast(t('共有メニューの「ホーム画面に追加」で、ブラウザを開かずに1タップで起動できます。'));
+  }, 2500);
+}
 
 // An open app can discover new data too, without changing the active list.
 setInterval(() => {
@@ -3017,4 +3211,5 @@ function updateToday() {
   }
   if (!state.needsOnboarding) await refreshNews();
   prepareOfflineShell();
+  if (!state.needsOnboarding && state.config?.static) offerInstallHint();
 })();

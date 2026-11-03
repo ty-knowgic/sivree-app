@@ -2348,6 +2348,61 @@ svg.is-filled path { fill: currentColor; }
 
 .saved-item-actions { display: flex; gap: 16px; margin-top: 6px; }
 
+/* 「保存した記事」と「読んだ記事」の切り替え */
+.saved-tabs {
+  display: inline-flex;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.saved-tabs a {
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.saved-tabs a[aria-current="page"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+.history-original {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.history-original svg { width: 14px; height: 14px; }
+
+/* 読んだ記事は見出しを薄くして、未読と見分けられるようにする */
+.card.is-read .card-title,
+.card.is-read .card-summary { color: var(--muted); }
+.hero.is-read .hero-title { opacity: 0.75; }
+
+/* 開いても見出しとリンクしか出ない記事 */
+.headline-only-badge {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.headline-only-note {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
 /* Fixed notice leaves cards and scroll position untouched when updates arrive. */
 .news-update-button {
   position: fixed;

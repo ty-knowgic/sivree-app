@@ -400,5 +400,19 @@
     "one": "+{n} more source",
     "other": "+{n} more sources"
   },
-  "{name}をオンにする": "Turn on {name}"
+  "{name}をオンにする": "Turn on {name}",
+  "既読": "Read",
+  "見出しのみ": "Headline only",
+  "この発信元は利用条件により、Sivree では見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Under this publisher's terms of use, Sivree shows only the headline and link. Read the content on the original page.",
+  "発信元のページから本文を取り出せなかったため、見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Sivree could not extract the text from the publisher's page, so only the headline and link are shown. Read the content on the original page.",
+  "共有メニューの「ホーム画面に追加」で、ブラウザを開かずに1タップで起動できます。": "Use “Add to Home Screen” in the share menu to open Sivree with one tap, without opening the browser.",
+  "読んだ記事": "Read articles",
+  "閲覧: {time}": "Opened {time}",
+  "元記事を開く": "Open the original",
+  "まだ読んだ記事はありません": "No articles read yet",
+  "一覧から記事を開くと、ここに記録されます。": "Articles you open from the list are recorded here.",
+  "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Keeps up to {n} articles you opened, newest first. Recorded only in this device's browser; not included in copied settings or Drive sync, and never sent to Sivree's servers.",
+  "読んだ記事を検索": "Search read articles",
+  "履歴を消去": "Clear history",
+  "読んだ記事の履歴を消去しますか？": "Clear the history of read articles?"
 }
