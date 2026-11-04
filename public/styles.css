@@ -2348,6 +2348,49 @@ svg.is-filled path { fill: currentColor; }
 
 .saved-item-actions { display: flex; gap: 16px; margin-top: 6px; }
 
+/* 右スワイプで戻る: ページが指に付いて動き、下から戻る先の画面が見える（app.js の begin/follow/settle） */
+html.is-swiping,
+html.is-swiping body { overflow-x: clip; }
+.swipe-top {
+  position: relative;
+  z-index: 1;
+  animation: none;
+  will-change: transform;
+}
+/* ページの背面を画面の左端から右へ不透明に塗り、左端に影を付ける（記事が短くても下の画面が透けない） */
+.swipe-top::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: calc(-1 * var(--swipe-top, 0px));
+  bottom: -100vh;
+  left: calc(-1 * var(--swipe-left, 0px));
+  width: 100vw;
+  background: var(--bg);
+  box-shadow: -10px 0 24px rgba(0, 0, 0, 0.16);
+}
+.swipe-under {
+  position: fixed;
+  z-index: 0;
+  margin: 0;
+  pointer-events: none;
+  transform: translateX(-30%);
+  will-change: transform;
+}
+.swipe-under::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: var(--shade, 0.18);
+  pointer-events: none;
+}
+.swipe-animating { transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.swipe-under.swipe-animating::after { transition: opacity 0.22s; }
+@media (prefers-reduced-motion: reduce) {
+  .swipe-animating, .swipe-under.swipe-animating::after { transition: none; }
+}
+
 /* 「保存した記事」と「読んだ記事」の切り替え */
 .saved-tabs {
   display: inline-flex;

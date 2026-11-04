@@ -3080,53 +3080,162 @@ savedButton.addEventListener('click', () => {
   location.hash = '#/saved';
 });
 
-// 記事などの画面で右へスワイプすると前の画面に戻る。ニュースアプリと同じく、画面のどこから始めてもよい
+/**
+ * 戻る先の画面。右スワイプの間、ページの下から見せるために、画面を離れたときの位置と一緒に覚える
+ * （docTop は文書の中での上端。戻ったとき一覧は listScrollY、ほかの画面は先頭から表示される）
+ */
+let previousScreen = null;
+const screens = () => [listView, detailView, savedView, settingsView];
+
+/**
+ * スワイプ中だけ付けた見た目を外す。画面の切り替え（route）でも必ず呼ぶ。
+ * stay: 戻らずにその場に残ったページ。外したときに登場の動き（slide-in）が再生されないよう止めておく
+ */
+function clearSwipe(stay = null) {
+  document.documentElement.classList.remove('is-swiping');
+  for (const view of screens()) {
+    view.classList.remove('swipe-top', 'swipe-under', 'swipe-animating');
+    for (const prop of ['transform', 'top', 'left', 'width', '--swipe-left', '--swipe-top', '--shade', 'animation']) view.style.removeProperty(prop);
+  }
+  if (stay) stay.style.animation = 'none';
+  for (const bar of document.querySelectorAll('.read-bar')) {
+    for (const prop of ['position', 'top', 'bottom']) bar.style.removeProperty(prop);
+  }
+}
+
+// 記事などの画面で右へスワイプすると前の画面に戻る。ページが指に付いて動き、下から戻る先の画面が見える。
+// ニュースアプリと同じく、画面のどこから始めてもよい
 {
   // ブラウザで開いているときは、左端の帯をブラウザ自身の「戻る」に任せる（両方が動くと2画面戻ってしまう）
   const BROWSER_EDGE = 24;
-  const DISTANCE = 70;
   // 向きを判断するまでに動かす距離。最初の数ピクセルは斜めにぶれるので、それだけでは取り消さない
   const DECIDE = 12;
+  // 離したときに戻り切る条件: 幅の35%を超えたか、右へ素早く払った
+  const COMPLETE_RATIO = 0.35;
+  const FLICK = 0.45; // px/ms
+  const SETTLE_MS = 220;
+  // 下の画面は少し左に寄せた位置から追いかけてくる（奥行きの見た目）
+  const PARALLAX = 30; // %
+  const SHADE = 0.18;
   const standalone = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+  const viewportWidth = () => document.documentElement.clientWidth || window.innerWidth;
   let swipe = null;
-  const content = () => document.querySelector('main') ?? document.body;
-  const reset = () => { swipe = null; content().style.transform = ''; };
+
+  function begin() {
+    const page = [detailView, savedView, settingsView].find(view => !view.hidden);
+    if (!page) return false;
+    const rect = page.getBoundingClientRect();
+    // 画面に固定した下端のボタンは、ページと一緒に動くよう一時的にページの中の位置に置き直す
+    for (const bar of page.querySelectorAll('.read-bar')) {
+      const top = bar.getBoundingClientRect().top - rect.top;
+      Object.assign(bar.style, { position: 'absolute', top: `${top}px`, bottom: 'auto' });
+    }
+    page.style.setProperty('--swipe-left', `${rect.left}px`);
+    page.style.setProperty('--swipe-top', `${rect.top}px`);
+    page.classList.add('swipe-top');
+    document.documentElement.classList.add('is-swiping');
+    const prev = previousScreen;
+    let under = null;
+    if (openedFromList && prev && prev.view !== page && prev.view.childElementCount) {
+      under = prev.view;
+      const scroll = under === listView ? listScrollY : 0;
+      under.hidden = false;
+      under.classList.add('swipe-under');
+      Object.assign(under.style, { top: `${prev.docTop - scroll}px`, left: `${prev.left}px`, width: `${prev.width}px` });
+    }
+    Object.assign(swipe, { page, under });
+    return true;
+  }
+
+  function follow(dx) {
+    const shift = Math.max(0, dx);
+    const progress = Math.min(1, shift / viewportWidth());
+    swipe.page.style.transform = `translateX(${shift}px)`;
+    if (swipe.under) {
+      swipe.under.style.transform = `translateX(${(progress - 1) * PARALLAX}%)`;
+      swipe.under.style.setProperty('--shade', String(SHADE * (1 - progress)));
+    }
+  }
+
+  function settle(complete) {
+    const { page, under } = swipe;
+    swipe = null;
+    page.classList.add('swipe-animating');
+    under?.classList.add('swipe-animating');
+    // 動きの設定を先に反映させてから終点を指定する（同時に指定すると、動かずに飛ぶ）
+    void page.offsetWidth;
+    page.style.transform = `translateX(${complete ? viewportWidth() : 0}px)`;
+    if (under) {
+      under.style.transform = `translateX(${complete ? 0 : -PARALLAX}%)`;
+      under.style.setProperty('--shade', String(complete ? 0 : SHADE));
+    }
+    setTimeout(() => {
+      if (!complete) {
+        clearSwipe(page);
+        if (under) under.hidden = true;
+        return;
+      }
+      // 戻った先の画面の表示（route）が見た目を外す。画面が切り替わらなかったときだけここで元に戻す
+      backButton.click();
+      setTimeout(() => {
+        if (!page.classList.contains('swipe-top')) return;
+        clearSwipe(page);
+        if (under) under.hidden = true;
+      }, 1000);
+    }, SETTLE_MS);
+  }
+
   document.addEventListener('touchstart', (event) => {
+    if (swipe?.page) return;
     const touch = event.touches[0];
     const ok = event.touches.length === 1 && !backButton.hidden
       && (standalone() || touch.clientX > BROWSER_EDGE)
       // 入力欄の中の操作や、横に動かせる部品の操作は戻る操作にしない
       && !event.target.closest?.('input, textarea, select, .sheet, [data-no-swipe]');
-    swipe = ok ? { x: touch.clientX, y: touch.clientY, horizontal: false } : null;
+    swipe = ok ? { x: touch.clientX, y: touch.clientY, horizontal: false, lastX: touch.clientX, lastT: event.timeStamp, v: 0 } : null;
   }, { passive: true });
+
+  // 横に動かしている間は縦にスクロールさせないため、passive にしない
   document.addEventListener('touchmove', (event) => {
     if (!swipe) return;
-    const dx = event.touches[0].clientX - swipe.x;
+    const x = event.touches[0].clientX;
+    const dx = x - swipe.x;
     const dy = Math.abs(event.touches[0].clientY - swipe.y);
     if (!swipe.horizontal) {
       if (Math.max(Math.abs(dx), dy) < DECIDE) return;
       // 縦のスクロール（斜めも含む）か、左向きの動きなら対象外にする
-      if (dy * 1.5 > Math.abs(dx) || dx < 0) { reset(); return; }
+      if (dy * 1.5 > Math.abs(dx) || dx < 0 || window.getSelection?.().toString()) { swipe = null; return; }
       swipe.horizontal = true;
+      if (!begin()) { swipe = null; return; }
     }
-    content().style.transform = `translateX(${Math.max(0, Math.min(dx, 120)) / 3}px)`;
-  }, { passive: true });
+    if (event.cancelable) event.preventDefault();
+    const dt = event.timeStamp - swipe.lastT;
+    if (dt > 0) swipe.v = (x - swipe.lastX) / dt;
+    Object.assign(swipe, { lastX: x, lastT: event.timeStamp });
+    follow(dx);
+  }, { passive: false });
+
   document.addEventListener('touchend', (event) => {
-    if (!swipe) return;
+    if (!swipe?.page) { swipe = null; return; }
     const dx = event.changedTouches[0].clientX - swipe.x;
-    const dy = Math.abs(event.changedTouches[0].clientY - swipe.y);
-    const horizontal = swipe.horizontal;
-    reset();
-    // 文字を選んでいる途中の指の動きは戻る操作にしない
-    if (window.getSelection?.().toString()) return;
-    if (horizontal && dx >= DISTANCE && dx > dy) backButton.click();
+    // 止めてから離したときは、払った勢いとみなさない
+    if (event.timeStamp - swipe.lastT > 80) swipe.v = 0;
+    const flicked = swipe.v > FLICK && dx > 30;
+    settle(swipe.v > -0.2 && (dx > viewportWidth() * COMPLETE_RATIO || flicked));
   }, { passive: true });
-  document.addEventListener('touchcancel', reset, { passive: true });
+
+  document.addEventListener('touchcancel', () => { if (swipe?.page) settle(false); else swipe = null; }, { passive: true });
 }
 
 // ---------- ルーティング ----------
 
 function route() {
+  const leaving = screens().find(view => !view.hidden && !view.classList.contains('swipe-under'));
+  clearSwipe();
+  if (leaving) {
+    const rect = leaving.getBoundingClientRect();
+    previousScreen = { view: leaving, docTop: rect.top + window.scrollY, left: rect.left, width: rect.width };
+  }
   const match = location.hash.match(/^#\/article\/([^/?#]+)/);
   // 初回は、地域と分野の質問に答えてから一覧を表示する（共有された記事のリンクはそのまま開く）
   if (state.needsOnboarding && !match) {
