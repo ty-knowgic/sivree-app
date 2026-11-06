@@ -14,6 +14,8 @@ export const USER_AGENT = `Mozilla/5.0 (compatible; ${CRAWLER_NAME}/1.0; +https:
 const TTL_MS = 6 * 60 * 60 * 1000;
 const FAILURE_TTL_MS = 10 * 60 * 1000;
 const TIMEOUT_MS = 5000;
+const ATTEMPTS = 2;
+const RETRY_DELAY_MS = 1500;
 
 export interface RobotsDecision {
   allowed: boolean;
@@ -24,7 +26,8 @@ interface Entry { robot: Robot | null; allowAll: boolean; expires: number; reaso
 const cache = new Map<string, Entry>();
 const pending = new Map<string, Promise<Entry>>();
 
-async function load(origin: string): Promise<Entry> {
+/** 時間切れと通信エラーだけ1回取り直す（フィードの取得と同じ考え方）。確認できないままなら、これまでどおりフィードは取得しない */
+async function load(origin: string, attempt = 1): Promise<Entry> {
   const robotsUrl = `${origin}/robots.txt`;
   try {
     const response = await fetch(robotsUrl, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -35,6 +38,10 @@ async function load(origin: string): Promise<Entry> {
     if (response.status >= 400 && response.status < 500) return { robot: null, allowAll: true, expires: Date.now() + TTL_MS, reason: 'missing', status: response.status };
     return { robot: null, allowAll: false, expires: Date.now() + FAILURE_TTL_MS, reason: 'http-error', status: response.status };
   } catch (error) {
+    if (attempt < ATTEMPTS) {
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return load(origin, attempt + 1);
+    }
     return { robot: null, allowAll: false, expires: Date.now() + FAILURE_TTL_MS, reason: error instanceof Error && error.name === 'TimeoutError' ? 'timeout' : 'network-error' };
   }
 }

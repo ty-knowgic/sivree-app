@@ -33,6 +33,20 @@ try {
   assert.deepEqual(await checkRobots('https://server.test/feed'), { allowed: false, reason: 'http-error', status: 503 });
   assert.deepEqual(await checkRobots('https://network.test/feed'), { allowed: false, reason: 'network-error' });
   assert.deepEqual(await checkRobots('https://timeout.test/feed'), { allowed: false, reason: 'timeout' });
+  assert.equal(requests.filter(url => url.includes('timeout.test')).length, 2, 'a timeout is retried once, then the feed stays unfetched');
+  assert.equal(requests.filter(url => url.includes('network.test')).length, 2, 'a network error is retried once');
+  assert.equal(requests.filter(url => url.includes('server.test')).length, 1, 'an HTTP answer is not retried');
+  const permanent = globalThis.fetch;
+  let flaky = 0;
+  globalThis.fetch = async input => {
+    if (!String(input).includes('flaky.test')) return permanent(input);
+    if (++flaky === 1) throw new DOMException('timed out', 'TimeoutError');
+    return new Response('User-agent: *\nDisallow: /private\n');
+  };
+  assert.deepEqual(await checkRobots('https://flaky.test/feed'), { allowed: true, reason: 'allowed', status: 200 });
+  assert.deepEqual(await checkRobots('https://flaky.test/private'), { allowed: false, reason: 'disallowed', status: 200 }, 'a retried robots.txt is still obeyed');
+  assert.equal(flaky, 2);
+  globalThis.fetch = permanent;
   const count = requests.length;
   assert.deepEqual(await checkRobots('javascript:alert(1)'), { allowed: false, reason: 'invalid-url' });
   assert.deepEqual(await checkRobots('invalid'), { allowed: false, reason: 'invalid-url' });
