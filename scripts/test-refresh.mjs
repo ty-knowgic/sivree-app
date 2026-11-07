@@ -1,4 +1,5 @@
-// Updates are adopted only by an explicit tap, never by app resume.
+// Once the reader has touched the list, updates are adopted only by an explicit tap, never by app resume.
+// (An untouched list right after opening adopts them by itself: scripts/test-reading.mjs.)
 import { JSDOM } from 'jsdom';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -60,6 +61,8 @@ w.Date.now = () => realNow() + 16 * 60 * 1000;
 w.document.dispatchEvent(new w.Event('visibilitychange'));
 check('復帰時は更新確認だけを行う', await until(() => count('/api/updates') >= 2));
 check('復帰時に一覧を更新しない', reloadEvents === 1 && count('/api/news') === news1);
+// 読み始めた（画面に触れた）後の新着は、ボタンを押したときだけ反映する
+w.dispatchEvent(new w.Event('pointerdown'));
 const before = w.document.getElementById('newsList').innerHTML;
 w.dispatchEvent(new w.Event('sivree:update-available'));
 check('新着通知で一覧を変更しない', w.document.getElementById('newsList').innerHTML === before && reloadEvents === 1);

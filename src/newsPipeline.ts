@@ -415,14 +415,29 @@ export async function fetchFeedsWithin(
   return { results, skipped };
 }
 
-async function parseFeedText(text: string) {
+/** CDATA の外で、実体参照になっていない「&」だけを「&amp;」にする */
+function escapeBareAmpersands(xml: string): string {
+  return xml.split(/(<!\[CDATA\[[\s\S]*?\]\]>)/)
+    .map((part, index) => index % 2 ? part : part.replace(/&(?![a-zA-Z][a-zA-Z0-9]*;|#[0-9]+;|#x[0-9a-fA-F]+;)/g, '&amp;'))
+    .join('');
+}
+
+export async function parseFeedText(text: string) {
   // サイト停止のお知らせなどが 200 の HTML で返ることがある。XML の解析エラーではなく、原因が分かる形で記録する
   if (/^\s*(<!doctype html|<html)/i.test(text)) throw new Error('HTML page returned instead of a feed (site may be down)');
   const xml = text
     // Atom の type="xhtml" の要素（カナダ統計局など）は中身が XHTML のため、タグを除いたテキストにしてから解析する
     .replace(/<(title|summary|content|subtitle)([^>]*\btype=["']xhtml["'][^>]*)>([\s\S]*?)<\/\1>/g,
       (_match, tag: string, _attrs: string, inner: string) => `<${tag}>${inner.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}</${tag}>`);
-  return parser.parseString(xml);
+  try {
+    return await parser.parseString(xml);
+  } catch (error) {
+    // 見出しの「&」が実体になっていないと（SEC の「Coburn & Meredith, Inc.」）、1件のためにフィード全体が読めなくなる。
+    // 読めないときだけ直して読み直すので、正しいフィードの解析は変わらない
+    const repaired = escapeBareAmpersands(xml);
+    if (repaired === xml) throw error;
+    return parser.parseString(repaired);
+  }
 }
 
 export async function fetchFeed(source: FeedSource): Promise<NewsItem[]> {

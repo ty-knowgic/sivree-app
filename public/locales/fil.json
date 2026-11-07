@@ -381,5 +381,19 @@
   "オンにする": "I-on",
   "{source}をオンにしました": "Na-on ang {source}",
   "ほか{n}の情報源": "+{n} pang pinagmulan",
-  "{name}をオンにする": "I-on ang {name}"
+  "{name}をオンにする": "I-on ang {name}",
+  "既読": "Nabasa na",
+  "見出しのみ": "Headline lang",
+  "この発信元は利用条件により、Sivree では見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Dahil sa mga tuntunin ng publisher na ito, headline at link lang ang ipinapakita ng Sivree. Basahin ang nilalaman sa orihinal na pahina.",
+  "発信元のページから本文を取り出せなかったため、見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Hindi makuha ng Sivree ang teksto mula sa pahina ng publisher, kaya headline at link lang ang ipinapakita. Basahin ang nilalaman sa orihinal na pahina.",
+  "共有メニューの「ホーム画面に追加」で、ブラウザを開かずに1タップで起動できます。": "Gamitin ang “Add to Home Screen” sa share menu para mabuksan ang Sivree sa isang tap, nang hindi binubuksan ang browser.",
+  "読んだ記事": "Mga nabasang artikulo",
+  "閲覧: {time}": "Binuksan {time}",
+  "元記事を開く": "Buksan ang orihinal",
+  "まだ読んだ記事はありません": "Wala ka pang nabasang artikulo",
+  "一覧から記事を開くと、ここに記録されます。": "Dito itinatala ang mga artikulong binubuksan mo mula sa listahan.",
+  "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Nagtatabi ng hanggang {n} artikulong binuksan mo, pinakabago muna. Sa browser lang ng device na ito itinatala; hindi kasama sa kinopyang setting o sa Drive sync, at hindi kailanman ipinapadala sa mga server ng Sivree.",
+  "読んだ記事を検索": "Hanapin sa mga nabasang artikulo",
+  "履歴を消去": "Burahin ang history",
+  "読んだ記事の履歴を消去しますか？": "Burahin ang history ng mga nabasang artikulo?"
 }

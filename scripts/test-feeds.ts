@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { withStoredSummaries } from '../src/api.js';
 import { PACKS } from '../src/feeds/packs.js';
-import { applyTitleOnly, ARCHIVE_LIMIT, classify, CANDIDATE_ARCHIVE_LIMIT, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, sourceId, toIsoDate, trimArchive } from '../src/newsPipeline.js';
+import { applyTitleOnly, ARCHIVE_LIMIT, classify, CANDIDATE_ARCHIVE_LIMIT, dedupeSameDocument, fetchFeed, fetchFeedsWithin, mapWithConcurrency, officialFeeds, parseFeedText, sourceId, toIsoDate, trimArchive } from '../src/newsPipeline.js';
 import { datelineRegion } from '../src/dateline.js';
 import { parseListDate, readHtmlList } from '../src/htmlList.js';
 import { defaultOn } from '../src/sourceTier.js';
@@ -444,6 +444,14 @@ check('凍結より後に足した情報源には since が付いている（付
   officialFeeds.every(feed => feed.since || frozenUrls.has(feed.feedUrl)), officialFeeds.filter(feed => !feed.since && !frozenUrls.has(feed.feedUrl)).map(feed => feed.sourceName).join(','));
 // 2026-10-21: Cision Canada（Venture Capital の RSS が 404、代わりの RSS はカナダ向けではない）を外して、94件から93件に
 check('凍結の一覧は93件（同じフィードを2つのカテゴリで使う5件の重複を除く）', frozen.length === 93 && officialFeeds.length >= 98, `${frozen.length} / ${officialFeeds.length}`);
+
+// 2026-11-05: SEC の Administrative Proceedings は見出しの「&」が実体になっておらず、フィード全体が読めなくなっていた
+const rssWith = (title: string, description = 'd') => `<?xml version="1.0"?><rss version="2.0"><channel><title>t</title><item><title>${title}</title><description>${description}</description><link>https://example.test/a</link></item></channel></rss>`;
+check('見出しの裸の & があっても読める', (await parseFeedText(rssWith('Coburn & Meredith, Inc.'))).items[0].title === 'Coburn & Meredith, Inc.');
+const mixedAmp = (await parseFeedText(rssWith('R&D &amp; A &#38; B &', '<![CDATA[x &amp; y & z]]>'))).items[0];
+check('裸の & を直しても、実体参照と CDATA の中身は変わらない', mixedAmp.title === 'R&D & A & B &' && mixedAmp.content === 'x &amp; y & z', JSON.stringify(mixedAmp));
+const brokenFeed = await parseFeedText('<rss><channel><item><title>x</item></channel></rss>').then(() => 'parsed', () => 'rejected');
+check('& 以外の理由で壊れた XML は、これまでどおり失敗として記録される', brokenFeed === 'rejected', brokenFeed);
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);

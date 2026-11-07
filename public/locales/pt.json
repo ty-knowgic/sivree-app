@@ -408,5 +408,19 @@
     "one": "+{n} outra fonte",
     "other": "+{n} outras fontes"
   },
-  "{name}をオンにする": "Ativar {name}"
+  "{name}をオンにする": "Ativar {name}",
+  "既読": "Lido",
+  "見出しのみ": "Só o título",
+  "この発信元は利用条件により、Sivree では見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "Pelos termos de uso deste editor, o Sivree mostra apenas o título e o link. Leia o conteúdo na página original.",
+  "発信元のページから本文を取り出せなかったため、見出しとリンクだけを表示しています。内容は元記事でご覧ください。": "O Sivree não conseguiu extrair o texto da página do editor, por isso só são mostrados o título e o link. Leia o conteúdo na página original.",
+  "共有メニューの「ホーム画面に追加」で、ブラウザを開かずに1タップで起動できます。": "Use “Adicionar à Tela de Início” no menu de compartilhamento para abrir o Sivree com um toque, sem abrir o navegador.",
+  "読んだ記事": "Artigos lidos",
+  "閲覧: {time}": "Aberto {time}",
+  "元記事を開く": "Abrir o original",
+  "まだ読んだ記事はありません": "Nenhum artigo lido ainda",
+  "一覧から記事を開くと、ここに記録されます。": "Os artigos que você abrir na lista ficam registrados aqui.",
+  "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Guarda até {n} artigos abertos, dos mais recentes aos mais antigos. Registrado só no navegador deste dispositivo; não entra na cópia das configurações nem na sincronização com o Drive, e nunca é enviado aos servidores do Sivree.",
+  "読んだ記事を検索": "Pesquisar artigos lidos",
+  "履歴を消去": "Limpar histórico",
+  "読んだ記事の履歴を消去しますか？": "Limpar o histórico de artigos lidos?"
 }

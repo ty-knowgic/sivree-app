@@ -29,6 +29,7 @@
     "test:xss": "node scripts/test-xss.mjs",
     "test:sync": "node scripts/test-sync.mjs",
     "test:visit": "node scripts/test-visit.mjs",
+    "test:reading": "node scripts/test-reading.mjs",
     "test:onboarding": "node scripts/test-onboarding.mjs",
     "test:hashtags": "node scripts/test-hashtags.mjs",
     "test:refresh": "node scripts/test-refresh.mjs",
