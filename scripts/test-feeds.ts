@@ -443,7 +443,8 @@ check('凍結した情報源が、すべて一覧に残っている（URL を替
 check('凍結より後に足した情報源には since が付いている（付いていないものは凍結の一覧にある）',
   officialFeeds.every(feed => feed.since || frozenUrls.has(feed.feedUrl)), officialFeeds.filter(feed => !feed.since && !frozenUrls.has(feed.feedUrl)).map(feed => feed.sourceName).join(','));
 // 2026-10-21: Cision Canada（Venture Capital の RSS が 404、代わりの RSS はカナダ向けではない）を外して、94件から93件に
-check('凍結の一覧は93件（同じフィードを2つのカテゴリで使う5件の重複を除く）', frozen.length === 93 && officialFeeds.length >= 98, `${frozen.length} / ${officialFeeds.length}`);
+// 2026-11-07: ESA 宇宙科学（サイトの刷新で RSS が 404。後継は src/feeds/replacements.ts の候補）を外して、93件から92件に
+check('凍結の一覧は92件（同じフィードを2つのカテゴリで使う5件の重複を除く）', frozen.length === 92 && officialFeeds.length >= 98, `${frozen.length} / ${officialFeeds.length}`);
 
 // 2026-11-05: SEC の Administrative Proceedings は見出しの「&」が実体になっておらず、フィード全体が読めなくなっていた
 const rssWith = (title: string, description = 'd') => `<?xml version="1.0"?><rss version="2.0"><channel><title>t</title><item><title>${title}</title><description>${description}</description><link>https://example.test/a</link></item></channel></rss>`;
