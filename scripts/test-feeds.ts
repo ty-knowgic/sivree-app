@@ -392,6 +392,16 @@ check('市区町村の割り当て', namesAt('local') === ['ウォータール�
   check('一般語の「cohere」「grok」は社名と見なさない', !classify(official, 'Plans must cohere; residents grok the rules', '').includes('生成AI'));
 }
 
+// ---------- 投資額の分類（2026-11-07: ユーロ・ポンドと「an additional」「close to」などの修飾を足した）----------
+{
+  const official = { sourceType: 'official', category: '政治', subgroup: '欧州', sourceName: 't', sourceUrl: 'https://example.test/', feedUrl: 'https://example.test/ec', label: 't' } as FeedSource;
+  const invested = (title: string) => classify(official, title, '').includes('投資');
+  check('ユーロ建て・ポンド建ての投資額も投資に入る', invested('European Innovation Council launches €1.8 billion in funding for 2027') && invested('€525 million investment set to drive new generation of European chip design companies') && invested('Government commits £2.5 billion to rail upgrades'));
+  check('「an additional」「close to」などの修飾が付いた投資額も投資に入る', invested('Government of Canada invests an additional $130 million to improve housing conditions') && invested('Government of Canada invests close to $5 million to fuel economic development'));
+  check('従来の書き方（invests $750 million など）は、これまでどおり投資に入る', invested('Government of Canada invests $750 million in domestic year-round food production') && invested('Premier announces investment of C$20 million for hospitals'));
+  check('金額だけ、または投資を指さない金額は投資に入らない', !invested('Prices rose by $5 billion according to the report') && !invested('The summit will be attended by €30 million people over three days') && !invested('Commissioner visits Brussels to discuss the €2 billion trade deficit'));
+}
+
 // ---------- 配信サービスの日付行から決める地域 ----------
 {
   const cases: [string, string | undefined][] = [
