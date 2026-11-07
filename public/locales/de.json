@@ -422,5 +422,6 @@
   "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Speichert bis zu {n} geöffnete Artikel, die neuesten zuerst. Nur im Browser dieses Geräts gespeichert; nicht in kopierten Einstellungen oder der Drive-Synchronisierung enthalten und nie an die Server von Sivree gesendet.",
   "読んだ記事を検索": "Gelesene Artikel durchsuchen",
   "履歴を消去": "Verlauf löschen",
-  "読んだ記事の履歴を消去しますか？": "Verlauf der gelesenen Artikel löschen?"
+  "読んだ記事の履歴を消去しますか？": "Verlauf der gelesenen Artikel löschen?",
+  "最新の発表は{date}": "Letzte Meldung: {date}"
 }

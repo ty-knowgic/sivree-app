@@ -386,5 +386,6 @@
   "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Menyimpan hingga {n} artikel yang Anda buka, terbaru lebih dulu. Hanya dicatat di browser perangkat ini; tidak termasuk dalam salinan pengaturan atau sinkronisasi Drive, dan tidak pernah dikirim ke server Sivree.",
   "読んだ記事を検索": "Cari artikel yang dibaca",
   "履歴を消去": "Hapus riwayat",
-  "読んだ記事の履歴を消去しますか？": "Hapus riwayat artikel yang dibaca?"
+  "読んだ記事の履歴を消去しますか？": "Hapus riwayat artikel yang dibaca?",
+  "最新の発表は{date}": "Pengumuman terbaru: {date}"
 }

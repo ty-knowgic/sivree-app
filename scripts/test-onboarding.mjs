@@ -140,6 +140,22 @@ check('専門パックは分野内で直接情報源を選択できる', setting
   check('専門パックの行は、これまでどおりラベルが行名', settings.querySelector('[data-pack="test"] [data-source="specialist"]').closest('li').querySelector('.source-name').textContent === 'specialist');
 }
 
+// ---------- 静かな情報源の「最新の発表」（UX-04）----------
+{
+  const rowText = extra => {
+    const holder = w.document.createElement('div');
+    holder.innerHTML = w.renderSourceRow({ ...source('quiet-probe', ['経済']), ...extra });
+    return holder.querySelector('.source-desc').textContent;
+  };
+  const newest = '2026-09-12T08:00:00.000Z';
+  check('30日で0件の情報源には、フィードの最新の発表日を添える（静かな情報源と取得失敗を見分ける）',
+    /30日で0件/.test(rowText({ count: 0, health: { ok: true, newestEntry: newest } })) && /最新の発表は.*2026/.test(rowText({ count: 0, health: { ok: true, newestEntry: newest } })), rowText({ count: 0, health: { ok: true, newestEntry: newest } }));
+  check('30日で1件以上ある情報源には、発表日を添えない', !rowText({ count: 3, health: { ok: true, newestEntry: newest } }).includes('最新の発表は'));
+  check('最新の発表日が分からない（記事を一度も読めていない・日付が不正）なら、何も添えない',
+    !rowText({ count: 0, health: { ok: false } }).includes('最新の発表は') && !rowText({ count: 0, health: null }).includes('最新の発表は') && !rowText({ count: 0, health: { ok: true, newestEntry: 'not-a-date' } }).includes('最新の発表は'));
+  check('選んだ地域の対象外の情報源には、発表日を添えない', !rowText({ count: 0, subgroup: '米国', health: { ok: true, newestEntry: newest } }).includes('最新の発表は'));
+}
+
 // ---------- 地域の並び順 ----------
 {
   const all = ['日本', 'カナダ', '米国', '欧州', 'グローバル'];

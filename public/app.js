@@ -225,6 +225,13 @@ function formatDateTime(value) {
   return date.toLocaleString(locale(), { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+// 「30日で0件」の情報源に添える、フィードの最新の発表日。静かな情報源と、取得できていない情報源を見分けるため
+function formatLatestAnnouncement(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return '';
+  return t('最新の発表は{date}', { date: date.toLocaleDateString(locale(), { year: 'numeric', month: 'short', day: 'numeric' }) });
+}
+
 function formatRelative(value) {
   const date = new Date(value);
   const diff = Date.now() - date.getTime();
@@ -2472,7 +2479,7 @@ function renderSourceRow(source, context = '') {
   const labelAsName = professional || isAmbiguousName(source);
   const otherName = labelAsName ? source.sourceName : source.label;
   const repeated = labelAsName && !professional && t(source.label).includes(t(source.sourceName));
-  const details = [t(source.label) !== t(source.sourceName) && !repeated ? t(otherName) : '', t(source.subgroup), formatList(source.categories.map(category => t(category))), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count })].filter(Boolean);
+  const details = [t(source.label) !== t(source.sourceName) && !repeated ? t(otherName) : '', t(source.subgroup), formatList(source.categories.map(category => t(category))), outOfRegion ? t('選んだ地域の対象外') : t('30日で{n}件', { n: source.count }), !outOfRegion && source.count === 0 ? formatLatestAnnouncement(source.health?.newestEntry) : ''].filter(Boolean);
   // 直近の取得に失敗した情報源（発信元のサイトの変更や、アクセスの制限など）
   const failing = !outOfRegion && source.health && !source.health.ok;
   const url = safeUrl(source.sourceUrl);

@@ -386,5 +386,6 @@
   "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Lưu tối đa {n} bài bạn đã mở, mới nhất trước. Chỉ ghi trong trình duyệt của thiết bị này; không nằm trong bản sao cài đặt hay đồng bộ Drive, và không bao giờ gửi đến máy chủ của Sivree.",
   "読んだ記事を検索": "Tìm trong bài đã đọc",
   "履歴を消去": "Xóa lịch sử",
-  "読んだ記事の履歴を消去しますか？": "Xóa lịch sử các bài đã đọc?"
+  "読んだ記事の履歴を消去しますか？": "Xóa lịch sử các bài đã đọc?",
+  "最新の発表は{date}": "Thông báo mới nhất: {date}"
 }

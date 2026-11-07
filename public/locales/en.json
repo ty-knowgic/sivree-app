@@ -427,5 +427,6 @@
   "開いた記事の新しい順に、最大{n}件まで残します。この端末のブラウザにだけ記録され、設定のコピーやドライブ同期には含まれず、Sivree のサーバーにも送られません。": "Keeps up to {n} articles you opened, newest first. Recorded only in this device's browser; not included in copied settings or Drive sync, and never sent to Sivree's servers.",
   "読んだ記事を検索": "Search read articles",
   "履歴を消去": "Clear history",
-  "読んだ記事の履歴を消去しますか？": "Clear the history of read articles?"
+  "読んだ記事の履歴を消去しますか？": "Clear the history of read articles?",
+  "最新の発表は{date}": "Latest announcement: {date}"
 }
