@@ -296,7 +296,6 @@
   "保存した記事を検索": "Gespeicherte Artikel durchsuchen",
   "メモ": "Notiz",
   "ファイルに保存": "Als Datei speichern",
-  "メモは、CSV と RIS にだけ含まれます。": "Notizen sind nur in CSV und RIS enthalten.",
   "この端末のブラウザに保存されます。Google ドライブの同期を有効にすると、端末間でも共有されます。Sivree のサーバーには送られません。": "Wird im Browser dieses Geräts gespeichert. Mit aktivierter Google-Drive-Synchronisierung stehen die Artikel auch auf Ihren anderen Geräten bereit. An die Server von Sivree wird nichts gesendet.",
   "まだ保存した記事はありません": "Noch keine gespeicherten Artikel",
   "記事の画面の「保存」で追加できます。保存した記事は、掲載期間が過ぎても残ります。": "Fügen Sie Artikel mit „Speichern“ auf der Artikelseite hinzu. Gespeicherte Artikel bleiben auch erhalten, nachdem sie nicht mehr im Feed erscheinen.",
@@ -423,5 +422,10 @@
   "読んだ記事を検索": "Gelesene Artikel durchsuchen",
   "履歴を消去": "Verlauf löschen",
   "読んだ記事の履歴を消去しますか？": "Verlauf der gelesenen Artikel löschen?",
-  "最新の発表は{date}": "Letzte Meldung: {date}"
+  "最新の発表は{date}": "Letzte Meldung: {date}",
+  "資料用": "Berichtsliste",
+  "{source}「{title}」": "{source}: „{title}“",
+  "メモ: {note}": "Notiz: {note}",
+  "発表日不明": "Datum unbekannt",
+  "メモは、資料用・CSV・RIS にだけ含まれます。": "Notizen sind nur in Berichtsliste, CSV und RIS enthalten."
 }

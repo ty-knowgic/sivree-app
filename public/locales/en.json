@@ -301,7 +301,6 @@
   "保存した記事を検索": "Search saved articles",
   "メモ": "Note",
   "ファイルに保存": "Save as file",
-  "メモは、CSV と RIS にだけ含まれます。": "Notes are included only in CSV and RIS.",
   "この端末のブラウザに保存されます。Google ドライブの同期を有効にすると、端末間でも共有されます。Sivree のサーバーには送られません。": "Saved in this device’s browser. If you turn on Google Drive sync, they are also shared across your devices. Nothing is sent to Sivree’s servers.",
   "まだ保存した記事はありません": "No saved articles yet",
   "記事の画面の「保存」で追加できます。保存した記事は、掲載期間が過ぎても残ります。": "Add articles with “Save” on the article page. Saved articles stay even after they leave the feed.",
@@ -428,5 +427,10 @@
   "読んだ記事を検索": "Search read articles",
   "履歴を消去": "Clear history",
   "読んだ記事の履歴を消去しますか？": "Clear the history of read articles?",
-  "最新の発表は{date}": "Latest announcement: {date}"
+  "最新の発表は{date}": "Latest announcement: {date}",
+  "資料用": "Briefing list",
+  "{source}「{title}」": "{source}: “{title}”",
+  "メモ: {note}": "Note: {note}",
+  "発表日不明": "Date unknown",
+  "メモは、資料用・CSV・RIS にだけ含まれます。": "Notes are included only in the briefing list, CSV and RIS."
 }

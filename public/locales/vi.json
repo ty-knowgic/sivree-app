@@ -269,7 +269,6 @@
   "保存した記事を検索": "Tìm trong bài viết đã lưu",
   "メモ": "Ghi chú",
   "ファイルに保存": "Lưu thành tệp",
-  "メモは、CSV と RIS にだけ含まれます。": "Ghi chú chỉ được đưa vào CSV và RIS.",
   "この端末のブラウザに保存されます。Google ドライブの同期を有効にすると、端末間でも共有されます。Sivree のサーバーには送られません。": "Được lưu trong trình duyệt của thiết bị này. Nếu bật đồng bộ Google Drive, các bài cũng được chia sẻ giữa các thiết bị của bạn. Không có gì được gửi đến máy chủ của Sivree.",
   "まだ保存した記事はありません": "Chưa có bài viết nào được lưu",
   "記事の画面の「保存」で追加できます。保存した記事は、掲載期間が過ぎても残ります。": "Thêm bài viết bằng nút “Lưu” ở trang bài viết. Bài đã lưu vẫn được giữ lại sau khi hết thời gian hiển thị.",
@@ -387,5 +386,10 @@
   "読んだ記事を検索": "Tìm trong bài đã đọc",
   "履歴を消去": "Xóa lịch sử",
   "読んだ記事の履歴を消去しますか？": "Xóa lịch sử các bài đã đọc?",
-  "最新の発表は{date}": "Thông báo mới nhất: {date}"
+  "最新の発表は{date}": "Thông báo mới nhất: {date}",
+  "資料用": "Danh sách cho báo cáo",
+  "{source}「{title}」": "{source}: “{title}”",
+  "メモ: {note}": "Ghi chú: {note}",
+  "発表日不明": "Không rõ ngày",
+  "メモは、資料用・CSV・RIS にだけ含まれます。": "Ghi chú chỉ được đưa vào danh sách cho báo cáo, CSV và RIS."
 }

@@ -134,8 +134,9 @@ const CITE_FORMAT_KEY = 'sivree:citeFormat';
 const READ_KEY = 'sivree:read';
 const READ_LIMIT = 300;
 const INSTALL_HINT_KEY = 'sivree:installHint';
-// 記事の画面で選べる引用の書式（CSV は保存した記事の一覧からの書き出しだけ）
+// 記事の画面で選べる引用の書式（資料用と CSV は、保存した記事の一覧からの書き出しだけ）
 const CITE_FORMATS = ['plain', 'apa', 'markdown', 'bibtex', 'ris'];
+const SAVED_FORMATS = ['plain', 'brief', 'apa', 'markdown', 'bibtex', 'ris', 'csv'];
 
 // 記事の画像は発信元のサーバーから直接読み込まれ、閲覧していることが発信元に伝わる（IP アドレスなど）。そのため、初期状態では表示しない
 function imagesOn() {
@@ -339,12 +340,12 @@ function setSaved(list) {
 
 const isSaved = id => savedIds.has(id);
 const bookmarkIcon = filled => (filled ? ICONS.bookmark.replace('<svg', '<svg class="is-filled"') : ICONS.bookmark);
-const formatLabel = format => ({ plain: t('出典表記'), apa: 'APA', markdown: 'Markdown', bibtex: 'BibTeX', ris: 'RIS', csv: 'CSV' })[format];
+const formatLabel = format => ({ plain: t('出典表記'), brief: t('資料用'), apa: 'APA', markdown: 'Markdown', bibtex: 'BibTeX', ris: 'RIS', csv: 'CSV' })[format];
 
-function citeFormat(allowCsv) {
+function citeFormat(allowListOnly) {
   try {
     const saved = localStorage.getItem(CITE_FORMAT_KEY);
-    if (saved && SivreeSaved.FORMATS[saved] && (allowCsv || saved !== 'csv')) return saved;
+    if (saved && SivreeSaved.FORMATS[saved] && (allowListOnly || !SivreeSaved.LIST_ONLY_FORMATS.includes(saved))) return saved;
   } catch {
     // 保存した選択が読めなければ既定の書式
   }
@@ -361,7 +362,10 @@ function citeContext() {
     locale: locale(),
     accessed: new Date(),
     sourceName: entry => t(entry.sourceName),
-    plain: fields => t('{source}「{title}」（{date}発表）{url}（{accessed}閲覧）', fields)
+    plain: fields => t('{source}「{title}」（{date}発表）{url}（{accessed}閲覧）', fields),
+    briefItem: fields => t('{source}「{title}」', fields),
+    briefNote: fields => t('メモ: {note}', fields),
+    undated: t('発表日不明')
   };
 }
 
@@ -1902,12 +1906,12 @@ function renderSaved() {
         </label>
         <div class="saved-export">
           <select class="saved-format" aria-label="${escapeHtml(t('引用の書式'))}">
-            ${[...CITE_FORMATS, 'csv'].map(name => `<option value="${name}"${name === format ? ' selected' : ''}>${escapeHtml(formatLabel(name))}</option>`).join('')}
+            ${SAVED_FORMATS.map(name => `<option value="${name}"${name === format ? ' selected' : ''}>${escapeHtml(formatLabel(name))}</option>`).join('')}
           </select>
           <button class="secondary-button" type="button" data-action="copy-saved">${escapeHtml(savedCopyLabel())}</button>
           <button class="secondary-button" type="button" data-action="download-saved">${escapeHtml(t('ファイルに保存'))}</button>
         </div>
-        <p class="settings-note">${escapeHtml(t('メモは、CSV と RIS にだけ含まれます。'))}</p>
+        <p class="settings-note">${escapeHtml(t('メモは、資料用・CSV・RIS にだけ含まれます。'))}</p>
       </div>` : ''}
     <div id="savedList">${renderSavedList()}</div>
   `;
@@ -2069,6 +2073,9 @@ savedView.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-action]');
   if (!button) return;
   const action = button.dataset.action;
+  // メモを書いた直後にコピーすると、メモの入力欄が外れたことによる保存（change）がまだ終わっていないことがある。
+  // 書き出す内容にそのメモが入るよう、進行中の保存を待ってから読む
+  if (action === 'copy-saved' || action === 'download-saved' || action === 'copy-saved-one') await profileWrites;
   const format = savedView.querySelector('.saved-format')?.value ?? citeFormat(true);
   const entry = savedItems.find(candidate => candidate.id === button.closest('.saved-item')?.dataset.id);
   if (action === 'copy-saved' || action === 'download-saved') {

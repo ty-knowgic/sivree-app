@@ -269,7 +269,6 @@
   "保存した記事を検索": "Cari artikel disimpan",
   "メモ": "Nota",
   "ファイルに保存": "Simpan sebagai fail",
-  "メモは、CSV と RIS にだけ含まれます。": "Nota hanya disertakan dalam CSV dan RIS.",
   "この端末のブラウザに保存されます。Google ドライブの同期を有効にすると、端末間でも共有されます。Sivree のサーバーには送られません。": "Disimpan dalam pelayar peranti ini. Jika penyegerakan Google Drive diaktifkan, artikel turut dikongsi merentas peranti anda. Tiada apa-apa dihantar ke pelayan Sivree.",
   "まだ保存した記事はありません": "Belum ada artikel disimpan",
   "記事の画面の「保存」で追加できます。保存した記事は、掲載期間が過ぎても残ります。": "Tambah artikel dengan “Simpan” pada halaman artikel. Artikel yang disimpan kekal walaupun tempoh paparannya telah tamat.",
@@ -387,5 +386,10 @@
   "読んだ記事を検索": "Cari artikel yang dibaca",
   "履歴を消去": "Kosongkan sejarah",
   "読んだ記事の履歴を消去しますか？": "Kosongkan sejarah artikel yang dibaca?",
-  "最新の発表は{date}": "Pengumuman terbaru: {date}"
+  "最新の発表は{date}": "Pengumuman terbaru: {date}",
+  "資料用": "Senarai untuk laporan",
+  "{source}「{title}」": "{source}: “{title}”",
+  "メモ: {note}": "Nota: {note}",
+  "発表日不明": "Tarikh tidak diketahui",
+  "メモは、資料用・CSV・RIS にだけ含まれます。": "Nota hanya disertakan dalam senarai untuk laporan, CSV dan RIS."
 }

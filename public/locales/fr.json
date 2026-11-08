@@ -299,7 +299,6 @@
   "保存した記事を検索": "Rechercher dans les articles enregistrés",
   "メモ": "Note",
   "ファイルに保存": "Enregistrer en fichier",
-  "メモは、CSV と RIS にだけ含まれます。": "Les notes ne figurent que dans les formats CSV et RIS.",
   "この端末のブラウザに保存されます。Google ドライブの同期を有効にすると、端末間でも共有されます。Sivree のサーバーには送られません。": "Enregistrés dans le navigateur de cet appareil. Si vous activez la synchronisation Google Drive, ils sont aussi partagés entre vos appareils. Rien n’est envoyé aux serveurs de Sivree.",
   "まだ保存した記事はありません": "Aucun article enregistré pour l’instant",
   "記事の画面の「保存」で追加できます。保存した記事は、掲載期間が過ぎても残ります。": "Ajoutez des articles avec « Enregistrer » sur la page de l’article. Les articles enregistrés restent disponibles même une fois sortis du fil.",
@@ -426,5 +425,10 @@
   "読んだ記事を検索": "Rechercher dans les articles lus",
   "履歴を消去": "Effacer l’historique",
   "読んだ記事の履歴を消去しますか？": "Effacer l’historique des articles lus ?",
-  "最新の発表は{date}": "Dernière annonce : {date}"
+  "最新の発表は{date}": "Dernière annonce : {date}",
+  "資料用": "Liste pour dossier",
+  "{source}「{title}」": "{source} : « {title} »",
+  "メモ: {note}": "Note : {note}",
+  "発表日不明": "Date inconnue",
+  "メモは、資料用・CSV・RIS にだけ含まれます。": "Les notes ne figurent que dans la liste pour dossier et les formats CSV et RIS."
 }

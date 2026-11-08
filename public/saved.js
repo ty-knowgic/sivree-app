@@ -12,12 +12,15 @@
   // 引用の書式。plain は app.js が翻訳した文をそのまま使う（日本語なら「発信元「見出し」（日付発表）URL（日付閲覧）」）
   const FORMATS = {
     plain: { ext: 'txt', mime: 'text/plain' },
+    brief: { ext: 'txt', mime: 'text/plain' },
     apa: { ext: 'txt', mime: 'text/plain' },
     markdown: { ext: 'md', mime: 'text/markdown' },
     bibtex: { ext: 'bib', mime: 'application/x-bibtex' },
     ris: { ext: 'ris', mime: 'application/x-research-info-systems' },
     csv: { ext: 'csv', mime: 'text/csv' }
   };
+  // 保存した記事の一覧からだけ書き出せる書式（1件ずつの引用の画面では選べない）
+  const LIST_ONLY_FORMATS = ['brief', 'csv'];
 
   const pad = (number) => String(number).padStart(2, '0');
   const oneLine = (text) => String(text ?? '').replace(/\s+/g, ' ').trim();
@@ -103,12 +106,42 @@
   };
 
   /**
+   * 上長や顧客に出す資料に貼れる形。発表日（発信元の地域の暦）ごとに、新しい日から並べる。
+   * 1件は「発信元「原題」」・URL・利用者のメモ。保存の写しが持つ項目だけを使うので、説明文や要約は入らない
+   * （見出しのみで扱う情報源の記事も、保存の時点で持っている項目だけなので載せてよい）。
+   * 日付が読めない記事は、最後に別の見出しでまとめる
+   */
+  function formatBrief(entries, ctx) {
+    const days = new Map();
+    for (const entry of entries) {
+      const key = isoDate(entry.published);
+      if (!days.has(key)) days.set(key, []);
+      days.get(key).push(entry);
+    }
+    const timeOf = (entry) => { const time = Date.parse(entry.item.publishedAt); return Number.isNaN(time) ? -Infinity : time; };
+    return [...days.entries()]
+      .sort(([a], [b]) => (a === b ? 0 : !a ? 1 : !b ? -1 : b.localeCompare(a)))
+      .map(([key, group]) => {
+        // 同じ日の中は、発表の新しい順（同時刻は渡された順のまま）
+        const lines = [...group].sort((a, b) => timeOf(b) - timeOf(a)).flatMap(({ item, source, title }) => [
+          `- ${ctx.briefItem({ source, title })}`,
+          `  ${item.url}`,
+          ...(item.note && oneLine(item.note) ? [`  ${ctx.briefNote({ note: oneLine(item.note) })}`] : [])
+        ]);
+        return [key ? formatDate(group[0].published, ctx.locale) : ctx.undated, ...lines].join('\n');
+      }).join('\n\n');
+  }
+
+  /**
    * 引用を書式に整える。ctx:
    *   locale      表示言語のロケール（plain の日付に使う）
    *   accessed    閲覧日（Date。省略時は今日）
    *   sourceName  (item) => 現在の言語の発信元名
    *   plain       ({ source, title, date, url, accessed }) => 翻訳した出典表記の文（plain のみ）
-   * 引用には利用者のメモを含めない（CSV と RIS だけが、記録として持ち出せるようメモを含める）
+   *   briefItem   ({ source, title }) => 資料用の1件の見出し行（brief のみ）
+   *   briefNote   ({ note }) => 資料用のメモの行（brief のみ）
+   *   undated     発表日が読めない記事の見出し（brief のみ）
+   * 引用には利用者のメモを含めない（CSV・RIS・資料用だけが、記録として持ち出せるようメモを含める）
    */
   function formatCitations(items, format, ctx) {
     const accessed = localParts(ctx.accessed ?? new Date());
@@ -126,6 +159,7 @@
         source, title, url: item.url, date: formatDate(published, ctx.locale), accessed: formatDate(accessed, ctx.locale)
       })).join('\n');
     }
+    if (format === 'brief') return formatBrief(entries, ctx);
     if (format === 'apa') {
       return entries.map(({ item, source, title, published }) => {
         const date = published ? `${published.year}, ${MONTHS[published.month - 1]} ${published.day}` : 'n.d.';
@@ -169,5 +203,5 @@
     throw new Error(`unknown format: ${format}`);
   }
 
-  window.SivreeSaved = { LIMIT, FORMATS, toSavedItem, mergeSavedItems, formatCitations, dateParts, formatDate, localParts };
+  window.SivreeSaved = { LIMIT, FORMATS, LIST_ONLY_FORMATS, toSavedItem, mergeSavedItems, formatCitations, dateParts, formatDate, localParts };
 })();
