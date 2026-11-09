@@ -31,7 +31,10 @@ const base = {
 };
 const ctx = {
   locale: 'en', accessed: new Date(2026, 9, 20), sourceName: () => 'Bank of Japan',
-  plain: (f: any) => `${f.source}|${f.title}|${f.date}|${f.url}|${f.accessed}`
+  plain: (f: any) => `${f.source}|${f.title}|${f.date}|${f.url}|${f.accessed}`,
+  briefItem: (f: any) => `${f.source}: "${f.title}"`,
+  briefNote: (f: any) => `Note: ${f.note}`,
+  undated: 'Date unknown'
 };
 const record = (patch: object = {}) => ({ ...S.toSavedItem({ ...base, ...patch }, new Date(2026, 9, 20, 12)), ...patch });
 
@@ -55,6 +58,28 @@ check('メモは RIS・CSV 以外の引用に含めない', ['plain', 'apa', 'ma
 
 const csv = S.formatCitations([record({ title: '=HYPERLINK("http://evil")', note: 'line1\nline "2"' })], 'csv', ctx);
 check('CSV: 先頭の BOM、式になる値の無効化、引用符と改行のエスケープ', csv.startsWith('\uFEFF"published"') && csv.includes('"\'=HYPERLINK(""http://evil"")"') && csv.includes('"line1\nline ""2"""'), csv);
+
+// 資料用（brief）: 上長や顧客に出す資料に貼れる形
+const briefIds = ['aaaaaaaaaaaaaaa1', 'aaaaaaaaaaaaaaa2', 'aaaaaaaaaaaaaaa3', 'aaaaaaaaaaaaaaa4', 'aaaaaaaaaaaaaaa5'];
+const briefItems = [
+  // 日本の朝の発表: UTC では 14 日だが、発信元の暦では 15 日（同じ日の中では新しいほうが先）
+  record({ id: briefIds[0], title: 'Morning notice', publishedAt: '2026-10-14T23:30:00.000Z', note: 'Share with the\nDirector  today' }),
+  record({ id: briefIds[1], title: 'Earlier on the 15th', publishedAt: '2026-10-14T16:30:00.000Z' }),
+  record({ id: briefIds[2], title: 'The day before', publishedAt: '2026-10-13T03:00:00.000Z', note: '   ' }),
+  record({ id: briefIds[3], title: 'Undated', publishedAt: 'not a date' }),
+  record({ id: briefIds[4], title: 'Canadian notice', subgroup: 'カナダ', publishedAt: '2026-10-15T01:00:00.000Z' })
+];
+const brief = S.formatCitations(briefItems, 'brief', ctx);
+const briefDays = brief.split('\n\n');
+check('資料用: 発表日（発信元の地域の暦）ごとにまとめ、新しい日から並べ、日付が読めない記事は最後', briefDays.map((day: string) => day.split('\n')[0]).join('|') === 'October 15, 2026|October 14, 2026|October 13, 2026|Date unknown', brief);
+check('資料用: 同じ日の中は発表の新しい順（日本の朝の発表は、カナダの前日の夜の発表と同じ 15 日にまとまらない）', briefDays[0].indexOf('Morning notice') < briefDays[0].indexOf('Earlier on the 15th') && !briefDays[0].includes('Canadian') && briefDays[1].includes('Canadian notice'), brief);
+check('資料用: 1件は「発信元: 原題」・URL・メモの3行（メモは1行にまとめ、空白だけのメモは出さない）',
+  briefDays[0].split('\n').slice(0, 4).join('\n') === `October 15, 2026\n- Bank of Japan: "Morning notice"\n  ${briefItems[0].url}\n  Note: Share with the Director today`
+  && briefDays[2] === `October 13, 2026\n- Bank of Japan: "The day before"\n  ${briefItems[2].url}`, brief);
+check('資料用: 保存の写しにない項目（説明文・要約）は出さない', !/summary|description/i.test(brief) && !brief.includes('undefined'));
+check('資料用: メモを含むのは資料用・CSV・RIS だけ（一覧からだけ選べる書式は資料用と CSV）', S.formatCitations([withNote], 'brief', ctx).includes('private note')
+  && JSON.stringify(S.LIST_ONLY_FORMATS) === JSON.stringify(['brief', 'csv']) && S.FORMATS.brief.ext === 'txt');
+check('資料用: 空の一覧は空の文字列', S.formatCitations([], 'brief', ctx) === '');
 
 check('保存の記録: 不正な URL・id・空の見出しは作らない', ['javascript:alert(1)', 'not a url', ''].every((url) => S.toSavedItem({ ...base, sourceUrl: url }) === null)
   && S.toSavedItem({ ...base, id: 'xyz' }) === null && S.toSavedItem({ ...base, title: '   ' }) === null);
@@ -189,10 +214,45 @@ click(w, $(w, '[data-action="download-saved"]'));
 check('ファイルに保存: ファイル名と種類（CSV）', await until(() => downloads.length === 1 && downloads[0].name !== '') && /^sivree-saved-\d{4}-\d{2}-\d{2}\.csv$/.test(downloads[0].name) && downloads[0].blob.type.startsWith('text/csv'), downloads.map((d) => d.name));
 check('ファイルの先頭は BOM（Excel が UTF-8 と判断する）で、メモを含む', downloads[0].blob.text_.startsWith('\uFEFF"published"') && downloads[0].blob.text_.includes('Check the footnote'));
 
+// 資料用: 一覧の書式の選択肢に出て、メモを含む資料用の文をコピー・保存できる
+check('書式の選択肢に「資料用」がある（出典表記の次）', [...(formatSelect as any).options].map((option: any) => option.value).join() === 'plain,brief,apa,markdown,bibtex,ris,csv'
+  && (formatSelect as any).options[1].textContent === 'Briefing list', [...(formatSelect as any).options].map((option: any) => option.textContent));
+check('メモの注記が資料用にも触れている', $(w, '.saved-toolbar .settings-note')!.textContent === 'Notes are included only in the briefing list, CSV and RIS.', $(w, '.saved-toolbar .settings-note')!.textContent!);
+formatSelect.value = 'brief';
+formatSelect.dispatchEvent(new w.Event('change', { bubbles: true }));
+copied.length = 0;
+click(w, $(w, '[data-action="copy-saved"]'));
+const briefText = `October 15, 2026\n- Bank of Japan: “Policy update”\n  ${item.sourceUrl}\n  Note: Check the footnote`;
+check('資料用をコピー: 日付の見出し、発信元と原題、URL、メモ（翻訳した文で組み立てる）', await until(() => copied.length === 1) && copied[0] === briefText, copied);
+check('選んだ資料用は覚えておく', w.localStorage.getItem('sivree:citeFormat') === 'brief');
+downloads.length = 0;
+click(w, $(w, '[data-action="download-saved"]'));
+check('資料用をファイルに保存: テキストファイル（BOM なし）', await until(() => downloads.length === 1 && downloads[0].name !== '') && /^sivree-saved-\d{4}-\d{2}-\d{2}\.txt$/.test(downloads[0].name) && downloads[0].blob.type.startsWith('text/plain') && downloads[0].blob.text_ === briefText, downloads.map((d) => d.name));
+
+// メモを書いた直後（入力欄が外れた保存が終わる前）にコピーしても、そのメモが入る
+const freshNote = $(w, 'textarea[data-note-for]') as HTMLTextAreaElement;
+// 一覧の検索語（footnote）に今も一致するよう、語を残す
+freshNote.value = 'Typed footnote just before copying';
+freshNote.dispatchEvent(new w.Event('change', { bubbles: true }));
+copied.length = 0;
+click(w, $(w, '[data-action="copy-saved"]'));
+check('メモを書いた直後のコピーにも、そのメモが入る', await until(() => copied.length === 1) && copied[0].includes('Note: Typed footnote just before copying') && !copied[0].includes('Check the footnote'), copied);
+freshNote.value = 'Check the footnote';
+freshNote.dispatchEvent(new w.Event('change', { bubbles: true }));
+check('（確認用に書き換えたメモを元に戻す）', await until(() => state.profile.savedItems[0].note === 'Check the footnote'));
+
 click(w, $(w, '[data-action="unsave"]'));
 check('「保存を解除」で記録が消え、空の表示になる', await until(() => state.profile.savedItems.length === 0) && await until(() => $(w, '#savedList .empty-state')));
 click(w, $(w, '.toast-action'));
 check('「元に戻す」で、メモも保存した日時も元のまま戻る', await until(() => state.profile.savedItems.length === 1) && state.profile.savedItems[0].note === 'Check the footnote' && state.profile.savedItems[0].savedAt === stored.savedAt, state.profile.savedItems);
+
+// 一覧で資料用を選んでいても、1件ずつの引用の画面は出典表記に戻る（資料用は一覧からだけ）
+await go(w, `#/article/${item.id}`);
+await until(() => $(w, '[data-action="toggle-cite"]'));
+if (!$(w, '.cite-text')) click(w, $(w, '[data-action="toggle-cite"]'));
+check('詳細画面の引用は、記憶した書式が資料用でも出典表記になり、選択肢に資料用・CSV は出ない',
+  await until(() => $(w, '.cite-text')) && $(w, '.cite-text')!.textContent!.startsWith('Bank of Japan, “Policy update” (published October 15, 2026)')
+  && !$(w, '[data-cite-format="brief"]') && !$(w, '[data-cite-format="csv"]') && $(w, '[data-cite-format="plain"]')!.getAttribute('aria-pressed') === 'true', $(w, '.cite-text')?.textContent ?? '');
 
 // 設定の貼り付けは、この端末の保存した記事を消さない
 await go(w, '#/settings');

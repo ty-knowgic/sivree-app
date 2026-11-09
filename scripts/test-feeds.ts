@@ -254,10 +254,12 @@ check('並び順は変わらない', titles(ordered) === 'new / dup / old', titl
 }
 
 // ---------- 見出しと原文へのリンクだけを表示する情報源（利用条件が商用を制限するもの） ----------
-// 2026-10-20 の15件と、2026-10-23 に足した専門職向けの B1 の情報源（同じ名前の複数のフィードは1つに数える）
+// 2026-10-20 の15件と、2026-10-23 に足した専門職向けの B1 の情報源（同じ名前の複数のフィードは1つに数える）。2026-10-27: カナダ首相府（条項が見つかり B1 と分かった）とカナダ・サイバーセキュリティセンター（B1 の候補）を加えた。州・県は B1 のサスカチュワン・ニューファンドランド・ラブラドール・テキサス・ニューヨーク州金融サービス局と、A でも説明が要約にならないカリフォルニア州知事室
 const TITLE_ONLY = ['カナダ政府', 'オンタリオ州政府', 'ウォータールー・リージョン', 'ケンブリッジ市', 'JPX', 'JETRO', 'ジェトロ', 'JAXA', 'KEK', 'WHO', 'Fraunhofer', 'Microsoft Research', 'カーネギーメロン大学', 'Simons Foundation', 'CIFAR',
   'カナダ官報', 'カナダ歳入庁', 'カナダ知的財産庁', 'カナダ・プライバシー・コミッショナー', 'オンタリオ州証券委員会', '日本公認会計士協会', '金融安定理事会', '国際決済銀行',
-  '企業会計基準委員会', 'カナダ金融機関監督庁', 'SEC', '米内国歳入庁'];
+  '企業会計基準委員会', 'カナダ金融機関監督庁', 'SEC', '米内国歳入庁', 'カナダ首相府', 'カナダ・サイバーセキュリティセンター',
+  'サスカチュワン州政府', 'ニューファンドランド・ラブラドール州政府', 'テキサス州知事室', 'ニューヨーク州金融サービス局',
+  'カリフォルニア州知事室'];
 const flagged = [...new Set(officialFeeds.filter(feed => feed.titleOnly).map(feed => feed.sourceName))].sort();
 check('SOURCE_TERMS.md の制限付き情報源と通達集メタデータは titleOnly', flagged.join(',') === [...TITLE_ONLY].sort().join(','), flagged.join(','));
 
@@ -351,7 +353,20 @@ const namesAt = (level: string) => [...new Set(officialFeeds.filter(feed => feed
 check('国際機関・EU の機関の割り当て', namesAt('international') === ['ECB', 'ECDC', 'ESA', 'WHO', 'WTO', '欧州医薬品庁', '欧州委員会', '欧州委員会（デジタル）', '欧州理事会',
   // 2026-10-23 に足した専門職向けの情報源
   'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', '欧州銀行監督機構', '欧州保険・年金監督機構', '金融安定理事会', '国際決済銀行', 'EUR-Lex', '欧州特許庁', '証券監督者国際機構'].sort().join(','), namesAt('international'));
-check('州・県の政府の割り当て', namesAt('regional') === ['オンタリオ州政府', 'オンタリオ州証券委員会'].sort().join(','), namesAt('regional'));
+check('州・県の政府の割り当て', namesAt('regional') === ['オンタリオ州政府', 'オンタリオ州証券委員会',
+  // 2026-10-27 に足した、カナダの3州と米国の3州（src/feeds/regional.ts）
+  'マニトバ州政府', 'サスカチュワン州政府', 'ニューファンドランド・ラブラドール州政府', 'カリフォルニア州知事室', 'カリフォルニア州司法省', 'カリフォルニア州プライバシー保護庁', 'テキサス州知事室', 'ニューヨーク州金融サービス局'].sort().join(','), namesAt('regional'));
+const areaOf = (name: string) => [...new Set(officialFeeds.filter(feed => feed.sourceName === name).map(feed => feed.area))].join();
+check('州・県の管轄（area）の割り当て', ['マニトバ州政府:CA-MB', 'サスカチュワン州政府:CA-SK', 'ニューファンドランド・ラブラドール州政府:CA-NL', 'カリフォルニア州知事室:US-CA', 'カリフォルニア州司法省:US-CA', 'カリフォルニア州プライバシー保護庁:US-CA', 'テキサス州知事室:US-TX', 'ニューヨーク州金融サービス局:US-NY']
+  .every(pair => areaOf(pair.split(':')[0]) === pair.split(':')[1]));
+{
+  // 州・県の名前は画面（public/app.js の SOURCE_AREA_LABELS）が持つ。足し忘れると、設定の見出しから州名が消え、ほかの州と見分けられなくなる
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const labels = app.slice(app.indexOf('const SOURCE_AREA_LABELS'), app.indexOf('const areaName'));
+  const missing = [...new Set(officialFeeds.map(feed => feed.area).filter(Boolean))].filter(area => !labels.includes(`'${area}'`));
+  check('feeds の area はすべて、画面の州・県の名前（SOURCE_AREA_LABELS）にある', labels.length > 0 && missing.length === 0, missing.join());
+}
+
 // 専門パックの中身（PR の説明の一覧表と同じ。変えるときはユーザーの確認が要る）
 const packNames = (pack: string) => [...new Set(officialFeeds.filter(feed => feed.pack === pack).map(feed => feed.sourceName))].sort().join(',');
 check('専門パック「法務・知財・立法」の情報源', packNames('legal') === ['米政府出版局', '米連邦官報', '米連邦取引委員会', 'EU 司法裁判所', '欧州データ保護会議', '世界知的所有権機関', 'e-Gov パブリック・コメント', '消費者庁',
@@ -375,6 +390,16 @@ check('市区町村の割り当て', namesAt('local') === ['ウォータール�
   check('企業の「AI 搭載」の宣伝は生成AIに入らない', !classify(wire, 'Breakthrough Cooling Solutions for the AI Computing Surge', '').includes('生成AI'));
   check('「robotic」「mathematicians」「ランサムウェア」「サイバーセキュリティ」も分類に入る', classify(official, 'New robotic surgery pilot', '').includes('テクノロジー') && classify(official, 'Award for young mathematicians', '').includes('サイエンス') && classify({ ...official, subgroup: '日本' }, 'ランサムウェア被害の注意喚起', '').includes('安全保障') && classify({ ...official, subgroup: '日本' }, 'サイバーセキュリティに関する関係閣僚会議の開催について', '').includes('安全保障'));
   check('一般語の「cohere」「grok」は社名と見なさない', !classify(official, 'Plans must cohere; residents grok the rules', '').includes('生成AI'));
+}
+
+// ---------- 投資額の分類（2026-11-07: ユーロ・ポンドと「an additional」「close to」などの修飾を足した）----------
+{
+  const official = { sourceType: 'official', category: '政治', subgroup: '欧州', sourceName: 't', sourceUrl: 'https://example.test/', feedUrl: 'https://example.test/ec', label: 't' } as FeedSource;
+  const invested = (title: string) => classify(official, title, '').includes('投資');
+  check('ユーロ建て・ポンド建ての投資額も投資に入る', invested('European Innovation Council launches €1.8 billion in funding for 2027') && invested('€525 million investment set to drive new generation of European chip design companies') && invested('Government commits £2.5 billion to rail upgrades'));
+  check('「an additional」「close to」などの修飾が付いた投資額も投資に入る', invested('Government of Canada invests an additional $130 million to improve housing conditions') && invested('Government of Canada invests close to $5 million to fuel economic development'));
+  check('従来の書き方（invests $750 million など）は、これまでどおり投資に入る', invested('Government of Canada invests $750 million in domestic year-round food production') && invested('Premier announces investment of C$20 million for hospitals'));
+  check('金額だけ、または投資を指さない金額は投資に入らない', !invested('Prices rose by $5 billion according to the report') && !invested('The summit will be attended by €30 million people over three days') && !invested('Commissioner visits Brussels to discuss the €2 billion trade deficit'));
 }
 
 // ---------- 配信サービスの日付行から決める地域 ----------
@@ -428,7 +453,8 @@ check('凍結した情報源が、すべて一覧に残っている（URL を替
 check('凍結より後に足した情報源には since が付いている（付いていないものは凍結の一覧にある）',
   officialFeeds.every(feed => feed.since || frozenUrls.has(feed.feedUrl)), officialFeeds.filter(feed => !feed.since && !frozenUrls.has(feed.feedUrl)).map(feed => feed.sourceName).join(','));
 // 2026-10-21: Cision Canada（Venture Capital の RSS が 404、代わりの RSS はカナダ向けではない）を外して、94件から93件に
-check('凍結の一覧は93件（同じフィードを2つのカテゴリで使う5件の重複を除く）', frozen.length === 93 && officialFeeds.length >= 98, `${frozen.length} / ${officialFeeds.length}`);
+// 2026-11-07: ESA 宇宙科学（サイトの刷新で RSS が 404。後継は src/feeds/replacements.ts の候補）を外して、93件から92件に
+check('凍結の一覧は92件（同じフィードを2つのカテゴリで使う5件の重複を除く）', frozen.length === 92 && officialFeeds.length >= 98, `${frozen.length} / ${officialFeeds.length}`);
 
 // 2026-11-05: SEC の Administrative Proceedings は見出しの「&」が実体になっておらず、フィード全体が読めなくなっていた
 const rssWith = (title: string, description = 'd') => `<?xml version="1.0"?><rss version="2.0"><channel><title>t</title><item><title>${title}</title><description>${description}</description><link>https://example.test/a</link></item></channel></rss>`;

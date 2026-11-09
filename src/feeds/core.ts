@@ -67,7 +67,7 @@ export const coreFeeds: FeedSource[] = [
   },
   { sourceType: 'official', level: 'regional', area: 'CA-ON', category: '政治', subgroup: 'カナダ', since: '2026-10-21', sourceName: 'オンタリオ州政府', sourceUrl: 'https://news.ontario.ca/', feedUrl: 'https://news.ontario.ca/newsroom/en/rss/allnews.rss', label: 'Ontario Newsroom', maxItems: 15, titleOnly: true },
   { sourceType: 'official', level: 'national', category: '経済', subgroup: '日本', sourceName: 'ジェトロ', sourceUrl: 'https://www.jetro.go.jp/', feedUrl: 'https://www.jetro.go.jp/rss/news.xml', label: 'ジェトロ お知らせ・記者発表', maxItems: 10, excludeRoutine: true, titleOnly: true },
-  { sourceType: 'official', level: 'national', category: '政治', subgroup: 'カナダ', sourceName: 'カナダ首相府', sourceUrl: 'https://www.pm.gc.ca/en/news', feedUrl: 'https://pm.gc.ca/en/news.rss', label: 'Prime Minister of Canada News', maxItems: 10 },
+  { sourceType: 'official', level: 'national', category: '政治', subgroup: 'カナダ', sourceName: 'カナダ首相府', sourceUrl: 'https://www.pm.gc.ca/en/news', feedUrl: 'https://pm.gc.ca/en/news.rss', label: 'Prime Minister of Canada News', maxItems: 10, titleOnly: true },
   { sourceType: 'official', level: 'national', category: '経済', subgroup: 'カナダ', sourceName: 'カナダ銀行', sourceUrl: 'https://www.bankofcanada.ca/', feedUrl: 'https://www.bankofcanada.ca/content_type/press-releases/feed/', label: 'Bank of Canada Press Releases' },
   { sourceType: 'official', level: 'national', category: '経済', subgroup: 'カナダ', sourceName: 'カナダ統計局', sourceUrl: 'https://www150.statcan.gc.ca/', feedUrl: 'https://www150.statcan.gc.ca/n1/rss/dai-quo/0-eng.atom', label: 'Statistics Canada The Daily', maxItems: 8 },
   { sourceType: 'research', category: 'サイエンス', subgroup: 'カナダ', sourceName: 'CIFAR', sourceUrl: 'https://cifar.ca/', feedUrl: 'https://cifar.ca/feed/', label: 'CIFAR（カナダ先端研究機構）', titleOnly: true },
@@ -139,7 +139,6 @@ export const coreFeeds: FeedSource[] = [
   { sourceType: 'research', category: 'サイエンス', subgroup: '日本', sourceName: '国立天文台', sourceUrl: 'https://www.nao.ac.jp/news/', feedUrl: 'https://www.nao.ac.jp/atom.xml', label: '国立天文台 ニュース', maxItems: 8 },
   { sourceType: 'research', category: 'サイエンス', subgroup: '日本', sourceName: 'KEK', sourceUrl: 'https://www.kek.jp/ja/', feedUrl: 'https://www.kek.jp/ja/feed/', label: '高エネルギー加速器研究機構', maxItems: 6, excludeRoutine: true, titleOnly: true },
   { sourceType: 'research', category: 'サイエンス', subgroup: '日本', sourceName: 'Kavli IPMU', sourceUrl: 'https://www.ipmu.jp/', feedUrl: 'https://www.ipmu.jp/en/rss.xml', label: 'カブリ数物連携宇宙研究機構（数学・物理）', maxItems: 6 },
-  { sourceType: 'official', level: 'international', category: 'サイエンス', subgroup: '欧州', sourceName: 'ESA', sourceUrl: 'https://www.esa.int/Science_Exploration/Space_Science', feedUrl: 'https://www.esa.int/rssfeed/Our_Activities/Space_Science', label: '欧州宇宙機関 宇宙科学' },
   { sourceType: 'research', category: 'サイエンス', subgroup: '欧州', sourceName: 'EMBL', sourceUrl: 'https://www.embl.org/news/', feedUrl: 'https://www.embl.org/news/feed/', label: '欧州分子生物学研究所' },
   { sourceType: 'research', category: 'サイエンス', subgroup: '米国', sourceName: 'MIT', sourceUrl: 'https://news.mit.edu/research', feedUrl: 'https://news.mit.edu/rss/research', label: 'MIT News（研究成果）', maxItems: 8 },
   // 数学・科学の新発見

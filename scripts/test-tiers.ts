@@ -1,7 +1,11 @@
 // 情報源の提供層（tierOf）と既定のオン・オフ（defaultOn）が、属性（pack・level・since）だけから決まることを確かめる。
 // 上限の判定と絞り込みは別の段階で足すので、ここでは関数の全分岐と、いまのフィードの層の内訳だけを確かめる
 import { coreFeeds } from '../src/feeds/core.js';
+import { ministryFeeds } from '../src/feeds/ministries.js';
 import { professionalFeeds } from '../src/feeds/professional.js';
+import { regionalFeeds } from '../src/feeds/regional.js';
+import { replacementFeeds } from '../src/feeds/replacements.js';
+import { securityFeeds } from '../src/feeds/security.js';
 import { usPolicyFeeds } from '../src/feeds/usPolicy.js';
 import { officialFeeds, listSources } from '../src/newsPipeline.js';
 import { defaultOn, tierOf } from '../src/sourceTier.js';
@@ -37,23 +41,32 @@ check('regional・local は since が無くても、層が limited なので既�
 check('有償のパックは既定でオフ', !defaultOn({ level: 'national', pack: 'legal' }) && !defaultOn({ pack: 'legal', since: '2026-10-21' }));
 
 // ---------- いまのフィードの内訳 ----------
-// 凍結した情報源（src/feeds/core.ts）と、2026-10-23 に足した専門職向けの情報源（src/feeds/professional.ts）
+// 凍結した情報源（src/feeds/core.ts）と、2026-10-23 に足した専門職向けの情報源（src/feeds/professional.ts）、2026-10-27 に足した安全保障の情報源（src/feeds/security.ts）
 const count = (feeds: typeof officialFeeds, tier: string) => feeds.filter(feed => tierOf(feed) === tier).length;
 const breakdown = (feeds: typeof officialFeeds) => `${count(feeds, 'free')}/${count(feeds, 'limited')}/${count(feeds, 'paid')} of ${feeds.length}`;
-check('凍結した情報源98件の層は、無償93・上限の対象5（オンタリオ州政府と、ウォータールー周辺の4自治体）・有償0',
-  coreFeeds.length === 98 && breakdown(coreFeeds) === '93/5/0 of 98', breakdown(coreFeeds));
+// 2026-11-07: ESA 宇宙科学（フィードが 404）を外して、98件から97件に（後継は src/feeds/replacements.ts の候補）
+check('凍結した情報源97件の層は、無償92・上限の対象5（オンタリオ州政府と、ウォータールー周辺の4自治体）・有償0',
+  coreFeeds.length === 97 && breakdown(coreFeeds) === '92/5/0 of 97', breakdown(coreFeeds));
 check('専門職向けの61件の層は、無償25・上限の対象2・有償34',
   professionalFeeds.length === 61 && breakdown(professionalFeeds) === '25/2/34 of 61', breakdown(professionalFeeds));
 // 2026-10-30 に足した米国の政治の代替経路（src/feeds/usPolicy.ts。米国務省の 403 の代わり）
 check('米国の政治の代替経路3件は、すべて無償の候補', usPolicyFeeds.length === 3 && breakdown(usPolicyFeeds) === '3/0/0 of 3' && usPolicyFeeds.every(feed => feed.since === '2026-10-30' && !defaultOn(feed)), breakdown(usPolicyFeeds));
-check('フィードの一覧は、この3つを合わせたもの', officialFeeds.length === coreFeeds.length + professionalFeeds.length + usPolicyFeeds.length);
+check('安全保障の4件の層は、すべて無償（パックには入れない）', securityFeeds.length === 4 && breakdown(securityFeeds) === '4/0/0 of 4', breakdown(securityFeeds));
+check('州・県の8件の層は、すべて上限の対象（パックには入れない）', regionalFeeds.length === 8 && breakdown(regionalFeeds) === '0/8/0 of 8', breakdown(regionalFeeds));
+check('なくなった凍結の情報源の後継1件（ESA）は、無償の候補で、凍結の URL は使わない', replacementFeeds.length === 1 && breakdown(replacementFeeds) === '1/0/0 of 1' && replacementFeeds.every(feed => feed.since === '2026-11-07' && !defaultOn(feed)) && !coreFeeds.some(feed => feed.feedUrl === replacementFeeds[0].feedUrl), breakdown(replacementFeeds));
+// 2026-11-08 に足した日本の府省庁（src/feeds/ministries.ts。DATA-04）。警察庁は RSS の利用条件が再配布・サイトの作成を断っているため入れない（SOURCE_TERMS.md）
+check('日本の府省庁の候補1件（農林水産省）は、利用条件 A の無償の候補で、パックには入れず、警察庁は含まない',
+  ministryFeeds.length === 1 && breakdown(ministryFeeds) === '1/0/0 of 1' && ministryFeeds.every(feed => feed.since === '2026-11-08' && feed.terms === 'A' && !feed.pack && !defaultOn(feed) && !/npa\.go\.jp/.test(feed.feedUrl)) && ministryFeeds[0].sourceName === '農林水産省', breakdown(ministryFeeds));
+check('フィードの一覧は、この7つを合わせたもの', officialFeeds.length === coreFeeds.length + professionalFeeds.length + usPolicyFeeds.length + securityFeeds.length + regionalFeeds.length + replacementFeeds.length + ministryFeeds.length);
 const limitedNames = ['ウォータールー市', 'ウォータールー・リージョン', 'オンタリオ州政府', 'キッチナー市', 'ケンブリッジ市'].sort().join(',');
 check('凍結した情報源で上限の対象の5件は、オンタリオ州政府とウォータールー周辺の4自治体',
   coreFeeds.filter(feed => tierOf(feed) === 'limited').map(feed => feed.sourceName).sort().join(',') === limitedNames);
 check('凍結した情報源で since が付いているのは、候補へ移したこの5件だけ（候補は既定ではオフ。既存の利用者には移行で引き継ぐ）',
   coreFeeds.filter(feed => feed.since).map(feed => feed.sourceName).sort().join(',') === limitedNames);
 check('専門職向けの情報源は、すべて since が付き、既定ではオフ', professionalFeeds.every(feed => ['2026-10-23', '2026-10-24'].includes(feed.since ?? '') && !defaultOn(feed)) && professionalFeeds.filter(feed => feed.since === '2026-10-24').length === 8);
-check('既定でオンの対象は93件（候補の5件と専門職向けの61件と米国の政治の代替経路3件を除く）', officialFeeds.filter(defaultOn).length === 93 && officialFeeds.filter(feed => !defaultOn(feed)).length === 69);
+check('安全保障の情報源は、すべて since が付き、既定ではオフ', securityFeeds.every(feed => feed.since === '2026-10-27' && !defaultOn(feed)));
+check('州・県の情報源は、すべて since が付き、既定ではオフ', regionalFeeds.every(feed => feed.since === '2026-10-27' && !defaultOn(feed)));
+check('既定でオンの対象は92件（候補の5件と、専門職向けの61件、米国の政治の代替経路3件、安全保障の4件、州・県の8件、ESA の後継1件、府省庁の1件を除く）', officialFeeds.filter(defaultOn).length === 92 && officialFeeds.filter(feed => !defaultOn(feed)).length === 83);
 
 if (failures) {
   console.error(`\n${failures} 件の確認に失敗しました`);

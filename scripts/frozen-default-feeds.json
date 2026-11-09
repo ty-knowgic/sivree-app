@@ -225,11 +225,6 @@
   "sourceName": "EMBL"
  },
  {
-  "id": "f9f809f0e3",
-  "feedUrl": "https://www.esa.int/rssfeed/Our_Activities/Space_Science",
-  "sourceName": "ESA"
- },
- {
   "id": "58bfb36a48",
   "feedUrl": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml",
   "sourceName": "FDA"

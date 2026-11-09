@@ -104,7 +104,7 @@ const CATEGORY_RULES: { category: CategoryKey; pattern: RegExp | RegExp[]; subgr
   },
   {
     category: '投資',
-    pattern: /資金調達|第三者割当増資|シリーズ[A-FＡ-Ｆ](ラウンド)?|シードラウンド|プレシリーズ|ベンチャーキャピタル|スタートアップ(への)?(投資|出資|支援|育成)|出資(を受け|契約|決定)|官民ファンド|国内投資|投資促進|GX投資|対日投資|直接投資|設備投資|投資計画|\braise[sd]? \$|funding round|\bSeries [A-F]\b|seed (round|funding)|venture capital|growth equity|億円(を|の)?(投資|出資|拠出)|\b(invest(s|ing|ment of)?|funding of|commit(s|ting)?|award(s|ing)?) (up to |over |more than |nearly |almost )?(C|US)?\$[\d.,]+ ?(million|billion|M\b|B\b)/i
+    pattern: /資金調達|第三者割当増資|シリーズ[A-FＡ-Ｆ](ラウンド)?|シードラウンド|プレシリーズ|ベンチャーキャピタル|スタートアップ(への)?(投資|出資|支援|育成)|出資(を受け|契約|決定)|官民ファンド|国内投資|投資促進|GX投資|対日投資|直接投資|設備投資|投資計画|\braise[sd]? \$|funding round|\bSeries [A-F]\b|seed (round|funding)|venture capital|growth equity|億円(を|の)?(投資|出資|拠出)|\b(invest(s|ing|ment of)?|funding of|commit(s|ting)?|award(s|ing)?) (up to |over |more than |nearly |almost |an additional |additional |close to |about |around |approximately |a further |another |at least )?(C|US|A|NZ)?[$€£][\d.,]+ ?(million|billion|M\b|B\b|bn\b)|[$€£][\d.,]+ ?(million|billion|bn)\b ?(in (new |additional )?(funding|investment)s?|investment|funding)\b/i
   },
   {
     // ロボティクス・量子・半導体など（Physical AI を含む）
