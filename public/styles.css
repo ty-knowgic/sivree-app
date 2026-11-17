@@ -2635,6 +2635,8 @@ body.has-sheet { overflow: hidden; }
   cursor: pointer;
 }
 
+a.sheet-option { box-sizing: border-box; text-decoration: none; }
+
 .sheet-option strong { font-size: 0.95rem; overflow-wrap: anywhere; }
 
 .sheet-option small { color: var(--text-2); font-size: 0.8rem; line-height: 1.45; overflow-wrap: anywhere; }

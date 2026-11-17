@@ -395,5 +395,12 @@
   "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Ghi chú chỉ được đưa vào danh sách cho báo cáo, danh sách cho AI, CSV và RIS.",
   "AIに共有": "Chia sẻ với AI",
   "AIに渡す文をコピーしました": "Đã sao chép văn bản cho AI",
-  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Dưới đây là {n} tiêu đề kèm URL của các thông báo từ nguồn sơ cấp (chính phủ, doanh nghiệp, cơ quan nghiên cứu, v.v.) mà tôi muốn ghi lại. Toàn văn không được kèm theo. Hãy ghi nhớ chúng như bản ghi cho chủ đề này. Khi cần nội dung, hãy đọc bản gốc qua URL; nếu không đọc được, hãy nói rõ thay vì đoán."
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Dưới đây là {n} tiêu đề kèm URL của các thông báo từ nguồn sơ cấp (chính phủ, doanh nghiệp, cơ quan nghiên cứu, v.v.) mà tôi muốn ghi lại. Toàn văn không được kèm theo. Hãy ghi nhớ chúng như bản ghi cho chủ đề này. Khi cần nội dung, hãy đọc bản gốc qua URL; nếu không đọc được, hãy nói rõ thay vì đoán.",
+  "文を入れた状態で開きます。": "Mở ra với văn bản đã điền sẵn.",
+  "文をコピーしてから開きます。貼り付けてください。": "Sao chép văn bản rồi mở. Chỉ cần dán.",
+  "その他のアプリ": "Ứng dụng khác",
+  "共有シートから、使っているアプリを選びます。": "Chọn một ứng dụng từ bảng chia sẻ.",
+  "コピーだけする": "Chỉ sao chép",
+  "この文をコピーします。": "Sao chép văn bản này.",
+  "文をコピーしました。{name}に貼り付けてください。": "Đã sao chép văn bản. Hãy dán vào {name}."
 }

@@ -727,24 +727,109 @@ function aiShareButton(item, extraClass = '') {
   return `<button class="ai-share-button${extraClass ? ` ${extraClass}` : ''}" type="button" data-action="share-ai" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${ICONS.share}</button>`;
 }
 
-/**
- * 記事を AI に渡す。共有できる環境（スマホなど）では OS の共有シートを開き、Claude などのアプリを選ぶだけで
- * 指示文つきの文が入る。共有できない環境や失敗したときは、同じ文をコピーする。本文は含まない（見出し・発信元・日付・URL）。
- * record は保存の写しの形（メモは渡さない）
- */
-async function shareToAi(record) {
+// ---------- 「AIに共有」 ----------
+// 押すと、渡し先を選ぶ小さな画面を開く: Claude・ChatGPT は文を入れた状態で開き、Gemini は（文を入れて開けないので）コピーしてから開く。
+// 「その他のアプリ」は OS の共有シート、「コピーだけする」は文のコピー。本文は含まない（見出し・発信元・日付・URL。メモは渡さない）。
+// 開くのは利用者が選んだときだけで、Sivree が AI に送ることはない
+
+/** 渡し先。prefill は、文を URL に入れて開ける先（2026-11-17 に実機で確認: Claude・ChatGPT は入力欄に入るだけで送信されない。Gemini は無視される） */
+const AI_TARGETS = [
+  { id: 'claude', name: 'Claude', open: 'https://claude.ai/new', prefill: 'https://claude.ai/new?q=' },
+  { id: 'chatgpt', name: 'ChatGPT', open: 'https://chatgpt.com/', prefill: 'https://chatgpt.com/?q=' },
+  { id: 'gemini', name: 'Gemini', open: 'https://gemini.google.com/app', prefill: '' }
+];
+/** URL が長すぎるときは、文を入れずに開いてコピーに切り替える（記事1件なら、ふつうここには届かない） */
+const AI_URL_LIMIT = 6000;
+
+let aiSheet = null;
+
+function aiText(record) {
+  return SivreeSaved.formatCitations([{ ...record, note: '' }], 'ai', citeContext());
+}
+
+/** 渡し先を開くリンクと、文を入れられるか */
+function aiTargetLink(target, text) {
+  const url = target.prefill ? `${target.prefill}${encodeURIComponent(text)}` : '';
+  if (url && url.length <= AI_URL_LIMIT) return { href: url, copy: false };
+  return { href: target.open, copy: true };
+}
+
+function shareToAi(record, trigger) {
   if (!record) { showToast(t('コピーできませんでした')); return; }
-  const text = SivreeSaved.formatCitations([{ ...record, note: '' }], 'ai', citeContext());
-  if (typeof navigator.share === 'function') {
+  if (aiSheet) return;
+  aiSheet = { record, text: aiText(record), trigger };
+  const root = document.createElement('div');
+  root.id = 'aiSheet';
+  root.className = 'sheet-backdrop';
+  root.addEventListener('click', handleAiClick);
+  document.body.appendChild(root);
+  document.body.classList.add('has-sheet');
+  renderAiSheet();
+}
+
+function closeAiSheet(restoreFocus = true) {
+  const trigger = aiSheet?.trigger;
+  aiSheet = null;
+  document.getElementById('aiSheet')?.remove();
+  document.body.classList.remove('has-sheet');
+  if (restoreFocus && trigger?.isConnected) trigger.focus();
+}
+
+function renderAiSheet() {
+  const root = document.getElementById('aiSheet');
+  if (!aiSheet || !root) return;
+  const links = AI_TARGETS.map((target) => {
+    const { href, copy } = aiTargetLink(target, aiSheet.text);
+    const note = copy ? t('文をコピーしてから開きます。貼り付けてください。') : t('文を入れた状態で開きます。');
+    return `<a class="sheet-option" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" data-ai="${target.id}"${copy ? ' data-ai-copy' : ''}>
+      <strong>${escapeHtml(target.name)}</strong><small>${escapeHtml(note)}</small>
+    </a>`;
+  });
+  const share = typeof navigator.share === 'function'
+    ? `<button class="sheet-option" type="button" data-ai-action="share"><strong>${escapeHtml(t('その他のアプリ'))}</strong><small>${escapeHtml(t('共有シートから、使っているアプリを選びます。'))}</small></button>` : '';
+  const copy = `<button class="sheet-option" type="button" data-ai-action="copy"><strong>${escapeHtml(t('コピーだけする'))}</strong><small>${escapeHtml(t('この文をコピーします。'))}</small></button>`;
+  root.innerHTML = `
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="aiSheetTitle">
+      <div class="sheet-head">
+        <h2 id="aiSheetTitle">${escapeHtml(t('AIに共有'))}</h2>
+        <button class="icon-button" type="button" data-ai-action="close" aria-label="${escapeHtml(t('閉じる'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <p class="sheet-article">${escapeHtml(aiSheet.record.title)}</p>
+      ${links.join('')}${share}${copy}
+    </div>`;
+  root.querySelector('.sheet-option')?.focus();
+}
+
+async function handleAiClick(event) {
+  const sheet = aiSheet;
+  if (!sheet) return;
+  if (event.target.id === 'aiSheet') { closeAiSheet(); return; }
+  const link = event.target.closest('[data-ai]');
+  if (link) {
+    // 開くのはリンク自体（タップの中で開くので、ブロックされない）。文を入れられない先は、先にコピーしておく
+    if (link.hasAttribute('data-ai-copy')) {
+      const target = AI_TARGETS.find(entry => entry.id === link.dataset.ai);
+      copyText(sheet.text, t('文をコピーしました。{name}に貼り付けてください。', { name: target?.name ?? '' }));
+    }
+    setTimeout(() => closeAiSheet(false), 0);
+    return;
+  }
+  const button = event.target.closest('[data-ai-action]');
+  if (!button) return;
+  const action = button.dataset.aiAction;
+  if (action === 'close') closeAiSheet();
+  else if (action === 'copy') {
+    closeAiSheet(false);
+    await copyText(sheet.text, t('AIに渡す文をコピーしました'));
+  } else if (action === 'share') {
+    closeAiSheet(false);
     try {
-      await navigator.share({ text });
-      return;
+      await navigator.share({ text: sheet.text });
     } catch (error) {
       // 共有シートを閉じただけ（取り消し）なら何もしない。それ以外はコピーに切り替える
-      if (error?.name === 'AbortError') return;
+      if (error?.name !== 'AbortError') await copyText(sheet.text, t('AIに渡す文をコピーしました'));
     }
   }
-  await copyText(text, t('AIに渡す文をコピーしました'));
 }
 
 /** 記事の「関心がない…」を開くボタン（サンプル記事には出さない） */
@@ -1217,7 +1302,7 @@ newsList.addEventListener('click', (event) => {
   const share = event.target.closest('[data-action="share-ai"]');
   if (share) {
     const item = itemsById.get(share.dataset.id);
-    if (item) shareToAi(SivreeSaved.toSavedItem(item));
+    if (item) shareToAi(SivreeSaved.toSavedItem(item), share);
     return;
   }
   if (event.target.closest('.card, .hero, .briefing-item')) {
@@ -1805,9 +1890,9 @@ function handleInterestSubmit(event) {
 
 // Esc で閉じる。Tab は画面の中だけを回る
 document.addEventListener('keydown', (event) => {
-  const root = document.getElementById('interestSheet');
-  if (!root || !interestSheet) return;
-  if (event.key === 'Escape') { event.preventDefault(); closeInterestSheet(); return; }
+  const root = document.getElementById('interestSheet') ?? document.getElementById('aiSheet');
+  if (!root || !(interestSheet || aiSheet)) return;
+  if (event.key === 'Escape') { event.preventDefault(); if (aiSheet) closeAiSheet(); else closeInterestSheet(); return; }
   if (event.key !== 'Tab') return;
   const focusable = [...root.querySelectorAll('button:not(:disabled), input, [href]')];
   if (!focusable.length) return;
@@ -1817,7 +1902,7 @@ document.addEventListener('keydown', (event) => {
   else if (!event.shiftKey && (document.activeElement === last || !root.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
 });
 
-window.addEventListener('hashchange', () => closeInterestSheet(false));
+window.addEventListener('hashchange', () => { closeInterestSheet(false); closeAiSheet(false); });
 
 detailView.addEventListener('click', (event) => {
   if (currentDetail?.item) {
@@ -1831,7 +1916,7 @@ detailView.addEventListener('click', (event) => {
       return;
     }
     if (event.target.closest('[data-action="share-ai"]')) {
-      shareToAi(SivreeSaved.toSavedItem(currentDetail.item));
+      shareToAi(SivreeSaved.toSavedItem(currentDetail.item), event.target.closest('[data-action="share-ai"]'));
       return;
     }
     if (event.target.closest('[data-action="toggle-cite"]')) {
@@ -2134,7 +2219,7 @@ savedView.addEventListener('click', async (event) => {
     const name = `sivree-saved-${today.year}-${String(today.month).padStart(2, '0')}-${String(today.day).padStart(2, '0')}.${spec.ext}`;
     downloadText(name, text, spec.mime);
   } else if (action === 'share-ai' && entry) {
-    await shareToAi(entry);
+    shareToAi(entry, event.target.closest('[data-action="share-ai"]'));
   } else if (action === 'copy-saved-one' && entry) {
     await copyText(SivreeSaved.formatCitations([entry], format, citeContext()), t('引用をコピーしました'));
   } else if (action === 'unsave' && entry) {

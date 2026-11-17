@@ -395,5 +395,12 @@
   "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Catatan hanya disertakan dalam daftar untuk laporan, daftar untuk AI, CSV, dan RIS.",
   "AIに共有": "Bagikan ke AI",
   "AIに渡す文をコピーしました": "Teks untuk AI disalin",
-  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Berikut {n} judul beserta URL pengumuman dari sumber primer (pemerintah, perusahaan, lembaga riset, dll.) yang ingin saya catat. Teks lengkapnya tidak disertakan. Ingat ini sebagai catatan untuk topik ini. Jika perlu isinya, baca aslinya melalui URL; jika tidak bisa dibaca, katakan saja, jangan menebak."
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Berikut {n} judul beserta URL pengumuman dari sumber primer (pemerintah, perusahaan, lembaga riset, dll.) yang ingin saya catat. Teks lengkapnya tidak disertakan. Ingat ini sebagai catatan untuk topik ini. Jika perlu isinya, baca aslinya melalui URL; jika tidak bisa dibaca, katakan saja, jangan menebak.",
+  "文を入れた状態で開きます。": "Terbuka dengan teks sudah terisi.",
+  "文をコピーしてから開きます。貼り付けてください。": "Menyalin teks, lalu membuka. Tinggal tempel.",
+  "その他のアプリ": "Aplikasi lain",
+  "共有シートから、使っているアプリを選びます。": "Pilih aplikasi dari lembar berbagi Anda.",
+  "コピーだけする": "Salin saja",
+  "この文をコピーします。": "Menyalin teks ini.",
+  "文をコピーしました。{name}に貼り付けてください。": "Teks disalin. Tempel ke {name}."
 }

@@ -431,5 +431,12 @@
   "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Notizen sind nur in Berichtsliste, KI-Liste, CSV und RIS enthalten.",
   "AIに共有": "Mit KI teilen",
   "AIに渡す文をコピーしました": "Text für die KI kopiert",
-  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Unten stehen {n} Überschriften samt URL von Mitteilungen aus Primärquellen (Behörden, Unternehmen, Forschungseinrichtungen usw.), die ich festhalten möchte. Der Volltext ist nicht enthalten. Merke dir sie als Aufzeichnung zu diesem Thema. Wenn du den Inhalt brauchst, lies das Original über die URL; kannst du es nicht lesen, sag das, statt zu raten."
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Unten stehen {n} Überschriften samt URL von Mitteilungen aus Primärquellen (Behörden, Unternehmen, Forschungseinrichtungen usw.), die ich festhalten möchte. Der Volltext ist nicht enthalten. Merke dir sie als Aufzeichnung zu diesem Thema. Wenn du den Inhalt brauchst, lies das Original über die URL; kannst du es nicht lesen, sag das, statt zu raten.",
+  "文を入れた状態で開きます。": "Öffnet mit eingefügtem Text.",
+  "文をコピーしてから開きます。貼り付けてください。": "Kopiert den Text und öffnet dann. Bitte einfügen.",
+  "その他のアプリ": "Andere Apps",
+  "共有シートから、使っているアプリを選びます。": "Wähle eine App in deinem Teilen-Menü.",
+  "コピーだけする": "Nur kopieren",
+  "この文をコピーします。": "Kopiert diesen Text.",
+  "文をコピーしました。{name}に貼り付けてください。": "Text kopiert. Füge ihn in {name} ein."
 }

@@ -256,24 +256,50 @@ check('AI用をファイルに保存: Markdown（.md、BOM なし）', await unt
 formatSelect.value = 'brief';
 formatSelect.dispatchEvent(new w.Event('change', { bubbles: true }));
 
-// 「AIに共有」: 共有できない環境ではコピー、共有できる環境では OS の共有シート（メモは渡さない）
+// 「AIに共有」: 渡し先を選ぶ画面（Claude・ChatGPT は文を入れて開く、Gemini はコピーして開く、その他のアプリ、コピーだけ）。メモは渡さない
 const shared: any[] = [];
 const shareText = `Below are 1 headlines`;
+const openAi = async (selector: string) => { click(w, $(w, selector)); return until(() => $(w, '#aiSheet') !== null); };
+const aiLink = (id: string) => $(w, `#aiSheet [data-ai="${id}"]`) as HTMLAnchorElement | null;
+const hrefText = (href: string, prefix: string) => decodeURIComponent(href.slice(prefix.length));
 copied.length = 0;
-click(w, $(w, '#savedList [data-action="share-ai"]'));
-check('AIに共有（共有できない環境）: 同じ文をコピーし、保存したメモは含めない',
-  await until(() => copied.length === 1) && copied[0].startsWith(shareText) && copied[0].includes(item.sourceUrl) && !copied[0].includes('Check the footnote') && !copied[0].includes('Note:'), copied);
-check('AIに共有: コピーしたことを伝える', await until(() => $(w, '.toast')?.textContent?.includes('Copied the text for your AI') === true), $(w, '.toast')?.textContent ?? '');
+check('AIに共有: 渡し先を選ぶ画面が開く', await openAi('#savedList [data-action="share-ai"]') && $(w, '#aiSheet [role="dialog"]') !== null && $(w, '#aiSheet .sheet-article')?.textContent === item.title, $(w, '#aiSheet')?.textContent ?? '');
+const claude = aiLink('claude'); const chatgpt = aiLink('chatgpt'); const gemini = aiLink('gemini');
+check('AIに共有: Claude は文を入れて開く（メモは含めない、タブを分けて開く）',
+  !!claude && claude.href.startsWith('https://claude.ai/new?q=') && hrefText(claude.href, 'https://claude.ai/new?q=').startsWith(shareText) && hrefText(claude.href, 'https://claude.ai/new?q=').includes(item.sourceUrl)
+  && !claude.href.includes('Check') && claude.target === '_blank' && claude.rel.includes('noopener') && !claude.hasAttribute('data-ai-copy'), claude?.href ?? '');
+check('AIに共有: ChatGPT も文を入れて開く', !!chatgpt && chatgpt.href.startsWith('https://chatgpt.com/?q=') && hrefText(chatgpt.href, 'https://chatgpt.com/?q=').startsWith(shareText) && !chatgpt.hasAttribute('data-ai-copy'), chatgpt?.href ?? '');
+check('AIに共有: Gemini は文を入れられないので、コピーしてから開く', !!gemini && gemini.href === 'https://gemini.google.com/app' && gemini.hasAttribute('data-ai-copy'), gemini?.href ?? '');
+check('AIに共有: 共有できない環境では「その他のアプリ」を出さず、「コピーだけする」は出す', $(w, '#aiSheet [data-ai-action="share"]') === null && $(w, '#aiSheet [data-ai-action="copy"]') !== null, $(w, '#aiSheet')?.textContent ?? '');
+click(w, gemini);
+check('AIに共有: Gemini を選ぶと同じ文をコピーし、貼り付ける先を伝える',
+  await until(() => copied.length === 1) && copied[0].startsWith(shareText) && copied[0].includes(item.sourceUrl) && !copied[0].includes('Note:')
+  && await until(() => $(w, '.toast')?.textContent?.includes('Paste it into Gemini') === true), copied);
+check('AIに共有: 選んだら画面を閉じる', await until(() => $(w, '#aiSheet') === null));
+copied.length = 0;
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet [data-ai-action="copy"]'));
+check('AIに共有: 「コピーだけする」は文をコピーし、メモは含めない',
+  await until(() => copied.length === 1) && copied[0].startsWith(shareText) && !copied[0].includes('Check the footnote') && await until(() => $(w, '.toast')?.textContent?.includes('Copied the text for your AI') === true) && $(w, '#aiSheet') === null, copied);
+await openAi('#savedList [data-action="share-ai"]');
+w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+check('AIに共有: Esc で閉じる', await until(() => $(w, '#aiSheet') === null));
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet'));
+check('AIに共有: 外側を押すと閉じる', await until(() => $(w, '#aiSheet') === null));
 Object.defineProperty(w.navigator, 'share', { value: async (data: any) => { shared.push(data); }, configurable: true });
 copied.length = 0;
-click(w, $(w, '#savedList [data-action="share-ai"]'));
-check('AIに共有（共有できる環境）: 共有シートに文を渡し、コピーはしない', await until(() => shared.length === 1) && shared[0].text.startsWith(shareText) && shared[0].text.includes(item.sourceUrl) && Object.keys(shared[0]).join() === 'text' && copied.length === 0, shared);
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet [data-ai-action="share"]'));
+check('AIに共有（共有できる環境）: 「その他のアプリ」で共有シートに文だけを渡し、コピーはしない', await until(() => shared.length === 1) && shared[0].text.startsWith(shareText) && shared[0].text.includes(item.sourceUrl) && Object.keys(shared[0]).join() === 'text' && copied.length === 0 && $(w, '#aiSheet') === null, shared);
 Object.defineProperty(w.navigator, 'share', { value: async () => { const error: any = new Error('cancelled'); error.name = 'AbortError'; throw error; }, configurable: true });
-click(w, $(w, '#savedList [data-action="share-ai"]'));
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet [data-ai-action="share"]'));
 await new Promise((resolve) => setTimeout(resolve, 200));
 check('AIに共有: 共有シートを閉じただけなら、コピーに切り替えない', copied.length === 0, copied);
 Object.defineProperty(w.navigator, 'share', { value: async () => { throw new Error('failed'); }, configurable: true });
-click(w, $(w, '#savedList [data-action="share-ai"]'));
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet [data-ai-action="share"]'));
 check('AIに共有: 共有に失敗したときは、コピーに切り替える', await until(() => copied.length === 1) && copied[0].startsWith(shareText), copied);
 Object.defineProperty(w.navigator, 'share', { value: undefined, configurable: true });
 
@@ -303,11 +329,10 @@ check('詳細画面の引用は、記憶した書式が資料用でも出典表�
   && !$(w, '[data-cite-format="brief"]') && !$(w, '[data-cite-format="ai"]') && !$(w, '[data-cite-format="csv"]') && $(w, '[data-cite-format="plain"]')!.getAttribute('aria-pressed') === 'true', $(w, '.cite-text')?.textContent ?? '');
 
 // 詳細画面の「AIに共有」: 保存していない記事でも渡せる
-Object.defineProperty(w.navigator, 'share', { value: async (data: any) => { shared.push(data); }, configurable: true });
 shared.length = 0;
-click(w, $(w, '.detail-tools [data-action="share-ai"]'));
-check('詳細画面の「AIに共有」: 共有シートに、この記事の URL を入れた文を渡す', await until(() => shared.length === 1) && shared[0].text.includes(item.sourceUrl) && shared[0].text.includes('Policy update'), shared);
-Object.defineProperty(w.navigator, 'share', { value: undefined, configurable: true });
+check('詳細画面の「AIに共有」: 渡し先を選ぶ画面に、この記事の URL を入れた文が入る', await openAi('.detail-tools [data-action="share-ai"]') && hrefText(aiLink('claude')!.href, 'https://claude.ai/new?q=').includes(item.sourceUrl) && hrefText(aiLink('claude')!.href, 'https://claude.ai/new?q=').includes('Policy update'), aiLink('claude')?.href ?? '');
+click(w, $(w, '#aiSheet [data-ai-action="close"]'));
+check('詳細画面の「AIに共有」: 閉じるボタンで閉じる', await until(() => $(w, '#aiSheet') === null));
 
 // 設定の貼り付けは、この端末の保存した記事を消さない
 await go(w, '#/settings');

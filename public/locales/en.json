@@ -436,5 +436,12 @@
   "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Notes are included only in the briefing list, AI list, CSV and RIS.",
   "AIに共有": "Share with AI",
   "AIに渡す文をコピーしました": "Copied the text for your AI",
-  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Below are {n} headlines and URLs of announcements from primary sources (governments, companies, research bodies, etc.) that I want to keep on record. The full text is not included. Please remember them as a record for this topic. When you need the content, read the original at the URL; if you cannot read it, say so instead of guessing."
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Below are {n} headlines and URLs of announcements from primary sources (governments, companies, research bodies, etc.) that I want to keep on record. The full text is not included. Please remember them as a record for this topic. When you need the content, read the original at the URL; if you cannot read it, say so instead of guessing.",
+  "文を入れた状態で開きます。": "Opens with the text filled in.",
+  "文をコピーしてから開きます。貼り付けてください。": "Copies the text, then opens. Just paste it.",
+  "その他のアプリ": "Other apps",
+  "共有シートから、使っているアプリを選びます。": "Pick an app from your share sheet.",
+  "コピーだけする": "Just copy",
+  "この文をコピーします。": "Copies this text.",
+  "文をコピーしました。{name}に貼り付けてください。": "Text copied. Paste it into {name}."
 }
