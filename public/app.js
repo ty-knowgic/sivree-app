@@ -199,7 +199,8 @@ const ICONS = {
   stack: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg>',
   bookmark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>',
   external: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
-  more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></svg>'
+  more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></svg>',
+  share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/></svg>'
 };
 
 // ---------- 共通 ----------
@@ -366,7 +367,7 @@ function citeContext() {
     briefItem: fields => t('{source}「{title}」', fields),
     briefNote: fields => t('メモ: {note}', fields),
     undated: t('発表日不明'),
-    aiIntro: fields => t('以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたいと保存した{n}件の見出しと URL です。本文は含まれていません。この話題の記録として扱ってください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。', fields)
+    aiIntro: fields => t('以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。', fields)
   };
 }
 
@@ -477,6 +478,7 @@ function renderDetailTools(item) {
     <div class="detail-tools">
       <button class="tool-button${saved ? ' is-on' : ''}" type="button" data-action="toggle-save" aria-pressed="${saved}">${bookmarkIcon(saved)}${escapeHtml(saved ? t('保存済み') : t('保存'))}</button>
       <button class="tool-button${open ? ' is-on' : ''}" type="button" data-action="toggle-cite" aria-expanded="${open}">${ICONS.quote}${escapeHtml(t('引用'))}</button>
+      <button class="tool-button" type="button" data-action="share-ai">${ICONS.share}${escapeHtml(t('AIに共有'))}</button>
     </div>
     ${open ? renderCitePanel(savedItems.find(entry => entry.id === item.id) ?? record) : ''}
   `;
@@ -712,9 +714,37 @@ function renderHero(item) {
         <div class="hero-meta">${escapeHtml(t(item.sourceName))} · ${escapeHtml(formatRelative(item.publishedAt))}${item.matches?.length ? ` · ${escapeHtml(formatList(item.matches.map(m => t(m.label))))}` : ''}</div>
       </div>
     </a>
+    ${aiShareButton(item, 'is-on-image')}
     ${interestButton(item, 'is-on-image')}
     </div>
   `;
+}
+
+/** 記事を、使っている AI（Claude・ChatGPT・Gemini など）に渡すボタン（サンプル記事には出さない）。カードの右下、「関心がない…」の左 */
+function aiShareButton(item, extraClass = '') {
+  if (item.isSample) return '';
+  const label = t('AIに共有');
+  return `<button class="ai-share-button${extraClass ? ` ${extraClass}` : ''}" type="button" data-action="share-ai" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${ICONS.share}</button>`;
+}
+
+/**
+ * 記事を AI に渡す。共有できる環境（スマホなど）では OS の共有シートを開き、Claude などのアプリを選ぶだけで
+ * 指示文つきの文が入る。共有できない環境や失敗したときは、同じ文をコピーする。本文は含まない（見出し・発信元・日付・URL）。
+ * record は保存の写しの形（メモは渡さない）
+ */
+async function shareToAi(record) {
+  if (!record) { showToast(t('コピーできませんでした')); return; }
+  const text = SivreeSaved.formatCitations([{ ...record, note: '' }], 'ai', citeContext());
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ text });
+      return;
+    } catch (error) {
+      // 共有シートを閉じただけ（取り消し）なら何もしない。それ以外はコピーに切り替える
+      if (error?.name === 'AbortError') return;
+    }
+  }
+  await copyText(text, t('AIに渡す文をコピーしました'));
 }
 
 /** 記事の「関心がない…」を開くボタン（サンプル記事には出さない） */
@@ -827,6 +857,7 @@ function renderCard(item) {
       </div>
       ${media}
     </a>
+    ${aiShareButton(item)}
     ${interestButton(item)}
     </div>
   `;
@@ -1181,6 +1212,12 @@ newsList.addEventListener('click', (event) => {
   const interest = event.target.closest('[data-action="interest-menu"]');
   if (interest) {
     openInterestSheet(itemsById.get(interest.dataset.id), interest);
+    return;
+  }
+  const share = event.target.closest('[data-action="share-ai"]');
+  if (share) {
+    const item = itemsById.get(share.dataset.id);
+    if (item) shareToAi(SivreeSaved.toSavedItem(item));
     return;
   }
   if (event.target.closest('.card, .hero, .briefing-item')) {
@@ -1793,6 +1830,10 @@ detailView.addEventListener('click', (event) => {
       toggleSave(currentDetail.item);
       return;
     }
+    if (event.target.closest('[data-action="share-ai"]')) {
+      shareToAi(SivreeSaved.toSavedItem(currentDetail.item));
+      return;
+    }
     if (event.target.closest('[data-action="toggle-cite"]')) {
       currentDetail.citeOpen = !currentDetail.citeOpen;
       renderDetail();
@@ -1865,6 +1906,7 @@ function renderSavedItem(entry) {
       </details>
       <div class="saved-item-actions">
         <button class="text-button" type="button" data-action="copy-saved-one">${escapeHtml(t('引用をコピー'))}</button>
+        <button class="text-button" type="button" data-action="share-ai">${escapeHtml(t('AIに共有'))}</button>
         <button class="text-button" type="button" data-action="unsave">${escapeHtml(t('保存を解除'))}</button>
       </div>
     </li>
@@ -2091,6 +2133,8 @@ savedView.addEventListener('click', async (event) => {
     const today = SivreeSaved.localParts(new Date());
     const name = `sivree-saved-${today.year}-${String(today.month).padStart(2, '0')}-${String(today.day).padStart(2, '0')}.${spec.ext}`;
     downloadText(name, text, spec.mime);
+  } else if (action === 'share-ai' && entry) {
+    await shareToAi(entry);
   } else if (action === 'copy-saved-one' && entry) {
     await copyText(SivreeSaved.formatCitations([entry], format, citeContext()), t('引用をコピーしました'));
   } else if (action === 'unsave' && entry) {

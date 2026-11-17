@@ -249,12 +249,33 @@ copied.length = 0;
 click(w, $(w, '[data-action="copy-saved"]'));
 const aiText = copied.length === 0 && await until(() => copied.length === 1) ? copied[0] : '';
 check('AI用をコピー: 指示文（件数・本文を含まないこと・推測しないこと）、続けて発信元と原題・発表日・URL・メモ',
-  aiText.startsWith('Below are 1 headlines and URLs of announcements from primary sources') && aiText.includes('say so instead of guessing.\n\n- Bank of Japan: “Policy update” (2026-10-15)\n  ' + item.sourceUrl + '\n  Note: Check the footnote'), aiText);
+  aiText.startsWith('Below are 1 headlines and URLs of announcements from primary sources') && aiText.includes('that I want to keep on record') && aiText.includes('say so instead of guessing.\n\n- Bank of Japan: “Policy update” (2026-10-15)\n  ' + item.sourceUrl + '\n  Note: Check the footnote'), aiText);
 downloads.length = 0;
 click(w, $(w, '[data-action="download-saved"]'));
 check('AI用をファイルに保存: Markdown（.md、BOM なし）', await until(() => downloads.length === 1 && downloads[0].name !== '') && /^sivree-saved-\d{4}-\d{2}-\d{2}\.md$/.test(downloads[0].name) && downloads[0].blob.type.startsWith('text/markdown') && downloads[0].blob.text_ === aiText, downloads.map((d) => d.name));
 formatSelect.value = 'brief';
 formatSelect.dispatchEvent(new w.Event('change', { bubbles: true }));
+
+// 「AIに共有」: 共有できない環境ではコピー、共有できる環境では OS の共有シート（メモは渡さない）
+const shared: any[] = [];
+const shareText = `Below are 1 headlines`;
+copied.length = 0;
+click(w, $(w, '#savedList [data-action="share-ai"]'));
+check('AIに共有（共有できない環境）: 同じ文をコピーし、保存したメモは含めない',
+  await until(() => copied.length === 1) && copied[0].startsWith(shareText) && copied[0].includes(item.sourceUrl) && !copied[0].includes('Check the footnote') && !copied[0].includes('Note:'), copied);
+check('AIに共有: コピーしたことを伝える', await until(() => $(w, '.toast')?.textContent?.includes('Copied the text for your AI') === true), $(w, '.toast')?.textContent ?? '');
+Object.defineProperty(w.navigator, 'share', { value: async (data: any) => { shared.push(data); }, configurable: true });
+copied.length = 0;
+click(w, $(w, '#savedList [data-action="share-ai"]'));
+check('AIに共有（共有できる環境）: 共有シートに文を渡し、コピーはしない', await until(() => shared.length === 1) && shared[0].text.startsWith(shareText) && shared[0].text.includes(item.sourceUrl) && Object.keys(shared[0]).join() === 'text' && copied.length === 0, shared);
+Object.defineProperty(w.navigator, 'share', { value: async () => { const error: any = new Error('cancelled'); error.name = 'AbortError'; throw error; }, configurable: true });
+click(w, $(w, '#savedList [data-action="share-ai"]'));
+await new Promise((resolve) => setTimeout(resolve, 200));
+check('AIに共有: 共有シートを閉じただけなら、コピーに切り替えない', copied.length === 0, copied);
+Object.defineProperty(w.navigator, 'share', { value: async () => { throw new Error('failed'); }, configurable: true });
+click(w, $(w, '#savedList [data-action="share-ai"]'));
+check('AIに共有: 共有に失敗したときは、コピーに切り替える', await until(() => copied.length === 1) && copied[0].startsWith(shareText), copied);
+Object.defineProperty(w.navigator, 'share', { value: undefined, configurable: true });
 
 // メモを書いた直後（入力欄が外れた保存が終わる前）にコピーしても、そのメモが入る
 const freshNote = $(w, 'textarea[data-note-for]') as HTMLTextAreaElement;
@@ -280,6 +301,13 @@ if (!$(w, '.cite-text')) click(w, $(w, '[data-action="toggle-cite"]'));
 check('詳細画面の引用は、記憶した書式が資料用でも出典表記になり、選択肢に資料用・CSV は出ない',
   await until(() => $(w, '.cite-text')) && $(w, '.cite-text')!.textContent!.startsWith('Bank of Japan, “Policy update” (published October 15, 2026)')
   && !$(w, '[data-cite-format="brief"]') && !$(w, '[data-cite-format="ai"]') && !$(w, '[data-cite-format="csv"]') && $(w, '[data-cite-format="plain"]')!.getAttribute('aria-pressed') === 'true', $(w, '.cite-text')?.textContent ?? '');
+
+// 詳細画面の「AIに共有」: 保存していない記事でも渡せる
+Object.defineProperty(w.navigator, 'share', { value: async (data: any) => { shared.push(data); }, configurable: true });
+shared.length = 0;
+click(w, $(w, '.detail-tools [data-action="share-ai"]'));
+check('詳細画面の「AIに共有」: 共有シートに、この記事の URL を入れた文を渡す', await until(() => shared.length === 1) && shared[0].text.includes(item.sourceUrl) && shared[0].text.includes('Policy update'), shared);
+Object.defineProperty(w.navigator, 'share', { value: undefined, configurable: true });
 
 // 設定の貼り付けは、この端末の保存した記事を消さない
 await go(w, '#/settings');

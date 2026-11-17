@@ -434,5 +434,7 @@
   "発表日不明": "Date unknown",
   "AI用": "For AI",
   "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Notes are included only in the briefing list, AI list, CSV and RIS.",
-  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたいと保存した{n}件の見出しと URL です。本文は含まれていません。この話題の記録として扱ってください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Below are {n} headlines and URLs of announcements from primary sources (governments, companies, research bodies, etc.) that I saved as topics worth keeping on record. The full text is not included. Treat them as a record for this topic. When you need the content, read the original at the URL; if you cannot read it, say so instead of guessing."
+  "AIに共有": "Share with AI",
+  "AIに渡す文をコピーしました": "Copied the text for your AI",
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Below are {n} headlines and URLs of announcements from primary sources (governments, companies, research bodies, etc.) that I want to keep on record. The full text is not included. Please remember them as a record for this topic. When you need the content, read the original at the URL; if you cannot read it, say so instead of guessing."
 }

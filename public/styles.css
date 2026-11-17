@@ -2520,6 +2520,39 @@ html.is-swiping body { overflow-x: clip; }
 
 .interest-button svg { width: 20px; height: 20px; }
 
+/* 「AIに共有」は、「関心がない…」の左に並べる（同じ大きさ・同じタップ範囲） */
+.ai-share-button {
+  position: absolute;
+  right: 52px;
+  bottom: 8px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.ai-share-button::before { content: ""; position: absolute; inset: -6px; }
+
+.ai-share-button:hover { background: var(--surface-2); color: var(--text); }
+
+.ai-share-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.ai-share-button.is-on-image {
+  top: 10px;
+  right: 58px;
+  bottom: auto;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+}
+
+.ai-share-button.is-on-image:hover { background: rgba(0, 0, 0, 0.7); color: #fff; }
+
 /* 画像の上に重ねるときは、画像に左右されない背景を付ける */
 .interest-button.is-on-image {
   top: 10px;
@@ -2533,7 +2566,7 @@ html.is-swiping body { overflow-x: clip; }
 
 /* 右下のボタンがサムネイルに重ならない高さと、ボタンの下に回り込まない余白 */
 .card-wrap .card { min-height: 148px; }
-.card-wrap .card-foot { padding-right: 36px; }
+.card-wrap .card-foot { padding-right: 84px; }
 
 @media (max-width: 480px) {
   .card-wrap .card { min-height: 134px; }
