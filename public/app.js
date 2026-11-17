@@ -136,7 +136,7 @@ const READ_LIMIT = 300;
 const INSTALL_HINT_KEY = 'sivree:installHint';
 // 記事の画面で選べる引用の書式（資料用と CSV は、保存した記事の一覧からの書き出しだけ）
 const CITE_FORMATS = ['plain', 'apa', 'markdown', 'bibtex', 'ris'];
-const SAVED_FORMATS = ['plain', 'brief', 'apa', 'markdown', 'bibtex', 'ris', 'csv'];
+const SAVED_FORMATS = ['plain', 'brief', 'ai', 'apa', 'markdown', 'bibtex', 'ris', 'csv'];
 
 // 記事の画像は発信元のサーバーから直接読み込まれ、閲覧していることが発信元に伝わる（IP アドレスなど）。そのため、初期状態では表示しない
 function imagesOn() {
@@ -199,7 +199,8 @@ const ICONS = {
   stack: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg>',
   bookmark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/></svg>',
   external: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
-  more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></svg>'
+  more: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></svg>',
+  share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7"/></svg>'
 };
 
 // ---------- 共通 ----------
@@ -340,7 +341,7 @@ function setSaved(list) {
 
 const isSaved = id => savedIds.has(id);
 const bookmarkIcon = filled => (filled ? ICONS.bookmark.replace('<svg', '<svg class="is-filled"') : ICONS.bookmark);
-const formatLabel = format => ({ plain: t('出典表記'), brief: t('資料用'), apa: 'APA', markdown: 'Markdown', bibtex: 'BibTeX', ris: 'RIS', csv: 'CSV' })[format];
+const formatLabel = format => ({ plain: t('出典表記'), brief: t('資料用'), ai: t('AI用'), apa: 'APA', markdown: 'Markdown', bibtex: 'BibTeX', ris: 'RIS', csv: 'CSV' })[format];
 
 function citeFormat(allowListOnly) {
   try {
@@ -365,7 +366,8 @@ function citeContext() {
     plain: fields => t('{source}「{title}」（{date}発表）{url}（{accessed}閲覧）', fields),
     briefItem: fields => t('{source}「{title}」', fields),
     briefNote: fields => t('メモ: {note}', fields),
-    undated: t('発表日不明')
+    undated: t('発表日不明'),
+    aiIntro: fields => t('以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。', fields)
   };
 }
 
@@ -476,6 +478,7 @@ function renderDetailTools(item) {
     <div class="detail-tools">
       <button class="tool-button${saved ? ' is-on' : ''}" type="button" data-action="toggle-save" aria-pressed="${saved}">${bookmarkIcon(saved)}${escapeHtml(saved ? t('保存済み') : t('保存'))}</button>
       <button class="tool-button${open ? ' is-on' : ''}" type="button" data-action="toggle-cite" aria-expanded="${open}">${ICONS.quote}${escapeHtml(t('引用'))}</button>
+      <button class="tool-button" type="button" data-action="share-ai">${ICONS.share}${escapeHtml(t('AIに共有'))}</button>
     </div>
     ${open ? renderCitePanel(savedItems.find(entry => entry.id === item.id) ?? record) : ''}
   `;
@@ -711,9 +714,122 @@ function renderHero(item) {
         <div class="hero-meta">${escapeHtml(t(item.sourceName))} · ${escapeHtml(formatRelative(item.publishedAt))}${item.matches?.length ? ` · ${escapeHtml(formatList(item.matches.map(m => t(m.label))))}` : ''}</div>
       </div>
     </a>
+    ${aiShareButton(item, 'is-on-image')}
     ${interestButton(item, 'is-on-image')}
     </div>
   `;
+}
+
+/** 記事を、使っている AI（Claude・ChatGPT・Gemini など）に渡すボタン（サンプル記事には出さない）。カードの右下、「関心がない…」の左 */
+function aiShareButton(item, extraClass = '') {
+  if (item.isSample) return '';
+  const label = t('AIに共有');
+  return `<button class="ai-share-button${extraClass ? ` ${extraClass}` : ''}" type="button" data-action="share-ai" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${ICONS.share}</button>`;
+}
+
+// ---------- 「AIに共有」 ----------
+// 押すと、渡し先を選ぶ小さな画面を開く: Claude・ChatGPT は文を入れた状態で開き、Gemini は（文を入れて開けないので）コピーしてから開く。
+// 「その他のアプリ」は OS の共有シート、「コピーだけする」は文のコピー。本文は含まない（見出し・発信元・日付・URL。メモは渡さない）。
+// 開くのは利用者が選んだときだけで、Sivree が AI に送ることはない
+
+/** 渡し先。prefill は、文を URL に入れて開ける先（2026-11-17 に実機で確認: Claude・ChatGPT は入力欄に入るだけで送信されない。Gemini は無視される） */
+const AI_TARGETS = [
+  { id: 'claude', name: 'Claude', open: 'https://claude.ai/new', prefill: 'https://claude.ai/new?q=' },
+  { id: 'chatgpt', name: 'ChatGPT', open: 'https://chatgpt.com/', prefill: 'https://chatgpt.com/?q=' },
+  { id: 'gemini', name: 'Gemini', open: 'https://gemini.google.com/app', prefill: '' }
+];
+/** URL が長すぎるときは、文を入れずに開いてコピーに切り替える（記事1件なら、ふつうここには届かない） */
+const AI_URL_LIMIT = 6000;
+
+let aiSheet = null;
+
+function aiText(record) {
+  return SivreeSaved.formatCitations([{ ...record, note: '' }], 'ai', citeContext());
+}
+
+/** 渡し先を開くリンクと、文を入れられるか */
+function aiTargetLink(target, text) {
+  const url = target.prefill ? `${target.prefill}${encodeURIComponent(text)}` : '';
+  if (url && url.length <= AI_URL_LIMIT) return { href: url, copy: false };
+  return { href: target.open, copy: true };
+}
+
+function shareToAi(record, trigger) {
+  if (!record) { showToast(t('コピーできませんでした')); return; }
+  if (aiSheet) return;
+  aiSheet = { record, text: aiText(record), trigger };
+  const root = document.createElement('div');
+  root.id = 'aiSheet';
+  root.className = 'sheet-backdrop';
+  root.addEventListener('click', handleAiClick);
+  document.body.appendChild(root);
+  document.body.classList.add('has-sheet');
+  renderAiSheet();
+}
+
+function closeAiSheet(restoreFocus = true) {
+  const trigger = aiSheet?.trigger;
+  aiSheet = null;
+  document.getElementById('aiSheet')?.remove();
+  document.body.classList.remove('has-sheet');
+  if (restoreFocus && trigger?.isConnected) trigger.focus();
+}
+
+function renderAiSheet() {
+  const root = document.getElementById('aiSheet');
+  if (!aiSheet || !root) return;
+  const links = AI_TARGETS.map((target) => {
+    const { href, copy } = aiTargetLink(target, aiSheet.text);
+    const note = copy ? t('文をコピーしてから開きます。貼り付けてください。') : t('文を入れた状態で開きます。');
+    return `<a class="sheet-option" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" data-ai="${target.id}"${copy ? ' data-ai-copy' : ''}>
+      <strong>${escapeHtml(target.name)}</strong><small>${escapeHtml(note)}</small>
+    </a>`;
+  });
+  const share = typeof navigator.share === 'function'
+    ? `<button class="sheet-option" type="button" data-ai-action="share"><strong>${escapeHtml(t('その他のアプリ'))}</strong><small>${escapeHtml(t('共有シートから、使っているアプリを選びます。'))}</small></button>` : '';
+  const copy = `<button class="sheet-option" type="button" data-ai-action="copy"><strong>${escapeHtml(t('コピーだけする'))}</strong><small>${escapeHtml(t('この文をコピーします。'))}</small></button>`;
+  root.innerHTML = `
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="aiSheetTitle">
+      <div class="sheet-head">
+        <h2 id="aiSheetTitle">${escapeHtml(t('AIに共有'))}</h2>
+        <button class="icon-button" type="button" data-ai-action="close" aria-label="${escapeHtml(t('閉じる'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <p class="sheet-article">${escapeHtml(aiSheet.record.title)}</p>
+      ${links.join('')}${share}${copy}
+    </div>`;
+  root.querySelector('.sheet-option')?.focus();
+}
+
+async function handleAiClick(event) {
+  const sheet = aiSheet;
+  if (!sheet) return;
+  if (event.target.id === 'aiSheet') { closeAiSheet(); return; }
+  const link = event.target.closest('[data-ai]');
+  if (link) {
+    // 開くのはリンク自体（タップの中で開くので、ブロックされない）。文を入れられない先は、先にコピーしておく
+    if (link.hasAttribute('data-ai-copy')) {
+      const target = AI_TARGETS.find(entry => entry.id === link.dataset.ai);
+      copyText(sheet.text, t('文をコピーしました。{name}に貼り付けてください。', { name: target?.name ?? '' }));
+    }
+    setTimeout(() => closeAiSheet(false), 0);
+    return;
+  }
+  const button = event.target.closest('[data-ai-action]');
+  if (!button) return;
+  const action = button.dataset.aiAction;
+  if (action === 'close') closeAiSheet();
+  else if (action === 'copy') {
+    closeAiSheet(false);
+    await copyText(sheet.text, t('AIに渡す文をコピーしました'));
+  } else if (action === 'share') {
+    closeAiSheet(false);
+    try {
+      await navigator.share({ text: sheet.text });
+    } catch (error) {
+      // 共有シートを閉じただけ（取り消し）なら何もしない。それ以外はコピーに切り替える
+      if (error?.name !== 'AbortError') await copyText(sheet.text, t('AIに渡す文をコピーしました'));
+    }
+  }
 }
 
 /** 記事の「関心がない…」を開くボタン（サンプル記事には出さない） */
@@ -826,6 +942,7 @@ function renderCard(item) {
       </div>
       ${media}
     </a>
+    ${aiShareButton(item)}
     ${interestButton(item)}
     </div>
   `;
@@ -1180,6 +1297,12 @@ newsList.addEventListener('click', (event) => {
   const interest = event.target.closest('[data-action="interest-menu"]');
   if (interest) {
     openInterestSheet(itemsById.get(interest.dataset.id), interest);
+    return;
+  }
+  const share = event.target.closest('[data-action="share-ai"]');
+  if (share) {
+    const item = itemsById.get(share.dataset.id);
+    if (item) shareToAi(SivreeSaved.toSavedItem(item), share);
     return;
   }
   if (event.target.closest('.card, .hero, .briefing-item')) {
@@ -1767,9 +1890,9 @@ function handleInterestSubmit(event) {
 
 // Esc で閉じる。Tab は画面の中だけを回る
 document.addEventListener('keydown', (event) => {
-  const root = document.getElementById('interestSheet');
-  if (!root || !interestSheet) return;
-  if (event.key === 'Escape') { event.preventDefault(); closeInterestSheet(); return; }
+  const root = document.getElementById('interestSheet') ?? document.getElementById('aiSheet');
+  if (!root || !(interestSheet || aiSheet)) return;
+  if (event.key === 'Escape') { event.preventDefault(); if (aiSheet) closeAiSheet(); else closeInterestSheet(); return; }
   if (event.key !== 'Tab') return;
   const focusable = [...root.querySelectorAll('button:not(:disabled), input, [href]')];
   if (!focusable.length) return;
@@ -1779,7 +1902,7 @@ document.addEventListener('keydown', (event) => {
   else if (!event.shiftKey && (document.activeElement === last || !root.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
 });
 
-window.addEventListener('hashchange', () => closeInterestSheet(false));
+window.addEventListener('hashchange', () => { closeInterestSheet(false); closeAiSheet(false); });
 
 detailView.addEventListener('click', (event) => {
   if (currentDetail?.item) {
@@ -1790,6 +1913,10 @@ detailView.addEventListener('click', (event) => {
     }
     if (event.target.closest('[data-action="toggle-save"]')) {
       toggleSave(currentDetail.item);
+      return;
+    }
+    if (event.target.closest('[data-action="share-ai"]')) {
+      shareToAi(SivreeSaved.toSavedItem(currentDetail.item), event.target.closest('[data-action="share-ai"]'));
       return;
     }
     if (event.target.closest('[data-action="toggle-cite"]')) {
@@ -1864,6 +1991,7 @@ function renderSavedItem(entry) {
       </details>
       <div class="saved-item-actions">
         <button class="text-button" type="button" data-action="copy-saved-one">${escapeHtml(t('引用をコピー'))}</button>
+        <button class="text-button" type="button" data-action="share-ai">${escapeHtml(t('AIに共有'))}</button>
         <button class="text-button" type="button" data-action="unsave">${escapeHtml(t('保存を解除'))}</button>
       </div>
     </li>
@@ -1911,7 +2039,7 @@ function renderSaved() {
           <button class="secondary-button" type="button" data-action="copy-saved">${escapeHtml(savedCopyLabel())}</button>
           <button class="secondary-button" type="button" data-action="download-saved">${escapeHtml(t('ファイルに保存'))}</button>
         </div>
-        <p class="settings-note">${escapeHtml(t('メモは、資料用・CSV・RIS にだけ含まれます。'))}</p>
+        <p class="settings-note">${escapeHtml(t('メモは、資料用・AI用・CSV・RIS にだけ含まれます。'))}</p>
       </div>` : ''}
     <div id="savedList">${renderSavedList()}</div>
   `;
@@ -2090,6 +2218,8 @@ savedView.addEventListener('click', async (event) => {
     const today = SivreeSaved.localParts(new Date());
     const name = `sivree-saved-${today.year}-${String(today.month).padStart(2, '0')}-${String(today.day).padStart(2, '0')}.${spec.ext}`;
     downloadText(name, text, spec.mime);
+  } else if (action === 'share-ai' && entry) {
+    shareToAi(entry, event.target.closest('[data-action="share-ai"]'));
   } else if (action === 'copy-saved-one' && entry) {
     await copyText(SivreeSaved.formatCitations([entry], format, citeContext()), t('引用をコピーしました'));
   } else if (action === 'unsave' && entry) {

@@ -427,5 +427,16 @@
   "{source}「{title}」": "{source}: «{title}»",
   "メモ: {note}": "Nota: {note}",
   "発表日不明": "Fecha desconocida",
-  "メモは、資料用・CSV・RIS にだけ含まれます。": "Las notas solo se incluyen en la lista para informes, CSV y RIS."
+  "AI用": "Para IA",
+  "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Las notas solo se incluyen en la lista para informes, la lista para IA, CSV y RIS.",
+  "AIに共有": "Compartir con IA",
+  "AIに渡す文をコピーしました": "Texto para la IA copiado",
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "A continuación hay {n} titulares con su URL de anuncios de fuentes primarias (gobiernos, empresas, organismos de investigación, etc.) que quiero dejar registrados. No incluyen el texto completo. Recuérdalos como un registro sobre este tema. Cuando necesites el contenido, lee el original en la URL; si no puedes leerlo, dilo en lugar de suponer.",
+  "文を入れた状態で開きます。": "Se abre con el texto ya escrito.",
+  "文をコピーしてから開きます。貼り付けてください。": "Copia el texto y luego abre. Solo pégalo.",
+  "その他のアプリ": "Otras apps",
+  "共有シートから、使っているアプリを選びます。": "Elige una app en tu menú de compartir.",
+  "コピーだけする": "Solo copiar",
+  "この文をコピーします。": "Copia este texto.",
+  "文をコピーしました。{name}に貼り付けてください。": "Texto copiado. Pégalo en {name}."
 }

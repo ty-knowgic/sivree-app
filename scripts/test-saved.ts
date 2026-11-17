@@ -34,7 +34,8 @@ const ctx = {
   plain: (f: any) => `${f.source}|${f.title}|${f.date}|${f.url}|${f.accessed}`,
   briefItem: (f: any) => `${f.source}: "${f.title}"`,
   briefNote: (f: any) => `Note: ${f.note}`,
-  undated: 'Date unknown'
+  undated: 'Date unknown',
+  aiIntro: (f: any) => `INTRO ${f.n}`
 };
 const record = (patch: object = {}) => ({ ...S.toSavedItem({ ...base, ...patch }, new Date(2026, 9, 20, 12)), ...patch });
 
@@ -78,8 +79,20 @@ check('資料用: 1件は「発信元: 原題」・URL・メモの3行（メモ�
   && briefDays[2] === `October 13, 2026\n- Bank of Japan: "The day before"\n  ${briefItems[2].url}`, brief);
 check('資料用: 保存の写しにない項目（説明文・要約）は出さない', !/summary|description/i.test(brief) && !brief.includes('undefined'));
 check('資料用: メモを含むのは資料用・CSV・RIS だけ（一覧からだけ選べる書式は資料用と CSV）', S.formatCitations([withNote], 'brief', ctx).includes('private note')
-  && JSON.stringify(S.LIST_ONLY_FORMATS) === JSON.stringify(['brief', 'csv']) && S.FORMATS.brief.ext === 'txt');
+  && JSON.stringify(S.LIST_ONLY_FORMATS) === JSON.stringify(['brief', 'ai', 'csv']) && S.FORMATS.brief.ext === 'txt');
 check('資料用: 空の一覧は空の文字列', S.formatCitations([], 'brief', ctx) === '');
+
+// AI用（ai）: 利用者の AI に、記録しておく話題として渡す形
+const ai = S.formatCitations(briefItems, 'ai', ctx);
+const aiLines = ai.split('\n');
+check('AI用: 先頭は指示文（件数入り）、1行あけて一覧', aiLines[0] === 'INTRO 5' && aiLines[1] === '', ai);
+check('AI用: 発表の新しい順に平らに並べ（日をまとめない）、日付は発信元の地域の暦の ISO（読めない記事は日付なし）、メモは1行にまとめる',
+  aiLines.slice(4, 7).join('\n') === `- Bank of Japan: "Morning notice" (2026-10-15)\n  ${briefItems[0].url}\n  Note: Share with the Director today`
+  && aiLines.includes('- Bank of Japan: "Canadian notice" (2026-10-14)')
+  && aiLines.filter((line: string) => line.startsWith('- ')).map((line: string) => line.match(/"(.*?)"/)![1]).join('|') === 'Canadian notice|Morning notice|Earlier on the 15th|The day before|Undated'
+  && aiLines.includes('- Bank of Japan: "Undated"'), ai);
+check('AI用: 保存の写しにない項目（説明文・要約）は出さず、空白だけのメモも出さない', !/summary|description/i.test(ai) && !ai.includes('undefined') && ai.split('Note:').length === 2, ai);
+check('AI用: メモを含む。空の一覧は指示文だけ', S.formatCitations([withNote], 'ai', ctx).includes('private note') && S.formatCitations([], 'ai', ctx) === 'INTRO 0' && S.FORMATS.ai.ext === 'md');
 
 check('保存の記録: 不正な URL・id・空の見出しは作らない', ['javascript:alert(1)', 'not a url', ''].every((url) => S.toSavedItem({ ...base, sourceUrl: url }) === null)
   && S.toSavedItem({ ...base, id: 'xyz' }) === null && S.toSavedItem({ ...base, title: '   ' }) === null);
@@ -215,9 +228,9 @@ check('ファイルに保存: ファイル名と種類（CSV）', await until(()
 check('ファイルの先頭は BOM（Excel が UTF-8 と判断する）で、メモを含む', downloads[0].blob.text_.startsWith('\uFEFF"published"') && downloads[0].blob.text_.includes('Check the footnote'));
 
 // 資料用: 一覧の書式の選択肢に出て、メモを含む資料用の文をコピー・保存できる
-check('書式の選択肢に「資料用」がある（出典表記の次）', [...(formatSelect as any).options].map((option: any) => option.value).join() === 'plain,brief,apa,markdown,bibtex,ris,csv'
-  && (formatSelect as any).options[1].textContent === 'Briefing list', [...(formatSelect as any).options].map((option: any) => option.textContent));
-check('メモの注記が資料用にも触れている', $(w, '.saved-toolbar .settings-note')!.textContent === 'Notes are included only in the briefing list, CSV and RIS.', $(w, '.saved-toolbar .settings-note')!.textContent!);
+check('書式の選択肢に「資料用」がある（出典表記の次）', [...(formatSelect as any).options].map((option: any) => option.value).join() === 'plain,brief,ai,apa,markdown,bibtex,ris,csv'
+  && (formatSelect as any).options[1].textContent === 'Briefing list' && (formatSelect as any).options[2].textContent === 'For AI', [...(formatSelect as any).options].map((option: any) => option.textContent));
+check('メモの注記が資料用にも触れている', $(w, '.saved-toolbar .settings-note')!.textContent === 'Notes are included only in the briefing list, AI list, CSV and RIS.', $(w, '.saved-toolbar .settings-note')!.textContent!);
 formatSelect.value = 'brief';
 formatSelect.dispatchEvent(new w.Event('change', { bubbles: true }));
 copied.length = 0;
@@ -228,6 +241,67 @@ check('選んだ資料用は覚えておく', w.localStorage.getItem('sivree:cit
 downloads.length = 0;
 click(w, $(w, '[data-action="download-saved"]'));
 check('資料用をファイルに保存: テキストファイル（BOM なし）', await until(() => downloads.length === 1 && downloads[0].name !== '') && /^sivree-saved-\d{4}-\d{2}-\d{2}\.txt$/.test(downloads[0].name) && downloads[0].blob.type.startsWith('text/plain') && downloads[0].blob.text_ === briefText, downloads.map((d) => d.name));
+
+// AI用: 翻訳した指示文に続けて、1件ずつ（発表日つき）。ファイルは Markdown
+formatSelect.value = 'ai';
+formatSelect.dispatchEvent(new w.Event('change', { bubbles: true }));
+copied.length = 0;
+click(w, $(w, '[data-action="copy-saved"]'));
+const aiText = copied.length === 0 && await until(() => copied.length === 1) ? copied[0] : '';
+check('AI用をコピー: 指示文（件数・本文を含まないこと・推測しないこと）、続けて発信元と原題・発表日・URL・メモ',
+  aiText.startsWith('Below are 1 headlines and URLs of announcements from primary sources') && aiText.includes('that I want to keep on record') && aiText.includes('say so instead of guessing.\n\n- Bank of Japan: “Policy update” (2026-10-15)\n  ' + item.sourceUrl + '\n  Note: Check the footnote'), aiText);
+downloads.length = 0;
+click(w, $(w, '[data-action="download-saved"]'));
+check('AI用をファイルに保存: Markdown（.md、BOM なし）', await until(() => downloads.length === 1 && downloads[0].name !== '') && /^sivree-saved-\d{4}-\d{2}-\d{2}\.md$/.test(downloads[0].name) && downloads[0].blob.type.startsWith('text/markdown') && downloads[0].blob.text_ === aiText, downloads.map((d) => d.name));
+formatSelect.value = 'brief';
+formatSelect.dispatchEvent(new w.Event('change', { bubbles: true }));
+
+// 「AIに共有」: 渡し先を選ぶ画面（Claude・ChatGPT は文を入れて開く、Gemini はコピーして開く、その他のアプリ、コピーだけ）。メモは渡さない
+const shared: any[] = [];
+const shareText = `Below are 1 headlines`;
+const openAi = async (selector: string) => { click(w, $(w, selector)); return until(() => $(w, '#aiSheet') !== null); };
+const aiLink = (id: string) => $(w, `#aiSheet [data-ai="${id}"]`) as HTMLAnchorElement | null;
+const hrefText = (href: string, prefix: string) => decodeURIComponent(href.slice(prefix.length));
+copied.length = 0;
+check('AIに共有: 渡し先を選ぶ画面が開く', await openAi('#savedList [data-action="share-ai"]') && $(w, '#aiSheet [role="dialog"]') !== null && $(w, '#aiSheet .sheet-article')?.textContent === item.title, $(w, '#aiSheet')?.textContent ?? '');
+const claude = aiLink('claude'); const chatgpt = aiLink('chatgpt'); const gemini = aiLink('gemini');
+check('AIに共有: Claude は文を入れて開く（メモは含めない、タブを分けて開く）',
+  !!claude && claude.href.startsWith('https://claude.ai/new?q=') && hrefText(claude.href, 'https://claude.ai/new?q=').startsWith(shareText) && hrefText(claude.href, 'https://claude.ai/new?q=').includes(item.sourceUrl)
+  && !claude.href.includes('Check') && claude.target === '_blank' && claude.rel.includes('noopener') && !claude.hasAttribute('data-ai-copy'), claude?.href ?? '');
+check('AIに共有: ChatGPT も文を入れて開く', !!chatgpt && chatgpt.href.startsWith('https://chatgpt.com/?q=') && hrefText(chatgpt.href, 'https://chatgpt.com/?q=').startsWith(shareText) && !chatgpt.hasAttribute('data-ai-copy'), chatgpt?.href ?? '');
+check('AIに共有: Gemini は文を入れられないので、コピーしてから開く', !!gemini && gemini.href === 'https://gemini.google.com/app' && gemini.hasAttribute('data-ai-copy'), gemini?.href ?? '');
+check('AIに共有: 共有できない環境では「その他のアプリ」を出さず、「コピーだけする」は出す', $(w, '#aiSheet [data-ai-action="share"]') === null && $(w, '#aiSheet [data-ai-action="copy"]') !== null, $(w, '#aiSheet')?.textContent ?? '');
+click(w, gemini);
+check('AIに共有: Gemini を選ぶと同じ文をコピーし、貼り付ける先を伝える',
+  await until(() => copied.length === 1) && copied[0].startsWith(shareText) && copied[0].includes(item.sourceUrl) && !copied[0].includes('Note:')
+  && await until(() => $(w, '.toast')?.textContent?.includes('Paste it into Gemini') === true), copied);
+check('AIに共有: 選んだら画面を閉じる', await until(() => $(w, '#aiSheet') === null));
+copied.length = 0;
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet [data-ai-action="copy"]'));
+check('AIに共有: 「コピーだけする」は文をコピーし、メモは含めない',
+  await until(() => copied.length === 1) && copied[0].startsWith(shareText) && !copied[0].includes('Check the footnote') && await until(() => $(w, '.toast')?.textContent?.includes('Copied the text for your AI') === true) && $(w, '#aiSheet') === null, copied);
+await openAi('#savedList [data-action="share-ai"]');
+w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+check('AIに共有: Esc で閉じる', await until(() => $(w, '#aiSheet') === null));
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet'));
+check('AIに共有: 外側を押すと閉じる', await until(() => $(w, '#aiSheet') === null));
+Object.defineProperty(w.navigator, 'share', { value: async (data: any) => { shared.push(data); }, configurable: true });
+copied.length = 0;
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet [data-ai-action="share"]'));
+check('AIに共有（共有できる環境）: 「その他のアプリ」で共有シートに文だけを渡し、コピーはしない', await until(() => shared.length === 1) && shared[0].text.startsWith(shareText) && shared[0].text.includes(item.sourceUrl) && Object.keys(shared[0]).join() === 'text' && copied.length === 0 && $(w, '#aiSheet') === null, shared);
+Object.defineProperty(w.navigator, 'share', { value: async () => { const error: any = new Error('cancelled'); error.name = 'AbortError'; throw error; }, configurable: true });
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet [data-ai-action="share"]'));
+await new Promise((resolve) => setTimeout(resolve, 200));
+check('AIに共有: 共有シートを閉じただけなら、コピーに切り替えない', copied.length === 0, copied);
+Object.defineProperty(w.navigator, 'share', { value: async () => { throw new Error('failed'); }, configurable: true });
+await openAi('#savedList [data-action="share-ai"]');
+click(w, $(w, '#aiSheet [data-ai-action="share"]'));
+check('AIに共有: 共有に失敗したときは、コピーに切り替える', await until(() => copied.length === 1) && copied[0].startsWith(shareText), copied);
+Object.defineProperty(w.navigator, 'share', { value: undefined, configurable: true });
 
 // メモを書いた直後（入力欄が外れた保存が終わる前）にコピーしても、そのメモが入る
 const freshNote = $(w, 'textarea[data-note-for]') as HTMLTextAreaElement;
@@ -252,7 +326,13 @@ await until(() => $(w, '[data-action="toggle-cite"]'));
 if (!$(w, '.cite-text')) click(w, $(w, '[data-action="toggle-cite"]'));
 check('詳細画面の引用は、記憶した書式が資料用でも出典表記になり、選択肢に資料用・CSV は出ない',
   await until(() => $(w, '.cite-text')) && $(w, '.cite-text')!.textContent!.startsWith('Bank of Japan, “Policy update” (published October 15, 2026)')
-  && !$(w, '[data-cite-format="brief"]') && !$(w, '[data-cite-format="csv"]') && $(w, '[data-cite-format="plain"]')!.getAttribute('aria-pressed') === 'true', $(w, '.cite-text')?.textContent ?? '');
+  && !$(w, '[data-cite-format="brief"]') && !$(w, '[data-cite-format="ai"]') && !$(w, '[data-cite-format="csv"]') && $(w, '[data-cite-format="plain"]')!.getAttribute('aria-pressed') === 'true', $(w, '.cite-text')?.textContent ?? '');
+
+// 詳細画面の「AIに共有」: 保存していない記事でも渡せる
+shared.length = 0;
+check('詳細画面の「AIに共有」: 渡し先を選ぶ画面に、この記事の URL を入れた文が入る', await openAi('.detail-tools [data-action="share-ai"]') && hrefText(aiLink('claude')!.href, 'https://claude.ai/new?q=').includes(item.sourceUrl) && hrefText(aiLink('claude')!.href, 'https://claude.ai/new?q=').includes('Policy update'), aiLink('claude')?.href ?? '');
+click(w, $(w, '#aiSheet [data-ai-action="close"]'));
+check('詳細画面の「AIに共有」: 閉じるボタンで閉じる', await until(() => $(w, '#aiSheet') === null));
 
 // 設定の貼り付けは、この端末の保存した記事を消さない
 await go(w, '#/settings');

@@ -400,5 +400,16 @@
   "{source}「{title}」": "{source}: “{title}”",
   "メモ: {note}": "Tala: {note}",
   "発表日不明": "Hindi alam ang petsa",
-  "メモは、資料用・CSV・RIS にだけ含まれます。": "Isinasama lang ang mga tala sa listahan para sa ulat, CSV at RIS."
+  "AI用": "Para sa AI",
+  "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Isinasama lang ang mga tala sa listahan para sa ulat, listahan para sa AI, CSV at RIS.",
+  "AIに共有": "Ibahagi sa AI",
+  "AIに渡す文をコピーしました": "Nakopya ang teksto para sa AI",
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Narito ang {n} pamagat at URL ng mga anunsyo mula sa mga pangunahing pinagmulan (pamahalaan, kumpanya, institusyong pananaliksik, atbp.) na nais kong itala. Wala ang buong teksto. Tandaan mo ang mga ito bilang tala tungkol sa paksang ito. Kapag kailangan mo ang nilalaman, basahin ang orihinal sa URL; kung hindi mo ito mabasa, sabihin iyon sa halip na manghula.",
+  "文を入れた状態で開きます。": "Bubukas na may nakalagay nang teksto.",
+  "文をコピーしてから開きます。貼り付けてください。": "Kokopyahin ang teksto, saka bubuksan. I-paste lang.",
+  "その他のアプリ": "Iba pang app",
+  "共有シートから、使っているアプリを選びます。": "Pumili ng app mula sa iyong share sheet.",
+  "コピーだけする": "Kopyahin lang",
+  "この文をコピーします。": "Kokopyahin ang tekstong ito.",
+  "文をコピーしました。{name}に貼り付けてください。": "Nakopya ang teksto. I-paste ito sa {name}."
 }

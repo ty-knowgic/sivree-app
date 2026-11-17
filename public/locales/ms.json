@@ -391,5 +391,16 @@
   "{source}「{title}」": "{source}: “{title}”",
   "メモ: {note}": "Nota: {note}",
   "発表日不明": "Tarikh tidak diketahui",
-  "メモは、資料用・CSV・RIS にだけ含まれます。": "Nota hanya disertakan dalam senarai untuk laporan, CSV dan RIS."
+  "AI用": "Untuk AI",
+  "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Nota hanya disertakan dalam senarai untuk laporan, senarai untuk AI, CSV dan RIS.",
+  "AIに共有": "Kongsi dengan AI",
+  "AIに渡す文をコピーしました": "Teks untuk AI disalin",
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたい{n}件の見出しと URL です。本文は含まれていません。この話題の記録として覚えておいてください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Berikut {n} tajuk beserta URL pengumuman daripada sumber primer (kerajaan, syarikat, badan penyelidikan, dll.) yang ingin saya rekodkan. Teks penuh tidak disertakan. Ingat ini sebagai rekod untuk topik ini. Jika anda memerlukan kandungannya, baca yang asal melalui URL; jika tidak dapat dibaca, katakan sahaja dan jangan meneka.",
+  "文を入れた状態で開きます。": "Dibuka dengan teks yang sudah diisi.",
+  "文をコピーしてから開きます。貼り付けてください。": "Menyalin teks, kemudian membuka. Tampal sahaja.",
+  "その他のアプリ": "Aplikasi lain",
+  "共有シートから、使っているアプリを選びます。": "Pilih aplikasi daripada helaian kongsi anda.",
+  "コピーだけする": "Salin sahaja",
+  "この文をコピーします。": "Menyalin teks ini.",
+  "文をコピーしました。{name}に貼り付けてください。": "Teks disalin. Tampal ke dalam {name}."
 }

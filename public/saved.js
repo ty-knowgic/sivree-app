@@ -13,6 +13,7 @@
   const FORMATS = {
     plain: { ext: 'txt', mime: 'text/plain' },
     brief: { ext: 'txt', mime: 'text/plain' },
+    ai: { ext: 'md', mime: 'text/markdown' },
     apa: { ext: 'txt', mime: 'text/plain' },
     markdown: { ext: 'md', mime: 'text/markdown' },
     bibtex: { ext: 'bib', mime: 'application/x-bibtex' },
@@ -20,7 +21,7 @@
     csv: { ext: 'csv', mime: 'text/csv' }
   };
   // 保存した記事の一覧からだけ書き出せる書式（1件ずつの引用の画面では選べない）
-  const LIST_ONLY_FORMATS = ['brief', 'csv'];
+  const LIST_ONLY_FORMATS = ['brief', 'ai', 'csv'];
 
   const pad = (number) => String(number).padStart(2, '0');
   const oneLine = (text) => String(text ?? '').replace(/\s+/g, ' ').trim();
@@ -133,6 +134,22 @@
   }
 
   /**
+   * 利用者が使っている AI（Claude・ChatGPT・Gemini など）に、記録しておくべき話題として渡す形。
+   * 先頭に、本文を含まないこと・原文は URL から読むこと・推測しないことを伝える短い指示文を置き、
+   * 続けて発表の新しい順に1件ずつ（原題・発表日・URL・利用者のメモ）。保存の写しが持つ項目だけを使うので、
+   * 説明文や要約は入らない。利用者が貼るか渡すまで、端末の外には出ない
+   */
+  function formatAi(entries, ctx) {
+    const timeOf = (entry) => { const time = Date.parse(entry.item.publishedAt); return Number.isNaN(time) ? -Infinity : time; };
+    const lines = [...entries].sort((a, b) => timeOf(b) - timeOf(a)).flatMap(({ item, source, title, published }) => [
+      `- ${ctx.briefItem({ source, title })}${published ? ` (${isoDate(published)})` : ''}`,
+      `  ${item.url}`,
+      ...(item.note && oneLine(item.note) ? [`  ${ctx.briefNote({ note: oneLine(item.note) })}`] : [])
+    ]);
+    return [ctx.aiIntro({ n: entries.length }), ...(lines.length ? ['', lines.join('\n')] : [])].join('\n');
+  }
+
+  /**
    * 引用を書式に整える。ctx:
    *   locale      表示言語のロケール（plain の日付に使う）
    *   accessed    閲覧日（Date。省略時は今日）
@@ -141,7 +158,8 @@
    *   briefItem   ({ source, title }) => 資料用の1件の見出し行（brief のみ）
    *   briefNote   ({ note }) => 資料用のメモの行（brief のみ）
    *   undated     発表日が読めない記事の見出し（brief のみ）
-   * 引用には利用者のメモを含めない（CSV・RIS・資料用だけが、記録として持ち出せるようメモを含める）
+   *   aiIntro     ({ n }) => AI に渡すときの先頭の指示文（ai のみ。briefItem・briefNote は brief と共用）
+   * 引用には利用者のメモを含めない（CSV・RIS・資料用・AI用だけが、記録として持ち出せるようメモを含める）
    */
   function formatCitations(items, format, ctx) {
     const accessed = localParts(ctx.accessed ?? new Date());
@@ -160,6 +178,7 @@
       })).join('\n');
     }
     if (format === 'brief') return formatBrief(entries, ctx);
+    if (format === 'ai') return formatAi(entries, ctx);
     if (format === 'apa') {
       return entries.map(({ item, source, title, published }) => {
         const date = published ? `${published.year}, ${MONTHS[published.month - 1]} ${published.day}` : 'n.d.';
