@@ -391,5 +391,7 @@
   "{source}「{title}」": "{source}: “{title}”",
   "メモ: {note}": "Nota: {note}",
   "発表日不明": "Tarikh tidak diketahui",
-  "メモは、資料用・CSV・RIS にだけ含まれます。": "Nota hanya disertakan dalam senarai untuk laporan, CSV dan RIS."
+  "AI用": "Untuk AI",
+  "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Nota hanya disertakan dalam senarai untuk laporan, senarai untuk AI, CSV dan RIS.",
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたいと保存した{n}件の見出しと URL です。本文は含まれていません。この話題の記録として扱ってください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "Berikut {n} tajuk beserta URL pengumuman daripada sumber primer (kerajaan, syarikat, badan penyelidikan, dll.) yang saya simpan sebagai topik yang perlu direkodkan. Teks penuh tidak disertakan. Anggap ia rekod untuk topik ini. Jika anda memerlukan kandungannya, baca yang asal melalui URL; jika tidak dapat dibaca, katakan sahaja dan jangan meneka."
 }

@@ -136,7 +136,7 @@ const READ_LIMIT = 300;
 const INSTALL_HINT_KEY = 'sivree:installHint';
 // 記事の画面で選べる引用の書式（資料用と CSV は、保存した記事の一覧からの書き出しだけ）
 const CITE_FORMATS = ['plain', 'apa', 'markdown', 'bibtex', 'ris'];
-const SAVED_FORMATS = ['plain', 'brief', 'apa', 'markdown', 'bibtex', 'ris', 'csv'];
+const SAVED_FORMATS = ['plain', 'brief', 'ai', 'apa', 'markdown', 'bibtex', 'ris', 'csv'];
 
 // 記事の画像は発信元のサーバーから直接読み込まれ、閲覧していることが発信元に伝わる（IP アドレスなど）。そのため、初期状態では表示しない
 function imagesOn() {
@@ -340,7 +340,7 @@ function setSaved(list) {
 
 const isSaved = id => savedIds.has(id);
 const bookmarkIcon = filled => (filled ? ICONS.bookmark.replace('<svg', '<svg class="is-filled"') : ICONS.bookmark);
-const formatLabel = format => ({ plain: t('出典表記'), brief: t('資料用'), apa: 'APA', markdown: 'Markdown', bibtex: 'BibTeX', ris: 'RIS', csv: 'CSV' })[format];
+const formatLabel = format => ({ plain: t('出典表記'), brief: t('資料用'), ai: t('AI用'), apa: 'APA', markdown: 'Markdown', bibtex: 'BibTeX', ris: 'RIS', csv: 'CSV' })[format];
 
 function citeFormat(allowListOnly) {
   try {
@@ -365,7 +365,8 @@ function citeContext() {
     plain: fields => t('{source}「{title}」（{date}発表）{url}（{accessed}閲覧）', fields),
     briefItem: fields => t('{source}「{title}」', fields),
     briefNote: fields => t('メモ: {note}', fields),
-    undated: t('発表日不明')
+    undated: t('発表日不明'),
+    aiIntro: fields => t('以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたいと保存した{n}件の見出しと URL です。本文は含まれていません。この話題の記録として扱ってください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。', fields)
   };
 }
 
@@ -1911,7 +1912,7 @@ function renderSaved() {
           <button class="secondary-button" type="button" data-action="copy-saved">${escapeHtml(savedCopyLabel())}</button>
           <button class="secondary-button" type="button" data-action="download-saved">${escapeHtml(t('ファイルに保存'))}</button>
         </div>
-        <p class="settings-note">${escapeHtml(t('メモは、資料用・CSV・RIS にだけ含まれます。'))}</p>
+        <p class="settings-note">${escapeHtml(t('メモは、資料用・AI用・CSV・RIS にだけ含まれます。'))}</p>
       </div>` : ''}
     <div id="savedList">${renderSavedList()}</div>
   `;

@@ -34,7 +34,8 @@ const ctx = {
   plain: (f: any) => `${f.source}|${f.title}|${f.date}|${f.url}|${f.accessed}`,
   briefItem: (f: any) => `${f.source}: "${f.title}"`,
   briefNote: (f: any) => `Note: ${f.note}`,
-  undated: 'Date unknown'
+  undated: 'Date unknown',
+  aiIntro: (f: any) => `INTRO ${f.n}`
 };
 const record = (patch: object = {}) => ({ ...S.toSavedItem({ ...base, ...patch }, new Date(2026, 9, 20, 12)), ...patch });
 
@@ -78,8 +79,20 @@ check('資料用: 1件は「発信元: 原題」・URL・メモの3行（メモ�
   && briefDays[2] === `October 13, 2026\n- Bank of Japan: "The day before"\n  ${briefItems[2].url}`, brief);
 check('資料用: 保存の写しにない項目（説明文・要約）は出さない', !/summary|description/i.test(brief) && !brief.includes('undefined'));
 check('資料用: メモを含むのは資料用・CSV・RIS だけ（一覧からだけ選べる書式は資料用と CSV）', S.formatCitations([withNote], 'brief', ctx).includes('private note')
-  && JSON.stringify(S.LIST_ONLY_FORMATS) === JSON.stringify(['brief', 'csv']) && S.FORMATS.brief.ext === 'txt');
+  && JSON.stringify(S.LIST_ONLY_FORMATS) === JSON.stringify(['brief', 'ai', 'csv']) && S.FORMATS.brief.ext === 'txt');
 check('資料用: 空の一覧は空の文字列', S.formatCitations([], 'brief', ctx) === '');
+
+// AI用（ai）: 利用者の AI に、記録しておく話題として渡す形
+const ai = S.formatCitations(briefItems, 'ai', ctx);
+const aiLines = ai.split('\n');
+check('AI用: 先頭は指示文（件数入り）、1行あけて一覧', aiLines[0] === 'INTRO 5' && aiLines[1] === '', ai);
+check('AI用: 発表の新しい順に平らに並べ（日をまとめない）、日付は発信元の地域の暦の ISO（読めない記事は日付なし）、メモは1行にまとめる',
+  aiLines.slice(4, 7).join('\n') === `- Bank of Japan: "Morning notice" (2026-10-15)\n  ${briefItems[0].url}\n  Note: Share with the Director today`
+  && aiLines.includes('- Bank of Japan: "Canadian notice" (2026-10-14)')
+  && aiLines.filter((line: string) => line.startsWith('- ')).map((line: string) => line.match(/"(.*?)"/)![1]).join('|') === 'Canadian notice|Morning notice|Earlier on the 15th|The day before|Undated'
+  && aiLines.includes('- Bank of Japan: "Undated"'), ai);
+check('AI用: 保存の写しにない項目（説明文・要約）は出さず、空白だけのメモも出さない', !/summary|description/i.test(ai) && !ai.includes('undefined') && ai.split('Note:').length === 2, ai);
+check('AI用: メモを含む。空の一覧は指示文だけ', S.formatCitations([withNote], 'ai', ctx).includes('private note') && S.formatCitations([], 'ai', ctx) === 'INTRO 0' && S.FORMATS.ai.ext === 'md');
 
 check('保存の記録: 不正な URL・id・空の見出しは作らない', ['javascript:alert(1)', 'not a url', ''].every((url) => S.toSavedItem({ ...base, sourceUrl: url }) === null)
   && S.toSavedItem({ ...base, id: 'xyz' }) === null && S.toSavedItem({ ...base, title: '   ' }) === null);
@@ -215,9 +228,9 @@ check('ファイルに保存: ファイル名と種類（CSV）', await until(()
 check('ファイルの先頭は BOM（Excel が UTF-8 と判断する）で、メモを含む', downloads[0].blob.text_.startsWith('\uFEFF"published"') && downloads[0].blob.text_.includes('Check the footnote'));
 
 // 資料用: 一覧の書式の選択肢に出て、メモを含む資料用の文をコピー・保存できる
-check('書式の選択肢に「資料用」がある（出典表記の次）', [...(formatSelect as any).options].map((option: any) => option.value).join() === 'plain,brief,apa,markdown,bibtex,ris,csv'
-  && (formatSelect as any).options[1].textContent === 'Briefing list', [...(formatSelect as any).options].map((option: any) => option.textContent));
-check('メモの注記が資料用にも触れている', $(w, '.saved-toolbar .settings-note')!.textContent === 'Notes are included only in the briefing list, CSV and RIS.', $(w, '.saved-toolbar .settings-note')!.textContent!);
+check('書式の選択肢に「資料用」がある（出典表記の次）', [...(formatSelect as any).options].map((option: any) => option.value).join() === 'plain,brief,ai,apa,markdown,bibtex,ris,csv'
+  && (formatSelect as any).options[1].textContent === 'Briefing list' && (formatSelect as any).options[2].textContent === 'For AI', [...(formatSelect as any).options].map((option: any) => option.textContent));
+check('メモの注記が資料用にも触れている', $(w, '.saved-toolbar .settings-note')!.textContent === 'Notes are included only in the briefing list, AI list, CSV and RIS.', $(w, '.saved-toolbar .settings-note')!.textContent!);
 formatSelect.value = 'brief';
 formatSelect.dispatchEvent(new w.Event('change', { bubbles: true }));
 copied.length = 0;
@@ -228,6 +241,20 @@ check('選んだ資料用は覚えておく', w.localStorage.getItem('sivree:cit
 downloads.length = 0;
 click(w, $(w, '[data-action="download-saved"]'));
 check('資料用をファイルに保存: テキストファイル（BOM なし）', await until(() => downloads.length === 1 && downloads[0].name !== '') && /^sivree-saved-\d{4}-\d{2}-\d{2}\.txt$/.test(downloads[0].name) && downloads[0].blob.type.startsWith('text/plain') && downloads[0].blob.text_ === briefText, downloads.map((d) => d.name));
+
+// AI用: 翻訳した指示文に続けて、1件ずつ（発表日つき）。ファイルは Markdown
+formatSelect.value = 'ai';
+formatSelect.dispatchEvent(new w.Event('change', { bubbles: true }));
+copied.length = 0;
+click(w, $(w, '[data-action="copy-saved"]'));
+const aiText = copied.length === 0 && await until(() => copied.length === 1) ? copied[0] : '';
+check('AI用をコピー: 指示文（件数・本文を含まないこと・推測しないこと）、続けて発信元と原題・発表日・URL・メモ',
+  aiText.startsWith('Below are 1 headlines and URLs of announcements from primary sources') && aiText.includes('say so instead of guessing.\n\n- Bank of Japan: “Policy update” (2026-10-15)\n  ' + item.sourceUrl + '\n  Note: Check the footnote'), aiText);
+downloads.length = 0;
+click(w, $(w, '[data-action="download-saved"]'));
+check('AI用をファイルに保存: Markdown（.md、BOM なし）', await until(() => downloads.length === 1 && downloads[0].name !== '') && /^sivree-saved-\d{4}-\d{2}-\d{2}\.md$/.test(downloads[0].name) && downloads[0].blob.type.startsWith('text/markdown') && downloads[0].blob.text_ === aiText, downloads.map((d) => d.name));
+formatSelect.value = 'brief';
+formatSelect.dispatchEvent(new w.Event('change', { bubbles: true }));
 
 // メモを書いた直後（入力欄が外れた保存が終わる前）にコピーしても、そのメモが入る
 const freshNote = $(w, 'textarea[data-note-for]') as HTMLTextAreaElement;
@@ -252,7 +279,7 @@ await until(() => $(w, '[data-action="toggle-cite"]'));
 if (!$(w, '.cite-text')) click(w, $(w, '[data-action="toggle-cite"]'));
 check('詳細画面の引用は、記憶した書式が資料用でも出典表記になり、選択肢に資料用・CSV は出ない',
   await until(() => $(w, '.cite-text')) && $(w, '.cite-text')!.textContent!.startsWith('Bank of Japan, “Policy update” (published October 15, 2026)')
-  && !$(w, '[data-cite-format="brief"]') && !$(w, '[data-cite-format="csv"]') && $(w, '[data-cite-format="plain"]')!.getAttribute('aria-pressed') === 'true', $(w, '.cite-text')?.textContent ?? '');
+  && !$(w, '[data-cite-format="brief"]') && !$(w, '[data-cite-format="ai"]') && !$(w, '[data-cite-format="csv"]') && $(w, '[data-cite-format="plain"]')!.getAttribute('aria-pressed') === 'true', $(w, '.cite-text')?.textContent ?? '');
 
 // 設定の貼り付けは、この端末の保存した記事を消さない
 await go(w, '#/settings');

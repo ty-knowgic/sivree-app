@@ -427,5 +427,7 @@
   "{source}「{title}」": "{source}: «{title}»",
   "メモ: {note}": "Nota: {note}",
   "発表日不明": "Fecha desconocida",
-  "メモは、資料用・CSV・RIS にだけ含まれます。": "Las notas solo se incluyen en la lista para informes, CSV y RIS."
+  "AI用": "Para IA",
+  "メモは、資料用・AI用・CSV・RIS にだけ含まれます。": "Las notas solo se incluyen en la lista para informes, la lista para IA, CSV y RIS.",
+  "以下は、一次情報源（政府・企業・研究機関など）の発表のうち、私が記録しておきたいと保存した{n}件の見出しと URL です。本文は含まれていません。この話題の記録として扱ってください。内容が必要なときは URL から原文を読み、読めない場合は推測せず、そう伝えてください。": "A continuación hay {n} titulares con su URL de anuncios de fuentes primarias (gobiernos, empresas, organismos de investigación, etc.) que guardé como temas que conviene registrar. No incluyen el texto completo. Trátalos como un registro sobre este tema. Cuando necesites el contenido, lee el original en la URL; si no puedes leerlo, dilo en lugar de suponer."
 }
