@@ -13,18 +13,12 @@
 - 外した案: 旧括弧と点、なめらかな S、ドットの S、角ばった S（「5」と同じ形）、案2〜4、「ふるい板」（小さいサイズで見づらい）。
 - 作り方の原則: シンボルも文字も図形にする。端末の書体に左右されない。
 
-### ロゴタイプの標準値（2026-10-29 決定）
-- 書体: **Inter 700**（OFL。輪郭を図形にして配布してよい）。直立。I の斜体（右倒し・左倒し）は試したが、右倒しは V と並ぶと N に見え、どちらも読みにくいので外した。
-- 字間（1em に対する値）: 全体 **−0.03em** に、文字の組ごとの調整を足す。最後の E の後ろには付けない。
-
-  | 組 | S–I | I–V | V–R | R–E | E–E |
-  |---|---|---|---|---|---|
-  | 調整 | −0.01 | 0.00 | −0.01 | −0.02 | −0.02 |
-  | 合計 | −0.04 | −0.03 | −0.04 | −0.05 | −0.05 |
-
-  書体のカーニング表は使わない（この値は、文字を1つずつ並べて決めたもの）。
+### ロゴタイプの標準値（2026-10-29 決定、書体は 2026-11-20 に Urbanist 600 へ変更）
+- 書体: **Urbanist 600**（OFL。輪郭を図形にして配布してよい）。直立。旧 Inter 700 は、曲線が角張り、S・R の端が平らで、字を詰めていたため硬く「ギザギザ」に見えると指摘があり外した。比較した候補（Outfit 500/600、Urbanist 600、Plus Jakarta Sans 600、Manrope 600、Figtree 600）は `brand/proposals/typeface.html`。
+- 字間（1em に対する値）: 全体 **+0.04em**。組ごとの調整はなし（`PAIRS` はすべて 0）。最後の E の後ろには付けない。書体のカーニング表は使わない。
+- 大文字の高さは 1em の 0.728（`CAP`）にそろえる。書体を替えても、文字の大きさの基準が変わらない。
 - 色: 本文と同じ黒 **#1d1d1f**（`--text`）。暗い背景では白（#f5f5f7）。ヘッダーでは `currentColor` で明暗に追従。
-- 横組み（シンボル＋文字）: ヘッダーと同じ比率。文字の大きさ 1em に対して、シンボル 0.8em、間 0.42em、文字の高さ 0.748em（S の上下のはみ出しを含む）。
+- 横組み（シンボル＋文字）: ヘッダーと同じ比率。文字の大きさ 1em に対して、シンボル 0.8em、間 0.42em、文字の高さ 0.7535em（S の上下のはみ出しを含む）。
 - 作り直すときは `brand/build-wordmark.mjs` の値を変えて実行する（下の「作り直す手順」）。値を変えたら、この表と `public/index.html` の SVG を一緒に更新する。
 
 ## 製品の性格
@@ -61,14 +55,14 @@ qlmanage -t -s 1200 -o <出力先> brand/og-image.svg    # 1200×1200 で出る�
 sips --cropToHeightWidth 630 1200 --cropOffset 285 0 <og-image.png>
 ```
 
-ロゴタイプ（Inter とツールはリポジトリに入れず、作業用のフォルダに取ってくる）:
+ロゴタイプ（Urbanist とツールはリポジトリに入れず、作業用のフォルダに取ってくる）:
 ```bash
-curl -s -A "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/534.30 (KHTML, like Gecko) Safari/534.30" "https://fonts.googleapis.com/css2?family=Inter:wght@700"   # 出力の /* latin */ の .woff の URL を取る
-curl -s -o <作業用>/inter-700-latin.woff <その URL>
+curl -s -A "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/534.30 (KHTML, like Gecko) Safari/534.30" "https://fonts.googleapis.com/css2?family=Urbanist:wght@600"   # 出力の /* latin */ の .woff の URL を取る
+curl -s -o <作業用>/urbanist-600-latin.woff <その URL>
 (cd <作業用> && npm install --ignore-scripts opentype.js@1.3.4)
-node brand/build-wordmark.mjs <作業用>/inter-700-latin.woff <作業用>
+node brand/build-wordmark.mjs <作業用>/urbanist-600-latin.woff <作業用>
 ```
-`icon.svg`・`icon-app.svg`・`icon-32.svg`・`og-image.svg`・lockup・mark も同時に作り直される（シンボルの値は `build-wordmark.mjs` の先頭近く）。表示された viewBox と path を `public/index.html` の `.brand-wordmark` に、高さを `public/styles.css` の `.brand-wordmark` に写す（幅 = 高さ × viewBox の幅 ÷ viewBox の高さ）。`brand/og-image.svg` も作り直されるので、上の qlmanage と sips で `public/og-image.png` を作り直す。
+`icon.svg`・`icon-app.svg`・`icon-32.svg`・`og-image.svg`・lockup・mark も同時に作り直される（シンボルの値は `build-wordmark.mjs` の先頭近く）。ヘッダーの文字の大きさは `.brand-title` の `font-size`（2026-11-20 に 1.45rem から 1.62rem へ約12%拡大。行の高さ `min-height` は 60px から 68px）。表示された viewBox と path を `public/index.html` の `.brand-wordmark` に、高さを `public/styles.css` の `.brand-wordmark` に写す（幅 = 高さ × viewBox の幅 ÷ viewBox の高さ）。`brand/og-image.svg` も作り直されるので、上の qlmanage と sips で `public/og-image.png` を作り直す。
 
 ## コード側の制約
 - 画像は `public/` に置く。CSP の `img-src 'self' data: https:` の範囲で足りるので、新しい外部ホストは要らない。

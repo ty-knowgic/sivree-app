@@ -2,7 +2,7 @@
 /**
  * SIVREE のロゴタイプ（文字を図形にしたもの）を作る。値は BRAND.md の「ロゴタイプの標準値」。
  * 書体ファイルと opentype.js はリポジトリに入れていないので、作業用のフォルダに取ってきて渡す（BRAND.md の手順）。
- * 使い方: node brand/build-wordmark.mjs <Inter 700 の .woff か .ttf> <opentype.js を入れたフォルダ>
+ * 使い方: node brand/build-wordmark.mjs <Urbanist 600 の .woff か .ttf> <opentype.js を入れたフォルダ>
  * 出力: brand/wordmark.svg, brand/wordmark-white.svg, brand/lockup.svg, brand/lockup-white.svg, brand/og-image.svg と、ヘッダー用の値
  */
 import { createRequire } from 'node:module';
@@ -18,20 +18,23 @@ const opentype = createRequire(join(resolve(opentypeDir), 'x.js'))('opentype.js'
 
 // 1em = 1000。字間は「全体の字間 + 組ごとの調整」で、最後の文字の後ろには付けない
 const LETTERS = ['S', 'I', 'V', 'R', 'E', 'E'];
-const TRACKING = -0.03;
-const PAIRS = [-0.01, 0, -0.01, -0.02, -0.02]; // S-I, I-V, V-R, R-E, E-E
+const TRACKING = 0.04;
+const PAIRS = [0, 0, 0, 0, 0]; // S-I, I-V, V-R, R-E, E-E（調整が要る組があれば足す）
+const CAP = 728; // 大文字の高さ（1em = 1000 のうち）。書体が替わっても、文字の大きさの基準をそろえる
 const EM = 1000;
 const INK = '#1d1d1f'; // 本文の色（styles.css の --text）と同じ
 
 const font = opentype.loadSync(fontFile);
-const scale = EM / font.unitsPerEm;
+const eBox = font.charToGlyph('E').getBoundingBox();
+const SIZE = CAP / ((eBox.y2 - eBox.y1) / font.unitsPerEm); // 大文字の高さが CAP になる文字サイズ
+const scale = SIZE / font.unitsPerEm;
 
 function layout(x0, baseline) {
   const path = new opentype.Path();
   let x = x0;
   LETTERS.forEach((letter, i) => {
     const glyph = font.charToGlyph(letter);
-    path.extend(glyph.getPath(x, baseline, EM));
+    path.extend(glyph.getPath(x, baseline, SIZE));
     x += glyph.advanceWidth * scale + (i < PAIRS.length ? (TRACKING + PAIRS[i]) * EM : 0);
   });
   return path;

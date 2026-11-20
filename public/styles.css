@@ -182,7 +182,7 @@ svg {
 .appbar-row {
   max-width: 1080px;
   margin: 0 auto;
-  min-height: 60px;
+  min-height: 68px; /* ロゴを約12%大きくしたので、60px から広げた */
   padding: 8px 12px 4px 20px;
   display: flex;
   align-items: center;
@@ -207,16 +207,17 @@ svg {
 
 /* ロゴ: 「3・2・1」のシンボル（6つの四角、最後の1つだけ緑青）＋大文字の文字（BRAND.md）。文字の中身は「Sivree」のまま、見た目だけを大文字にする */
 .brand-title {
+  margin-top: 3px;
   display: flex;
   align-items: center;
   gap: 0.42em;
-  font-size: 1.45rem;
+  font-size: 1.62rem; /* 2026-11-20: 1.45rem から約12%大きく */
 }
 
-/* ロゴタイプ（Inter 700 を図形にしたもの。作り方と字間の値は BRAND.md） */
+/* ロゴタイプ（Urbanist 600 を図形にしたもの。作り方と字間の値は BRAND.md） */
 .brand-wordmark {
-  width: 3.2485em;
-  height: 0.748em;
+  width: 3.4874em;
+  height: 0.7535em;
   flex: none;
   fill: currentColor;
 }
