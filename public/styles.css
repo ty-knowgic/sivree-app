@@ -35,6 +35,7 @@
   --cat-イベント: #ca8a04;
   --cat-default: #6e6e73;
   --foryou: linear-gradient(135deg, #5b5bd6 0%, #d6409f 100%);
+  --brand-accent: #0f7b72;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +49,7 @@
     --muted: #8e8e93;
     --accent: #4c94ff;
     --on-accent: #ffffff;
+    --brand-accent: #3cc4b2;
     --shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
     --shadow-hover: 0 0 0 1px rgba(255, 255, 255, 0.14);
     --appbar-bg: rgba(0, 0, 0, 0.78);
@@ -82,6 +84,7 @@
   --muted: #8e8e93;
   --accent: #4c94ff;
   --on-accent: #ffffff;
+  --brand-accent: #3cc4b2;
   --shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
   --shadow-hover: 0 0 0 1px rgba(255, 255, 255, 0.14);
   --appbar-bg: rgba(0, 0, 0, 0.78);
@@ -202,11 +205,11 @@ svg {
   letter-spacing: 0.02em;
 }
 
-/* ロゴ: 括弧と点のシンボル＋大文字の文字（BRAND.md）。文字の中身は「Sivree」のまま、見た目だけを大文字にする */
+/* ロゴ: 「3・2・1」のシンボル（6つの四角、最後の1つだけ緑青）＋大文字の文字（BRAND.md）。文字の中身は「Sivree」のまま、見た目だけを大文字にする */
 .brand-title {
   display: flex;
   align-items: center;
-  gap: 0.4em;
+  gap: 0.42em;
   font-size: 1.45rem;
 }
 
@@ -219,19 +222,15 @@ svg {
 }
 
 .brand-mark {
-  width: 1.05em;
-  height: 1.05em;
+  width: 0.8em;
+  height: 0.8em;
   flex: none;
 }
 
-.brand-mark path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 9;
-  stroke-linejoin: miter;
-}
-
-.brand-mark circle { fill: currentColor; }
+.brand-mark rect { fill: currentColor; }
+.brand-mark .t1 { fill-opacity: 0.32; }
+.brand-mark .t2 { fill-opacity: 0.62; }
+.brand-mark .hit { fill: var(--brand-accent); }
 
 .appbar-actions {
   display: flex;
